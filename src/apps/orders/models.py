@@ -1,0 +1,99 @@
+from decimal import Decimal
+
+from django.db import models
+
+from apps.core.models import TimeStampedModel
+
+
+class PurchaseOrder(TimeStampedModel):
+    STATUS_DRAFT = "DRAFT"
+    STATUS_APPROVAL = "APPROVAL"
+    STATUS_ISSUED = "ISSUED"
+    STATUS_ACKNOWLEDGED = "ACKNOWLEDGED"
+    STATUS_PARTIAL_RECEIPT = "PARTIAL_RECEIPT"
+    STATUS_COMPLETED = "COMPLETED"
+    STATUS_CANCELLED = "CANCELLED"
+
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "Draft"),
+        (STATUS_APPROVAL, "In Approval"),
+        (STATUS_ISSUED, "Issued"),
+        (STATUS_ACKNOWLEDGED, "Acknowledged by Vendor"),
+        (STATUS_PARTIAL_RECEIPT, "Partial Receipt"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_CANCELLED, "Cancelled"),
+    ]
+
+    po_number = models.CharField(max_length=50, unique=True)
+    version = models.PositiveIntegerField(default=1)
+
+    vendor = models.ForeignKey(
+        "vendors.Vendor", on_delete=models.PROTECT, related_name="purchase_orders"
+    )
+    requisition = models.ForeignKey(
+        "requisitions.PurchaseRequisition",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_orders",
+    )
+    sourcing_event = models.ForeignKey(
+        "sourcing.SourcingEvent",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_orders",
+    )
+    cost_center = models.ForeignKey(
+        "organization.CostCenter", on_delete=models.PROTECT, related_name="purchase_orders"
+    )
+
+    status = models.CharField(
+        max_length=50, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True
+    )
+    subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+
+    terms_and_conditions = models.TextField(blank=True)
+    acknowledged_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.po_number} V{self.version} - {self.vendor.legal_name} (${self.total_amount})"
+
+
+class POLine(TimeStampedModel):
+    po = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="lines")
+    item_description = models.CharField(max_length=255)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    quantity_received = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    unit_of_measure = models.CharField(max_length=30, default="EA")
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    line_total = models.DecimalField(max_digits=14, decimal_places=2)
+
+    def save(self, *args, **kwargs):
+        self.line_total = self.quantity * self.unit_price
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.item_description} (Qty: {self.quantity}, Recv: {self.quantity_received})"
+
+
+class POAmendment(TimeStampedModel):
+    po = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="amendments")
+    amendment_number = models.PositiveIntegerField()
+    reason = models.TextField()
+    previous_version_snapshot = models.JSONField(
+        help_text="Immutable JSON snapshot of PO prior to change order"
+    )
+    requested_by = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="requested_po_amendments"
+    )
+
+    class Meta:
+        unique_together = ("po", "amendment_number")
+
+    def __str__(self):
+        return f"Amendment #{self.amendment_number} for {self.po.po_number}"

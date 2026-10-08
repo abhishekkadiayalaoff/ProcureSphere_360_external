@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="p-4 mb-4 bg-white rounded shadow-sm">
+            <h2 class="fw-bold text-dark mb-1">ProcureSphere 360 ERP</h2>
+            <p class="text-muted">Enterprise Source-to-Pay, Vendor Governance, Sealed Bidding & 3-Way Match System</p>
+            <hr>
+            <div class="row text-center g-3">
+                <div class="col-md-3">
+                    <div class="card border-primary h-100">
+                        <div class="card-body">
+                            <i class="fa-solid fa-file-invoice-dollar fa-2x text-primary mb-2"></i>
+                            <h5 class="card-title fw-bold">Requisitions</h5>
+                            <p class="card-text text-muted small">Multi-level approval & budget reservation</p>
+                            <a href="/api/v1/requisitions/" class="btn btn-sm btn-outline-primary">View Requisitions</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-success h-100">
+                        <div class="card-body">
+                            <i class="fa-solid fa-building-user fa-2x text-success mb-2"></i>
+                            <h5 class="card-title fw-bold">Vendor Master</h5>
+                            <p class="card-text text-muted small">KYC governance & risk assessment</p>
+                            <a href="/api/v1/vendors/" class="btn btn-sm btn-outline-success">View Vendors</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-warning h-100">
+                        <div class="card-body">
+                            <i class="fa-solid fa-gavel fa-2x text-warning mb-2"></i>
+                            <h5 class="card-title fw-bold">Sourcing Events</h5>
+                            <p class="card-text text-muted small">Sealed RFQ/RFP bid evaluations</p>
+                            <a href="/api/v1/sourcing-events/events/" class="btn btn-sm btn-outline-warning">View Sourcing</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-info h-100">
+                        <div class="card-body">
+                            <i class="fa-solid fa-shield-halved fa-2x text-info mb-2"></i>
+                            <h5 class="card-title fw-bold">Audit Logs</h5>
+                            <p class="card-text text-muted small">Append-only immutable event trail</p>
+                            <a href="/api/v1/audit/logs/" class="btn btn-sm btn-outline-info">View Audit Trail</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
