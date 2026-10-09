@@ -1,0 +1,18 @@
+# Clarification and Query Register — ProcureSphere 360
+
+PRD Reference: HPE-PRD-2026-PROC01 / VER-1.0-DRAFT  
+Development Partner: VPD Technologies Pvt. Ltd.
+
+This document logs all minimal, PRD-faithful interpretations, assumptions, and query clarifications made during implementation.
+
+---
+
+| ID | Requirement Area | Question / Ambiguity | Business / Engineering Impact | Proposed Minimal PRD-Faithful Assumption | Status |
+|---|---|---|---|---|---|
+| ASSUMP-001 | Approval Policy Routing | How should delegates be resolved if an approver in a multi-level chain is unavailable? | Approval process could stall without delegate fallback. | If an approver has an active delegate (`is_active=True`, within effective start/end dates), the approval task and permission auto-delegate to that assigned user while retaining audit records of both target approver and delegate actor. | Documented |
+| ASSUMP-002 | Budget Reservation Lifecycle | At what exact state transition does PR budget reservation move to PO commitment and Invoice actual spend? | Financial double-counting or unreserved spend risk. | Requisition approval reserves funds (`BudgetReservation` state=RESERVED). PO issuance converts reservation to commitment (`SpendLedger` type=COMMITMENT). Supplier invoice approval converts commitment to actual spend (`SpendLedger` type=ACTUAL). | Documented |
+| ASSUMP-003 | Sealed Bidding Stage Control | When are sealed bids made readable by evaluators? | Sealed bid confidentiality compliance. | Bids remain strictly unreadable by reviewers/evaluators until `SourcingEvent.status` transitions out of `BID_WINDOW` (e.g. to `TECHNICAL_REVIEW`). Vendors can edit/withdraw bids only during `BID_WINDOW`. | Documented |
+| ASSUMP-004 | 3-Way Match Tolerances | Should tolerances be evaluated per line item or overall invoice total? | Payment variance handling & match exceptions. | Tolerances support both percentage and flat amount thresholds configured per organization/category. Exceptions (`MatchException`) are raised per line item variance as well as summary variance if exceeded. | Documented |
+| ASSUMP-005 | Contract Renewal Alert Schedule | How often should Celery Beat execute contract alert scans? | Notification volume vs. timely renewal notice. | Celery Beat triggers a daily midnight scan for contracts reaching 90, 60, 30 days before expiration, or approaching milestone deadlines. Alerts avoid duplication via unique alert execution tracking. | Documented |
+| ASSUMP-006 | Document Numbering Integrity | How to ensure sequential document numbers (PR-, RFQ-, PO-, GRN-, INV-, CON-) across concurrent sessions? | Gaps or duplicate numbers under concurrency. | Document numbers generated inside PostgreSQL atomic transactions using `select_for_update` on sequence counters or atomic prefix formatting. | Documented |
+| ASSUMP-007 | Authentication Strategy | Transition from dual JWT/Session authentication to pure Session Cookie authentication. | API and web portal authentication security model. | Per project lead directive, SimpleJWT token authentication is removed completely. Authentication is standardized exclusively on secure HTTP-Only session cookies (`sessionid`) with CSRF protection (`csrftoken`), login throttling via `django-axes`, and dedicated `/api/v1/auth/login/` / `/logout/` endpoints. | Documented |

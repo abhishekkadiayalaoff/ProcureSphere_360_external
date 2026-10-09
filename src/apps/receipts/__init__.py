@@ -1,0 +1,1 @@
+# Receipts application package
