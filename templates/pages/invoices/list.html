@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Supplier Invoices — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold text-dark mb-1">Supplier Invoices</h2>
+            <p class="text-muted mb-0">Live backend data from SupplierInvoice module.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <table class="table table-hover table-striped align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col" class="ps-4">ID / Ref</th>
+                    <th scope="col">Summary</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="pe-4 text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td class="ps-4 fw-semibold text-secondary">{{ item }}</td>
+                    <td class="fw-bold">Active Record</td>
+                    <td><span class="badge bg-primary">{{ item.status }}</span></td>
+                    <td class="pe-4 text-end">
+                        <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-5 text-muted">
+                        <h5>No Records Found</h5>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

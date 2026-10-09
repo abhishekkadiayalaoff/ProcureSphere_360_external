@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProcureSphere 360 - {% block title %}ERP Dashboard{% endblock %}</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- Custom Design System Styles -->
+    <link href="/static/css/style.css" rel="stylesheet">
+    <!-- HTMX Library -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <!-- Chart.js 4.4 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-light">
+    <!-- Layout Wrapper -->
+    <div class="d-flex" style="min-height: 100vh;">
+        
+        <!-- Sidebar -->
+        <div class="bg-dark text-white p-3 d-flex flex-column" style="width: 280px;">
+            <a href="/" class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
+                <i class="fa-solid fa-layer-group text-primary fa-2x me-2"></i>
+                <span class="fs-5 fw-bold">ProcureSphere 360</span>
+            </a>
+            <hr>
+            <ul class="nav nav-pills flex-column mb-auto">
+                <li class="nav-item mb-1">
+                    <a href="/" class="nav-link active text-white" aria-current="page">
+                        <i class="fa-solid fa-chart-pie me-2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="/vendors/" class="nav-link text-white">
+                        <i class="fa-solid fa-building-user me-2"></i> Vendors
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="/requisitions/" class="nav-link text-white">
+                        <i class="fa-solid fa-file-invoice-dollar me-2"></i> Requisitions (PR)
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="/orders/" class="nav-link text-white">
+                        <i class="fa-solid fa-cart-shopping me-2"></i> Purchase Orders
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="/contracts/" class="nav-link text-white">
+                        <i class="fa-solid fa-file-contract me-2"></i> Contracts
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="/invoices/" class="nav-link text-white">
+                        <i class="fa-solid fa-file-invoice me-2"></i> Invoices
+                    </a>
+                </li>
+                <li class="nav-item mb-1">
+                    <a href="#" class="nav-link text-white">
+                        <i class="fa-solid fa-chart-line me-2"></i> Analytics
+                    </a>
+                </li>
+            </ul>
+            <hr>
+            <div class="small text-muted">
+                <i class="fa-solid fa-shield-halved me-1"></i> Logged in as:
+                <div class="text-white fw-bold">{% if user.is_authenticated %}{{ user.role_code }}{% else %}Guest{% endif %}</div>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-grow-1 bg-light d-flex flex-column">
+            
+            <!-- Topbar -->
+            <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4 py-3">
+                <div class="container-fluid">
+                    <span class="navbar-brand mb-0 h1 fw-bold text-muted">ERP Portal</span>
+                    <div class="d-flex align-items-center">
+                        {% if user.is_authenticated %}
+                            <span class="me-3 text-dark fw-semibold"><i class="fa-solid fa-user-circle me-1 text-primary"></i> {{ user.email }}</span>
+                            <a href="/logout/" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i>Logout</a>
+                        {% else %}
+                            <a href="/login/" class="btn btn-primary btn-sm"><i class="fa-solid fa-right-to-bracket me-1"></i>Sign In</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Page Content -->
+            <main class="container-fluid p-4 overflow-auto">
+                {% block content %}{% endblock %}
+            </main>
+            
+            <!-- HTMX Modal Container -->
+            <div id="modal-container" class="modal fade" tabindex="-1">
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content glass-card" id="modal-content-body">
+                        <!-- HTMX partial loaded dynamically here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Setup HTMX CSRF Token globally
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            const csrfToken = document.cookie.match(/csrftoken=([\w-]+)/);
+            if (csrfToken) {
+                event.detail.headers['X-CSRFToken'] = csrfToken[1];
+            }
+        });
+    </script>
+</body>
+</html>

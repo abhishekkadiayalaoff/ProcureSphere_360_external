@@ -1,1 +1,36 @@
-# Requirements
+# Core Django Framework
+Django>=4.2.11,<5.0.0
+djangorestframework>=3.14.0,<3.16.0
+djangorestframework-simplejwt>=5.3.1
+
+# Database Drivers & Tools
+psycopg[binary]>=3.1.18
+django-environ>=0.11.2
+django-filter>=23.5
+
+# API Documentation (OpenAPI / Swagger)
+drf-spectacular>=0.27.1
+
+# Async Tasks & Queue (Redis + Celery)
+redis>=5.0.3
+celery>=5.3.6
+django-celery-beat>=2.6.0
+
+# Security, CORS & Throttling
+django-axes>=6.3.0
+django-cors-headers>=4.3.1
+whitenoise>=6.6.0
+
+# Reporting & Export Utilities
+openpyxl>=3.1.2
+reportlab>=4.1.0
+
+# Testing & Quality Assurance
+pytest>=8.1.1
+pytest-django>=4.8.0
+pytest-cov>=4.1.0
+factory-boy>=3.3.0
+coverage>=7.4.4
+ruff>=0.3.4
+black>=24.3.0
+gunicorn>=21.2.0
