@@ -62,8 +62,14 @@ celery -A config beat -l info
 
 ### Docker Setup
 
+For complete step-by-step instructions, see the **[Docker Setup & Troubleshooting Guide](docs/docker_setup.md)**.
+
 ```powershell
-docker compose up --build
+# 1. Build and boot all 5 containers
+docker compose up --build -d
+
+# 2. Seed realistic demonstration dataset & 10 role accounts
+docker exec procuresphere_web python manage.py seed_demo_data
 ```
 
 ---
@@ -83,9 +89,10 @@ black --check .
 
 ## 5. Documentation Map
 
-- [`docs/assumptions.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/assumptions.md): Clarification & Query Register
-- [`docs/rbac_matrix.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/rbac_matrix.md): System Roles & Access Matrix
-- [`docs/security_checklist.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/security_checklist.md): OWASP Top 10 Security Controls
-- [`docs/demo_scripts.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/demo_scripts.md): Day-90 Technical Acceptance Demonstrations
-- [`docs/architecture.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/architecture.md): Architecture & Data Model Topology
-- [`docs/PROGRESS.md`](file:///C:/Users/Dell/Desktop/ProcureSphere_360/docs/PROGRESS.md): Delivery Progress Tracker
+- [`docs/docker_setup.md`](docs/docker_setup.md): Complete Docker Setup & Troubleshooting Guide
+- [`docs/assumptions.md`](docs/assumptions.md): Clarification & Query Register
+- [`docs/rbac_matrix.md`](docs/rbac_matrix.md): System Roles & Access Matrix
+- [`docs/security_checklist.md`](docs/security_checklist.md): OWASP Top 10 Security Controls
+- [`docs/demo_scripts.md`](docs/demo_scripts.md): Day-90 Technical Acceptance Demonstrations
+- [`docs/architecture.md`](docs/architecture.md): Architecture & Data Model Topology
+- [`docs/PROGRESS.md`](docs/PROGRESS.md): Delivery Progress Tracker

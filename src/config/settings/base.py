@@ -121,6 +121,10 @@ if DB_ENGINE == "django.db.backends.sqlite3":
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+elif env.str("DATABASE_URL", default=""):
+    DATABASES = {
+        "default": env.db("DATABASE_URL")
+    }
 else:
     DATABASES = {
         "default": {
@@ -205,12 +209,19 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
-# Login Throttling (django-axes)
+CELERY_BEAT_SCHEDULE = {
+    "test-beat-task-every-minute": {
+        "task": "apps.notifications.tasks.test_celery_beat_task",
+        "schedule": 60.0,  # every 60 seconds
+    },
+}
+# Login Throttling (django-axes) & Redirects
 AXES_FAILURE_LIMIT = 5
 AXES_COOLOFF_TIME = 1
 AXES_LOCKOUT_TEMPLATE = "pages/lockout.html"
 AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
+LOGIN_REDIRECT_URL = "/"
+LOGIN_URL = "/login/"
 
 
 # Security Baseline

@@ -1,57 +1,252 @@
 {% extends 'base.html' %}
 
-{% block title %}Dashboard — ProcureSphere 360{% endblock %}
+{% block title %}Executive Dashboard — ProcureSphere 360 ERP{% endblock %}
 
 {% block content %}
-<div class="row">
+<!-- Executive Header Banner -->
+<div class="row mb-4">
     <div class="col-12">
-        <div class="p-4 mb-4 bg-white rounded shadow-sm">
-            <h2 class="fw-bold text-dark mb-1">ProcureSphere 360 ERP</h2>
-            <p class="text-muted">Enterprise Source-to-Pay, Vendor Governance, Sealed Bidding & 3-Way Match System</p>
-            <hr>
-            <div class="row text-center g-3">
-                <div class="col-md-3">
-                    <div class="card border-primary h-100">
-                        <div class="card-body">
-                            <i class="fa-solid fa-file-invoice-dollar fa-2x text-primary mb-2"></i>
-                            <h5 class="card-title fw-bold">Requisitions</h5>
-                            <p class="card-text text-muted small">Multi-level approval & budget reservation</p>
-                            <a href="/api/v1/requisitions/" class="btn btn-sm btn-outline-primary">View Requisitions</a>
-                        </div>
+        <div class="glass-card-dark p-4 position-relative overflow-hidden">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-cyan text-dark rounded-pill fw-bold px-3 py-1 me-2">ENTERPRISE ERP</span>
+                        <span class="text-white-50 small"><i class="fa-solid fa-clock me-1"></i> Real-time Database Telemetry</span>
                     </div>
+                    <h1 class="fw-bold text-white mb-2 display-6">ProcureSphere 360 Control Center</h1>
+                    <p class="text-white-50 mb-0">Source-to-Pay Workflow, Multi-Level Approvals, Stage-Gated Sourcing, and 3-Way Invoice Match Engine.</p>
                 </div>
-                <div class="col-md-3">
-                    <div class="card border-success h-100">
-                        <div class="card-body">
-                            <i class="fa-solid fa-building-user fa-2x text-success mb-2"></i>
-                            <h5 class="card-title fw-bold">Vendor Master</h5>
-                            <p class="card-text text-muted small">KYC governance & risk assessment</p>
-                            <a href="/api/v1/vendors/" class="btn btn-sm btn-outline-success">View Vendors</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card border-warning h-100">
-                        <div class="card-body">
-                            <i class="fa-solid fa-gavel fa-2x text-warning mb-2"></i>
-                            <h5 class="card-title fw-bold">Sourcing Events</h5>
-                            <p class="card-text text-muted small">Sealed RFQ/RFP bid evaluations</p>
-                            <a href="/api/v1/sourcing-events/events/" class="btn btn-sm btn-outline-warning">View Sourcing</a>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card border-info h-100">
-                        <div class="card-body">
-                            <i class="fa-solid fa-shield-halved fa-2x text-info mb-2"></i>
-                            <h5 class="card-title fw-bold">Audit Logs</h5>
-                            <p class="card-text text-muted small">Append-only immutable event trail</p>
-                            <a href="/api/v1/audit/logs/" class="btn btn-sm btn-outline-info">View Audit Trail</a>
-                        </div>
-                    </div>
+                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                    <button class="btn btn-cyan btn-lg rounded-pill fw-bold px-4 me-2 shadow-sm" hx-get="/api/v1/requisitions/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">
+                        <i class="fa-solid fa-plus me-1"></i> New Requisition
+                    </button>
+                    <a href="/api/docs/" class="btn btn-outline-light btn-lg rounded-pill px-4">
+                        <i class="fa-solid fa-book-open me-1"></i> API Docs
+                    </a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 4 Key Executive KPI Stat Cards -->
+<div class="row g-4 mb-4">
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card hover-elevate shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="icon-avatar icon-avatar-primary">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <span class="badge badge-status badge-status-pending">
+                    <i class="fa-solid fa-clock me-1"></i> {{ metrics.pending_pr_count }} Pending
+                </span>
+            </div>
+            <div class="metric-label">Purchase Requisitions</div>
+            <div class="metric-value my-1">{{ metrics.total_pr_count }}</div>
+            <div class="text-muted small"><i class="fa-solid fa-layer-group text-primary me-1"></i> Multi-level Policy Scoped</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card hover-elevate shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="icon-avatar icon-avatar-success">
+                    <i class="fa-solid fa-building-circle-check"></i>
+                </div>
+                <span class="badge badge-status badge-status-active">
+                    <i class="fa-solid fa-check me-1"></i> {{ metrics.active_vendors }} Active
+                </span>
+            </div>
+            <div class="metric-label">Vendor Master & KYC</div>
+            <div class="metric-value my-1">{{ metrics.total_vendors }}</div>
+            <div class="text-muted small"><i class="fa-solid fa-user-shield text-success me-1"></i> {{ metrics.kyc_review_vendors }} Under KYC Review</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card hover-elevate shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="icon-avatar icon-avatar-warning">
+                    <i class="fa-solid fa-gavel"></i>
+                </div>
+                <span class="badge badge-status badge-status-pending">
+                    <i class="fa-solid fa-lock me-1"></i> Sealed Stage
+                </span>
+            </div>
+            <div class="metric-label">Sourcing & Sealed Bids</div>
+            <div class="metric-value my-1">{{ metrics.open_sourcing_events }}</div>
+            <div class="text-muted small"><i class="fa-solid fa-handshake-simple text-warning me-1"></i> RFQ / RFP Stage-gated</div>
+        </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+        <div class="stat-card hover-elevate shadow-sm h-100">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <div class="icon-avatar icon-avatar-danger">
+                    <i class="fa-solid fa-receipt"></i>
+                </div>
+                <span class="badge badge-status badge-status-suspended">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ metrics.pending_exceptions }} Exceptions
+                </span>
+            </div>
+            <div class="metric-label">Invoices & 3-Way Match</div>
+            <div class="metric-value my-1">{{ metrics.total_invoices }}</div>
+            <div class="text-muted small"><i class="fa-solid fa-scale-balanced text-danger me-1"></i> Price/Qty Tolerance Engine</div>
+        </div>
+    </div>
+</div>
+
+<!-- Financial Spend & Supplier Performance Summary -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="glass-card p-4 h-100 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-chart-column text-primary me-2"></i> Financial Budget & Spend Breakdown</h5>
+                <span class="badge bg-light text-dark border">Currency: USD ($)</span>
+            </div>
+            <div class="row g-3 text-center my-2">
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="small text-muted fw-semibold">TOTAL ALLOCATED BUDGET</div>
+                        <div class="h3 fw-bold text-primary mb-0">${{ metrics.allocated_budget|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="small text-muted fw-semibold">COMMITTED SPEND (POs)</div>
+                        <div class="h3 fw-bold text-warning mb-0">${{ metrics.committed_spend|floatformat:2 }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="small text-muted fw-semibold">ACTUAL SPEND (PAID)</div>
+                        <div class="h3 fw-bold text-success mb-0">${{ metrics.actual_spend|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-4">
+                <canvas id="budgetLifecycleChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="glass-card p-4 h-100 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-award text-success me-2"></i> Supplier Performance</h5>
+                <span class="badge bg-success-subtle text-success border border-success-subtle">Weighted Score</span>
+            </div>
+            <div class="text-center my-3">
+                <div class="display-4 fw-bold text-success">{{ metrics.avg_scorecard }}<span class="fs-4 text-muted">/100</span></div>
+                <div class="text-muted small">Average Supplier Rating (Delivery 30%, Quality 30%, Price 20%, Compliance 20%)</div>
+            </div>
+            <div class="mt-4">
+                <canvas id="vendorGovernanceChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Module Shortcuts & Navigation Grid -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-cubes text-cyan me-2"></i> ERP Business Module Workflows</h5>
+            <div class="row g-3">
+                <div class="col-lg-3 col-md-6">
+                    <a href="/api/v1/requisitions/" class="card text-decoration-none h-100 hover-elevate border">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fa-solid fa-file-signature text-primary fs-4 me-2"></i>
+                                <h6 class="fw-bold text-dark mb-0">Purchase Requisitions</h6>
+                            </div>
+                            <p class="text-muted small mb-0">Create PR, line items & multi-level policy approvals.</p>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <a href="/api/v1/vendors/" class="card text-decoration-none h-100 hover-elevate border">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fa-solid fa-handshake text-success fs-4 me-2"></i>
+                                <h6 class="fw-bold text-dark mb-0">Vendor Governance</h6>
+                            </div>
+                            <p class="text-muted small mb-0">Onboarding, KYC verification & hold controls.</p>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <a href="/api/v1/invoices/" class="card text-decoration-none h-100 hover-elevate border">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fa-solid fa-scale-balanced text-danger fs-4 me-2"></i>
+                                <h6 class="fw-bold text-dark mb-0">3-Way Match AP</h6>
+                            </div>
+                            <p class="text-muted small mb-0">Automated PO/GRN/Invoice match & tolerance resolution.</p>
+                        </div>
+                    </a>
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <a href="/api/v1/contracts/" class="card text-decoration-none h-100 hover-elevate border">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fa-solid fa-file-contract text-info fs-4 me-2"></i>
+                                <h6 class="fw-bold text-dark mb-0">Contracts & Alerts</h6>
+                            </div>
+                            <p class="text-muted small mb-0">Milestone SLA tracking & Celery Beat alert tasks.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Embedded Chart.js Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Budget Lifecycle Chart
+    const budgetCtx = document.getElementById('budgetLifecycleChart').getContext('2d');
+    new Chart(budgetCtx, {
+        type: 'bar',
+        data: {
+            labels: ['Allocated Budget', 'Committed Spend (POs)', 'Actual Spend (Paid)'],
+            datasets: [{
+                label: 'Financial Amount ($)',
+                data: [{{ metrics.allocated_budget }}, {{ metrics.committed_spend }}, {{ metrics.actual_spend }}],
+                backgroundColor: ['#002B49', '#F59E0B', '#10B981'],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                y: { beginAtZero: true }
+            }
+        }
+    });
+
+    // 2. Vendor Governance Chart
+    const vendorCtx = document.getElementById('vendorGovernanceChart').getContext('2d');
+    new Chart(vendorCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Active Vendors', 'Under KYC Review'],
+            datasets: [{
+                data: [{{ metrics.active_vendors }}, {{ metrics.kyc_review_vendors }}],
+                backgroundColor: ['#10B981', '#F59E0B']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+});
+</script>
 {% endblock %}

@@ -22,9 +22,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . /app/
 
-# Ensure entrypoint script is executable
-RUN chmod +x /app/scripts/entrypoint.sh 2>/dev/null || true
+# Ensure entrypoint script has Unix line endings (LF) and executable permissions
+RUN sed -i 's/\r$//' /app/scripts/entrypoint.sh && chmod +x /app/scripts/entrypoint.sh
 
 EXPOSE 8000
 
+ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

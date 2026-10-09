@@ -1,18 +1,191 @@
-/* ProcureSphere 360 Custom Styles */
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* ProcureSphere 360 — Design System & Custom Styles */
+
+:root {
+    --hpe-navy: #002B49;
+    --hpe-cyan: #00B0B9;
+    --hpe-dark-bg: #0F172A;
+    --hpe-card-bg: #1E293B;
+    --hpe-emerald: #10B981;
+    --hpe-amber: #F59E0B;
+    --hpe-rose: #F43F5E;
+    --hpe-indigo: #6366F1;
+    --font-heading: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body.app-body {
+    font-family: var(--font-body);
+    background-color: #F8FAFC;
+    color: #1E293B;
     min-height: 100vh;
 }
 
-.navbar-brand {
-    letter-spacing: 0.5px;
+/* Headings */
+h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
 }
 
-.card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+/* Custom Navigation Bar */
+.app-navbar {
+    background: linear-gradient(135deg, #002B49 0%, #0F172A 100%) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+.brand-icon-box {
+    width: 36px;
+    height: 36px;
+    background: rgba(0, 176, 185, 0.15);
+    border: 1px solid rgba(0, 176, 185, 0.4);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-cyan {
+    color: var(--hpe-cyan) !important;
+}
+
+.btn-cyan {
+    background-color: var(--hpe-cyan);
+    color: #0F172A;
+    border: none;
+    transition: all 0.2s ease-in-out;
+}
+
+.btn-cyan:hover {
+    background-color: #0098A0;
+    color: #FFFFFF;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 176, 185, 0.3);
+}
+
+.bg-dark-pill {
+    background-color: rgba(15, 23, 42, 0.6) !important;
+}
+
+/* Glassmorphism & Elevation Cards */
+.glass-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card-dark {
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2);
+}
+
+.stat-card {
+    border-radius: 14px;
+    border: 1px solid #E2E8F0;
+    background: #FFFFFF;
+    padding: 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.stat-card:hover, .hover-elevate:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.12) !important;
+}
+
+.metric-value {
+    font-family: var(--font-heading);
+    font-size: 1.85rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--hpe-navy);
+}
+
+.metric-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748B;
+}
+
+.icon-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.icon-avatar-primary {
+    background: rgba(0, 43, 73, 0.1);
+    color: var(--hpe-navy);
+}
+
+.icon-avatar-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--hpe-emerald);
+}
+
+.icon-avatar-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--hpe-amber);
+}
+
+.icon-avatar-info {
+    background: rgba(0, 176, 185, 0.1);
+    color: var(--hpe-cyan);
+}
+
+.icon-avatar-danger {
+    background: rgba(244, 63, 94, 0.1);
+    color: var(--hpe-rose);
+}
+
+/* Status Badges */
+.badge-status {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.35em 0.75em;
+    border-radius: 9999px;
+    letter-spacing: 0.02em;
+}
+
+.badge-status-active, .badge-status-approved {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.badge-status-pending, .badge-status-draft {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.badge-status-suspended, .badge-status-rejected {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94A3B8;
 }

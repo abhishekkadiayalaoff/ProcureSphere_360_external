@@ -152,9 +152,8 @@ def get_contract_expiry_report():
                 "contract_number": c.contract_number,
                 "title": c.title,
                 "vendor": c.vendor.legal_name,
-                "contract_type": c.contract_type,
                 "status": c.status,
-                "total_value": float(c.total_value),
+                "total_value": float(c.contract_value),
                 "end_date": str(c.end_date),
                 "days_to_expiry": days_to_expiry,
             }

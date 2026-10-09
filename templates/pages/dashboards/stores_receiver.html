@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block title %}Stores / Receiver Dashboard — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="p-4 mb-4 bg-white rounded shadow-sm border-start border-4 border-primary">
+            <h2 class="fw-bold text-dark mb-1">Stores / Receiver Dashboard</h2>
+            <p class="text-muted">Goods receipt, inspection, and deliveries.</p>
+            <hr>
+            <div class="alert alert-info">
+                <i class="fa-solid fa-circle-info me-2"></i> This dashboard is dynamically rendered for your role: <strong>{{ role_code }}</strong>
+            </div>
+            
+            <div class="row g-4 mt-2">
+                <!-- Example Widgets specific to this role would go here -->
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title text-primary"><i class="fa-solid fa-chart-pie me-2"></i>Summary Analytics</h5>
+                            <p class="card-text text-muted">Placeholder for interactive HTMX charts and data tables.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title text-warning"><i class="fa-solid fa-list-check me-2"></i>Pending Actions</h5>
+                            <p class="card-text text-muted">A list of items requiring your attention.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title text-success"><i class="fa-solid fa-clock-rotate-left me-2"></i>Recent Activity</h5>
+                            <p class="card-text text-muted">Your recent actions and system notifications.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
