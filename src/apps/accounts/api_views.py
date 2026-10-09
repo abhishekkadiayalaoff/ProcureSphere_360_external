@@ -2,8 +2,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
-from rest_framework import status, views
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -23,14 +22,24 @@ class SessionLoginView(views.APIView):
 
         if not email or not password:
             return Response(
-                {"error": {"code": "VALIDATION_ERROR", "message": "Email and password are required."}},
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Email and password are required.",
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         user = authenticate(request, username=email, password=password)
         if user is None:
             return Response(
-                {"error": {"code": "AUTHENTICATION_FAILED", "message": "Invalid email or password."}},
+                {
+                    "error": {
+                        "code": "AUTHENTICATION_FAILED",
+                        "message": "Invalid email or password.",
+                    }
+                },
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -88,4 +97,3 @@ class RoleViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
 
     def get_queryset(self):
         return get_all_roles()
-

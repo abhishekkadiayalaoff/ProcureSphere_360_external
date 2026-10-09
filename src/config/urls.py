@@ -3,8 +3,8 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from apps.accounts.api_views import SessionLoginView, SessionLogoutView
 
+from apps.accounts.api_views import SessionLoginView, SessionLogoutView
 from apps.accounts.views import portal_login_view, portal_logout_view
 
 urlpatterns = [
@@ -18,7 +18,6 @@ urlpatterns = [
     path("orders/", include("apps.orders.urls")),
     path("contracts/", include("apps.contracts.urls")),
     path("invoices/", include("apps.invoices.urls")),
-
     # OpenAPI Schema & Swagger Docs
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),

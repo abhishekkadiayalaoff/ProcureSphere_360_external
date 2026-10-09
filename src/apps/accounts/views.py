@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect, render
 
+
 def portal_login_view(request):
     """
     Renders and processes the ProcureSphere 360 ERP Portal login form.
@@ -22,7 +23,9 @@ def portal_login_view(request):
 
         if user is not None:
             if not user.is_active:
-                messages.error(request, "Your account has been deactivated. Please contact support.")
+                messages.error(
+                    request, "Your account has been deactivated. Please contact support."
+                )
                 return render(request, "pages/login.html", {"email": email})
 
             login(request, user)
