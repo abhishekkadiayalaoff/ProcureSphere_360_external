@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import mixins, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -9,13 +10,43 @@ from rest_framework.response import Response
 
 from .models import Role, User
 from .selectors import get_all_roles, get_all_users
-from .serializers import RoleSerializer, UserCreateSerializer, UserSerializer
+from .serializers import (
+    LoginRequestSerializer,
+    LoginResponseSerializer,
+    RoleSerializer,
+    UserCreateSerializer,
+    UserSerializer,
+)
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
 class SessionLoginView(views.APIView):
     permission_classes = [AllowAny]
+    serializer_class = LoginRequestSerializer
 
+    @extend_schema(
+        summary="Session Login",
+        description="Authenticate user with email and password to start a session and obtain a CSRF token.",
+        request=LoginRequestSerializer,
+        examples=[
+            OpenApiExample(
+                "Standard Login Example",
+                value={
+                    "email": "admin@example.com",
+                    "password": "Password123!",
+                },
+                request_only=True,
+            )
+        ],
+        responses={
+            200: LoginResponseSerializer,
+            400: OpenApiResponse(description="Validation error: email and password are required."),
+            401: OpenApiResponse(description="Authentication failed: invalid email or password."),
+            403: OpenApiResponse(description="Forbidden: account is inactive."),
+            429: OpenApiResponse(description="Too many failed login attempts: account temporarily locked."),
+        },
+        tags=["Authentication"],
+    )
     def post(self, request, *args, **kwargs):
         email = request.data.get("email")
         password = request.data.get("password")
@@ -31,8 +62,54 @@ class SessionLoginView(views.APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Check if client/user is already locked out by Axes
+        try:
+            from axes.handlers.proxy import AxesProxyHandler
+
+            if not AxesProxyHandler.is_allowed(request, {"username": email}):
+                return Response(
+                    {
+                        "error": {
+                            "code": "ACCOUNT_LOCKED",
+                            "message": "Too many failed login attempts. Please try again later.",
+                            "details": {"retry_after_seconds": 180},
+                        }
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+        except Exception:
+            pass
+
         user = authenticate(request, username=email, password=password)
         if user is None:
+            if getattr(request, "axes_locked_out", False):
+                return Response(
+                    {
+                        "error": {
+                            "code": "ACCOUNT_LOCKED",
+                            "message": "Too many failed login attempts. Account is locked temporarily.",
+                            "details": {"retry_after_seconds": 180},
+                        }
+                    },
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            try:
+                from axes.handlers.proxy import AxesProxyHandler
+
+                if not AxesProxyHandler.is_allowed(request, {"username": email}):
+                    return Response(
+                        {
+                            "error": {
+                                "code": "ACCOUNT_LOCKED",
+                                "message": "Too many failed login attempts. Account is locked temporarily.",
+                                "details": {"retry_after_seconds": 180},
+                            }
+                        },
+                        status=status.HTTP_429_TOO_MANY_REQUESTS,
+                    )
+            except Exception:
+                pass
+
             return Response(
                 {
                     "error": {
@@ -53,6 +130,22 @@ class SessionLoginView(views.APIView):
         csrf_token = get_token(request)
         serializer = UserSerializer(user)
 
+        from apps.audit.models import AuditLog
+        from apps.audit.services import create_audit_log_service
+
+        create_audit_log_service(
+            actor=user,
+            action=AuditLog.ACTION_LOGIN,
+            target_model="User",
+            target_object_id=str(user.id),
+            new_state={
+                "email": user.email,
+                "role": user.role_code if hasattr(user, "role_code") else None,
+            },
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
+        )
+
         return Response(
             {
                 "message": "Login successful.",
@@ -66,7 +159,32 @@ class SessionLoginView(views.APIView):
 class SessionLogoutView(views.APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        summary="Session Logout",
+        description="Terminates the active user session and records an audit log.",
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Successfully logged out."),
+            401: OpenApiResponse(description="Authentication credentials were not provided."),
+        },
+        tags=["Authentication"],
+    )
     def post(self, request, *args, **kwargs):
+        user = request.user
+        if user and user.is_authenticated:
+            from apps.audit.models import AuditLog
+            from apps.audit.services import create_audit_log_service
+
+            create_audit_log_service(
+                actor=user,
+                action=AuditLog.ACTION_LOGOUT,
+                target_model="User",
+                target_object_id=str(user.id),
+                previous_state={"email": user.email},
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            )
+
         logout(request)
         return Response({"message": "Logout successful."}, status=status.HTTP_200_OK)
 
@@ -74,7 +192,16 @@ class SessionLogoutView(views.APIView):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        from .permissions import IsNotVendorUser, IsSuperAdmin
+
+        if self.action == "me":
+            return [IsAuthenticated()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsSuperAdmin()]
+        # Listing or retrieving users is restricted to internal users (vendors blocked)
+        return [IsAuthenticated(), IsNotVendorUser()]
 
     def get_queryset(self):
         return get_all_users()
@@ -83,6 +210,20 @@ class UserViewSet(viewsets.ModelViewSet):
         if self.action == "create":
             return UserCreateSerializer
         return UserSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.id == request.user.id:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Users cannot delete their own account.",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def me(self, request):
@@ -93,7 +234,11 @@ class UserViewSet(viewsets.ModelViewSet):
 class RoleViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Role.objects.all()
     serializer_class = RoleSerializer
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        from .permissions import IsNotVendorUser
+
+        return [IsAuthenticated(), IsNotVendorUser()]
 
     def get_queryset(self):
         return get_all_roles()
