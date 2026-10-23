@@ -1,47 +1,116 @@
-{% extends 'base.html' %}
+{% extends base_layout|default:'base.html' %}
 
-{% block title %}Purchase Orders — ProcureSphere 360{% endblock %}
+{% block title %}{% if is_stores_receiver %}Receivable Purchase Orders — Stores Desk{% else %}Purchase Orders Register — ProcureSphere 360{% endif %}{% endblock %}
+{% block page_heading %}{% if is_stores_receiver %}Receivable Purchase Orders{% else %}Purchase Orders Register{% endif %}{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="fw-bold text-dark mb-1">Purchase Orders</h2>
-            <p class="text-muted mb-0">Live backend data from PurchaseOrder module.</p>
-        </div>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        {% if is_stores_receiver %}
+        <span class="badge bg-secondary px-3 py-2 text-uppercase mb-2">
+            <i class="fa-solid fa-box-open me-1"></i> Stores & Receiving Desk
+        </span>
+        <h2 class="fw-bold text-dark mb-1">Receivable Purchase Orders</h2>
+        <p class="text-muted mb-0">Purchase orders eligible for goods receiving, inspection, and GRN generation (Issued, Acknowledged, Partial Receipt).</p>
+        {% else %}
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-file-contract text-primary me-2"></i> Purchase Orders Register</h2>
+        <p class="text-muted mb-0">View and track purchase orders across all vendors and cost centers.</p>
+        {% endif %}
     </div>
+    {% if is_stores_receiver %}
+    <div>
+        <a href="/receipts/" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <i class="fa-solid fa-receipt me-1"></i> View All GRNs
+        </a>
+    </div>
+    {% endif %}
 </div>
 
-<div class="card shadow-sm border-0">
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-0">
-        <table class="table table-hover table-striped align-middle mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th scope="col" class="ps-4">ID / Ref</th>
-                    <th scope="col">Summary</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="pe-4 text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td class="ps-4 fw-semibold text-secondary">{{ item }}</td>
-                    <td class="fw-bold">Active Record</td>
-                    <td><span class="badge bg-primary">{{ item.status }}</span></td>
-                    <td class="pe-4 text-end">
-                        <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></button>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-5 text-muted">
-                        <h5>No Records Found</h5>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        {% if items %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4 text-uppercase text-secondary small fw-bold py-3">PO Number</th>
+                        <th class="text-uppercase text-secondary small fw-bold py-3">Vendor</th>
+                        <th class="text-uppercase text-secondary small fw-bold py-3 text-center">PO Status</th>
+                        <th class="text-uppercase text-secondary small fw-bold py-3 text-end">Total Amount</th>
+                        <th class="text-uppercase text-secondary small fw-bold py-3 text-center">Created Date</th>
+                        <th class="pe-4 text-uppercase text-secondary small fw-bold py-3 text-end">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark font-monospace">{{ item.po_number }}</div>
+                            <small class="text-muted">Version <span class="badge bg-secondary-subtle text-secondary border">V{{ item.version|default:1 }}</span></small>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ item.vendor.legal_name }}</div>
+                            {% if item.vendor.vendor_code %}
+                            <small class="text-muted font-monospace">{{ item.vendor.vendor_code }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if item.status == 'ISSUED' %}
+                                <span class="badge bg-primary rounded-pill px-3">Issued</span>
+                            {% elif item.status == 'ACKNOWLEDGED' %}
+                                <span class="badge bg-info text-dark rounded-pill px-3"><i class="fa-solid fa-check me-1"></i>Acknowledged</span>
+                            {% elif item.status == 'PARTIAL_RECEIPT' %}
+                                <span class="badge bg-warning text-dark rounded-pill px-3"><i class="fa-solid fa-truck-ramp-box me-1"></i>Partial Receipt</span>
+                            {% elif item.status == 'COMPLETED' %}
+                                <span class="badge bg-success rounded-pill px-3">Completed</span>
+                            {% elif item.status == 'CANCELLED' %}
+                                <span class="badge bg-danger rounded-pill px-3">Cancelled</span>
+                            {% elif item.status == 'DRAFT' %}
+                                <span class="badge bg-secondary rounded-pill px-3">Draft</span>
+                            {% elif item.status == 'APPROVAL' %}
+                                <span class="badge bg-warning text-dark rounded-pill px-3">In Approval</span>
+                            {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">{{ item.get_status_display|default:item.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end fw-bold text-dark">${{ item.total_amount|floatformat:2 }}</td>
+                        <td class="text-center text-muted small">{{ item.created_at|date:"M d, Y" }}</td>
+                        <td class="pe-4 text-end">
+                            <a href="{% url 'order_detail' item.pk %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                                <i class="fa-solid fa-eye me-1"></i> View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                <i class="fa-solid fa-boxes-packing text-muted fs-1"></i>
+            </div>
+            <h5 class="text-muted fw-bold">No Purchase Orders Found</h5>
+            <p class="text-secondary mb-0">
+                {% if is_stores_receiver %}
+                There are currently no purchase orders in ISSUED, ACKNOWLEDGED, or PARTIAL_RECEIPT status ready for receiving.
+                {% else %}
+                No purchase order records match the criteria.
+                {% endif %}
+            </p>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

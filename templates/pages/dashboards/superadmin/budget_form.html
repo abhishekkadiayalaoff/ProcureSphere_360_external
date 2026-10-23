@@ -1,0 +1,39 @@
+<div class="modal-header bg-light border-bottom-0 pb-0">
+    <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-wallet text-success me-2"></i>{% if is_edit %}Edit Budget{% else %}Create Budget Allocation{% endif %}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form hx-post="{% if is_edit %}/superadmin/budgets/{{ form.instance.pk }}/edit/{% else %}/superadmin/budgets/create/{% endif %}" hx-target="#modal-content-body" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="modal-body pt-4">
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary small">Cost Center</label>
+                {{ form.cost_center }}
+                {% if form.cost_center.errors %}<div class="text-danger small">{{ form.cost_center.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-semibold text-secondary small">Fiscal Period</label>
+                {{ form.fiscal_period }}
+                {% if form.fiscal_period.errors %}<div class="text-danger small">{{ form.fiscal_period.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-12">
+                <label class="form-label fw-semibold text-secondary small">Allocated Amount</label>
+                {{ form.allocated_amount }}
+                {% if form.allocated_amount.errors %}<div class="text-danger small">{{ form.allocated_amount.errors }}</div>{% endif %}
+            </div>
+            <div class="col-12">
+                <div class="form-check form-switch mt-2">
+                    {{ form.allow_overspend }}
+                    <label class="form-check-label fw-semibold" for="{{ form.allow_overspend.id_for_label }}">Allow Overspend</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer border-top-0 pt-0">
+        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-success text-white fw-bold rounded-pill px-4">Save Budget</button>
+    </div>
+</form>

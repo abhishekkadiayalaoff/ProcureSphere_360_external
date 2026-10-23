@@ -1,0 +1,46 @@
+<div class="modal-header">
+    <h5 class="modal-title"><i class="fa-solid fa-pen-to-square text-warning me-2"></i>Amend {{ po.po_number }} (V{{ po.version }})</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form method="post" action="{% url 'orders_amend_modal' po.id %}"
+      hx-post="{% url 'orders_amend_modal' po.id %}"
+      hx-target="#modal-content-body" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body">
+        <div class="alert alert-warning small">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>
+            A JSON snapshot of V{{ po.version }} (total ${{ po.total_amount|floatformat:2 }}) is preserved
+            immutably in <code>POAmendment</code> + <code>AuditLog</code>. The version increments on save.
+        </div>
+        {% if form.non_field_errors %}<div class="alert alert-danger small">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.reason.id_for_label }}">Amendment reason *</label>
+            {{ form.reason }}
+            {% if form.reason.errors %}<div class="text-danger small">{{ form.reason.errors }}</div>{% endif %}
+        </div>
+        <div class="small fw-semibold mb-2">Line items (edit quantity / unit price)</div>
+        {% for row in line_rows %}
+        <div class="border rounded p-2 mb-2">
+            <div class="fw-semibold small">{{ row.line.item_description }} <span class="text-muted fw-normal">({{ row.line.unit_of_measure }})</span></div>
+            <div class="text-muted small">Current: {{ row.line.quantity|floatformat:2 }} × ${{ row.line.unit_price|floatformat:2 }} = ${{ row.line.line_total|floatformat:2 }}</div>
+            <div class="row g-2 mt-1">
+                <div class="col-6">
+                    <label class="form-label small" for="{{ row.qty_field.id_for_label }}">Quantity</label>
+                    {{ row.qty_field }}
+                    {% if row.qty_field.errors %}<div class="text-danger small">{{ row.qty_field.errors }}</div>{% endif %}
+                </div>
+                <div class="col-6">
+                    <label class="form-label small" for="{{ row.price_field.id_for_label }}">Unit price ($)</label>
+                    {{ row.price_field }}
+                    {% if row.price_field.errors %}<div class="text-danger small">{{ row.price_field.errors }}</div>{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <p class="text-muted small mb-0">Submit persists via <code>amend_purchase_order_service()</code>. Errors re-render inside this modal.</p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-warning text-dark fw-bold">Save amendment</button>
+    </div>
+</form>

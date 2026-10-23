@@ -1,0 +1,164 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Sourcing Events (RFQ / RFP){% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Sourcing Events</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">RFQ / RFP Sourcing Events</h3>
+            <p class="text-muted mb-0 small">
+                Explore formal procurement events for which your company holds an active invitation.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/vendor/bids/" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-sm">
+                <i class="fa-solid fa-file-invoice-dollar me-1"></i> View My Bids
+            </a>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs & Search Toolbar -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <ul class="nav nav-pills gap-2">
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'invitations' %}active{% else %}text-secondary{% endif %}" href="?tab=invitations">
+                            All Invitations <span class="badge bg-secondary bg-opacity-25 text-dark ms-1">{{ tab_counts.all }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'active' %}active{% else %}text-secondary{% endif %}" href="?tab=active">
+                            Active Events <span class="badge bg-success bg-opacity-25 text-success ms-1">{{ tab_counts.active }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'closing' %}active bg-danger text-white{% else %}text-danger{% endif %}" href="?tab=closing">
+                            Closing Soon <span class="badge bg-danger bg-opacity-25 text-danger ms-1">{{ tab_counts.closing }}</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'closed' %}active{% else %}text-secondary{% endif %}" href="?tab=closed">
+                            Closed Events <span class="badge bg-secondary bg-opacity-25 text-secondary ms-1">{{ tab_counts.closed }}</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <form method="GET" action="{% url 'vendor_sourcing_list' %}" class="d-flex gap-2">
+                    <input type="hidden" name="tab" value="{{ tab }}">
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="q" class="form-control" placeholder="Search reference or title..." value="{{ query }}">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sourcing Events Table -->
+    <div class="card glass-card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if invitations_data %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Event Ref</th>
+                            <th>Type</th>
+                            <th>Event Title</th>
+                            <th>Bid Window</th>
+                            <th>Event Status</th>
+                            <th>My Bid Status</th>
+                            <th class="text-end pe-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in invitations_data %}
+                        <tr>
+                            <td class="ps-4">
+                                <a href="{% url 'vendor_sourcing_detail' event_id=item.event.id %}" class="fw-bold font-monospace text-primary text-decoration-none">
+                                    {{ item.event.event_number }}
+                                </a>
+                            </td>
+                            <td>
+                                <span class="badge bg-dark text-white">{{ item.event.event_type }}</span>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark text-truncate" style="max-width: 280px;">
+                                    {{ item.event.title }}
+                                </div>
+                                <small class="text-muted text-truncate d-block" style="max-width: 280px;">
+                                    {{ item.event.description|truncatechars:70 }}
+                                </small>
+                            </td>
+                            <td class="small">
+                                <div class="text-muted"><i class="fa-regular fa-calendar-check me-1"></i>Start: {{ item.event.bid_start_date|date:"M d, Y" }}</div>
+                                <div class="{% if item.is_open %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                                    <i class="fa-solid fa-clock me-1"></i>Close: {{ item.event.bid_end_date|date:"M d, Y H:i" }}
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge {% if item.event.status == 'BID_WINDOW' %}bg-success{% elif item.event.status == 'DRAFT' %}bg-secondary{% elif item.event.status == 'AWARDED' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %}">
+                                    {{ item.event.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if item.bid %}
+                                    {% if item.bid.status == 'SUBMITTED' or item.bid.status == 'AMENDED' %}
+                                    <a href="{% url 'vendor_bid_detail' bid_id=item.bid.id %}" class="badge bg-success text-decoration-none">
+                                        <i class="fa-solid fa-lock me-1"></i> {{ item.bid.status }} (V{{ item.bid.version }})
+                                    </a>
+                                    {% else %}
+                                    <a href="{% url 'vendor_bid_create' event_id=item.event.id %}" class="badge bg-warning text-dark text-decoration-none">
+                                        Draft (V{{ item.bid.version }})
+                                    </a>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted small fst-italic">Not Submitted</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'vendor_sourcing_detail' event_id=item.event.id %}" class="btn btn-outline-secondary">
+                                        View Event
+                                    </a>
+                                    {% if item.is_open %}
+                                        {% if item.bid %}
+                                            <a href="{% url 'vendor_bid_detail' bid_id=item.bid.id %}" class="btn btn-primary">
+                                                Manage Bid
+                                            </a>
+                                        {% else %}
+                                            <a href="{% url 'vendor_bid_create' event_id=item.event.id %}" class="btn btn-primary">
+                                                Prepare Bid
+                                            </a>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-solid fa-gavel text-muted fs-1 mb-2"></i>
+                <p class="text-muted mb-0">No sourcing events found under the selected criteria.</p>
+                <small class="text-secondary">When procurement invites your company to an RFQ or RFP, it will appear here.</small>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock vendor_content %}

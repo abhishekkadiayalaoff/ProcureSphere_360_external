@@ -1,0 +1,18 @@
+{% if amendments %}
+<div class="table-responsive"><table class="table table-sm align-middle small mb-0">
+    <thead class="table-light"><tr><th>#</th><th>Reason</th><th>Requested by</th><th>Date</th><th class="text-end">Prior snapshot</th></tr></thead>
+    <tbody>
+    {% for a in amendments %}
+        <tr>
+            <td class="fw-bold">{{ a.amendment_number }}</td>
+            <td>{{ a.reason|truncatechars:120 }}</td>
+            <td>{{ a.requested_by.email|default:"—" }}</td>
+            <td class="text-nowrap">{{ a.created_at|date:"Y-m-d H:i" }}</td>
+            <td class="text-end"><code class="small">V{{ a.previous_version_snapshot.version }} · ${{ a.previous_version_snapshot.total_amount }}</code></td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}
+<p class="text-muted small mb-0">No amendments recorded. The PO is at its original version.</p>
+{% endif %}

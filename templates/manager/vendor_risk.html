@@ -1,0 +1,1083 @@
+{% extends 'manager/base_manager.html' %}
+
+{% block title %}Vendor Risk & Governance — Procurement Manager{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Vendor Risk</li>
+{% endblock manager_breadcrumbs %}
+
+{% block mobile_page_title %}Vendor Risk & Governance{% endblock mobile_page_title %}
+
+{% block manager_content %}
+<div class="container-fluid px-0">
+
+    <!-- Page Header Area -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-rose text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                    <i class="fa-solid fa-shield-halved me-1"></i> SUPPLIER GOVERNANCE &amp; RISK DESK
+                </span>
+                <span class="text-muted small">Risk categorization, KYC screening, and account status controls</span>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-1 font-heading">Vendor Risk &amp; Governance Desk</h1>
+            <p class="text-muted small mb-0">Assess supplier risk levels (HIGH / MEDIUM / LOW), impose hold or suspension restrictions, and review KYC verification compliance.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button onclick="loadVendorRiskData()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-2xs" id="riskRefreshBtn">
+                <i class="fa-solid fa-arrows-rotate me-1" id="riskRefreshIcon"></i> Refresh Risk Desk
+            </button>
+            <a href="/manager/purchase-orders/" class="btn btn-outline-emerald btn-sm rounded-pill px-3 shadow-2xs">
+                <i class="fa-solid fa-cart-shopping me-1"></i> Purchase Orders
+            </a>
+        </div>
+    </div>
+
+    <!-- Risk Summary KPI Cards -->
+    <div class="row g-3 mb-4" id="riskKpiRow">
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-primary">
+                <div class="text-muted small text-uppercase fw-bold" style="font-size: 0.65rem;">Total Suppliers</div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiTotalVendors">0</h3>
+                <div class="text-muted small" id="kpiActiveVendors">0 active</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-danger">
+                <div class="text-muted small text-uppercase fw-bold text-danger" style="font-size: 0.65rem;">High Risk</div>
+                <h3 class="fw-bold text-danger mb-1 font-heading" id="kpiHighRisk">0</h3>
+                <div class="text-muted small">Requires mitigation</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-warning">
+                <div class="text-muted small text-uppercase fw-bold text-warning-emphasis" style="font-size: 0.65rem;">Medium Risk</div>
+                <h3 class="fw-bold text-warning-emphasis mb-1 font-heading" id="kpiMediumRisk">0</h3>
+                <div class="text-muted small">Under monitoring</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-amber">
+                <div class="text-muted small text-uppercase fw-bold text-amber" style="font-size: 0.65rem;">On Hold</div>
+                <h3 class="fw-bold text-amber mb-1 font-heading" id="kpiOnHold">0</h3>
+                <div class="text-muted small">Restricted from POs</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-dark">
+                <div class="text-muted small text-uppercase fw-bold text-dark" style="font-size: 0.65rem;">Suspended</div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiSuspended">0</h3>
+                <div class="text-muted small">Blacklisted</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
+                <div class="text-muted small text-uppercase fw-bold text-info" style="font-size: 0.65rem;">KYC &amp; Docs</div>
+                <h3 class="fw-bold text-info mb-1 font-heading" id="kpiKycReview">0</h3>
+                <div class="text-muted small" id="kpiExpiringDocs">0 expiring docs</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-4">
+        <div class="row g-2 align-items-center">
+            <!-- Search Bar -->
+            <div class="col-12 col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-slate-50 border"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="vendorSearchInput" class="form-control" placeholder="Search supplier, TIN, code, email..." oninput="onVendorSearchInput()">
+                </div>
+            </div>
+
+            <!-- Risk Level Filter -->
+            <div class="col-6 col-md-2">
+                <select id="vendorRiskFilter" class="form-select form-select-sm" onchange="onVendorFilterChange()">
+                    <option value="">All Risk Levels</option>
+                    <option value="HIGH">High Risk</option>
+                    <option value="MEDIUM">Medium Risk</option>
+                    <option value="LOW">Low Risk</option>
+                </select>
+            </div>
+
+            <!-- Governance Status Filter -->
+            <div class="col-6 col-md-2">
+                <select id="vendorStatusFilter" class="form-select form-select-sm" onchange="onVendorFilterChange()">
+                    <option value="">All Governance Statuses</option>
+                    <option value="ACTIVE">Active (Authorized)</option>
+                    <option value="ON_HOLD">On Hold (Restricted)</option>
+                    <option value="SUSPENDED">Suspended (Blacklisted)</option>
+                    <option value="KYC_REVIEW">KYC Review</option>
+                    <option value="SUBMITTED">Submitted</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="REJECTED">Rejected</option>
+                </select>
+            </div>
+
+            <!-- Document Compliance Filter -->
+            <div class="col-6 col-md-2">
+                <select id="vendorComplianceFilter" class="form-select form-select-sm" onchange="onVendorFilterChange()">
+                    <option value="">All Compliance States</option>
+                    <option value="expiring_soon">Expiring Soon (30 Days)</option>
+                    <option value="expired_docs">Expired Documents</option>
+                    <option value="missing_docs">Missing Core KYC Docs</option>
+                </select>
+            </div>
+
+            <!-- Sort Filter -->
+            <div class="col-6 col-md-3">
+                <select id="vendorSortFilter" class="form-select form-select-sm" onchange="onVendorFilterChange()">
+                    <option value="-created_at">Sort: Newest First</option>
+                    <option value="legal_name">Sort: Name (A-Z)</option>
+                    <option value="-active_pos_count">Sort: Highest Active POs</option>
+                    <option value="status">Sort: Governance Status</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Active Filter Badges -->
+        <div id="vendorActiveFiltersRow" class="d-flex flex-wrap align-items-center gap-2 pt-2 mt-2 border-top d-none">
+            <span class="text-muted small fw-bold" style="font-size: 0.72rem;">ACTIVE FILTERS:</span>
+            <div id="vendorFilterPills" class="d-flex flex-wrap gap-1"></div>
+            <button onclick="clearAllVendorFilters()" class="btn btn-link btn-sm text-danger text-decoration-none p-0 ms-auto small" style="font-size: 0.75rem;">
+                <i class="fa-solid fa-xmark me-1"></i> Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="riskErrorState" class="alert alert-danger rounded-3 border-0 shadow-sm d-none mb-4 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation fs-5"></i>
+            <span id="riskErrorMessage">Unable to fetch vendor risk records.</span>
+        </div>
+        <button onclick="loadVendorRiskData()" class="btn btn-outline-danger btn-sm rounded-pill px-3">Retry</button>
+    </div>
+
+    <!-- Vendor Directory Table Container -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0 font-heading">
+                <i class="fa-solid fa-shield-halved text-rose me-2"></i> Supplier Risk &amp; Governance Directory
+            </h5>
+            <span class="badge bg-slate-100 text-dark border px-3 py-1 rounded-pill" id="vendorCountBadge">0 Suppliers</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Supplier &amp; Tax ID</th>
+                            <th>Risk Level</th>
+                            <th>Governance Status</th>
+                            <th>KYC &amp; Documents</th>
+                            <th>Active POs &amp; Spend</th>
+                            <th>Last Assessment</th>
+                            <th class="pe-4 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vendorTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm text-rose me-2"></div>
+                                Loading supplier risk records...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination Footer -->
+        <div class="card-footer bg-white border-top py-3 px-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2" id="vendorPaginationFooter">
+            <div class="text-muted small" id="vendorPaginationSummary">Showing 0 of 0 suppliers</div>
+            <nav aria-label="Vendor navigation">
+                <ul class="pagination pagination-sm mb-0" id="vendorPaginationList"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 1: Vendor Risk Assessment Action -->
+<div class="modal fade" id="vendorRiskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-hpe-navy text-white px-4 py-3">
+                <h6 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 mb-0">
+                    <i class="fa-solid fa-triangle-exclamation text-amber"></i> Record Vendor Risk Assessment
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="riskVendorId">
+
+                <div class="mb-3 p-3 bg-slate-50 border rounded-3">
+                    <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Target Supplier</div>
+                    <div class="fw-bold text-dark fs-6" id="riskModalVendorName">-</div>
+                    <div class="small text-muted" id="riskModalVendorNumber">-</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Assessed Risk Level <span class="text-danger">*</span></label>
+                    <select id="riskModalLevel" class="form-select">
+                        <option value="LOW">LOW RISK — Good Financial &amp; Compliance Standing</option>
+                        <option value="MEDIUM">MEDIUM RISK — Minor Concerns / Incomplete Verification</option>
+                        <option value="HIGH">HIGH RISK — Major Compliance or Performance Violation</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Assessment Justification / Audit Notes <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="riskModalNotes" rows="3" placeholder="Provide clear audit justification for this risk level assessment..."></textarea>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Optional Governance Status Action</label>
+                    <select id="riskModalGovStatus" class="form-select form-select-sm">
+                        <option value="">Keep current governance status</option>
+                        <option value="ACTIVE">Set to ACTIVE</option>
+                        <option value="ON_HOLD">Place ON_HOLD (Block new bids &amp; POs)</option>
+                        <option value="SUSPENDED">SUSPEND (Full blacklist)</option>
+                    </select>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2">
+                    <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm" id="riskModalSubmitBtn" onclick="submitVendorRiskAssessment()">
+                        Record Assessment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: Vendor Governance Status Action (Hold, Suspend, Activate) -->
+<div class="modal fade" id="vendorGovernanceModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-hpe-navy text-white px-4 py-3">
+                <h6 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 mb-0">
+                    <i class="fa-solid fa-shield-halved text-amber"></i> Update Vendor Governance Status
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="govVendorId">
+
+                <div class="mb-3 p-3 bg-slate-50 border rounded-3">
+                    <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Target Supplier</div>
+                    <div class="fw-bold text-dark fs-6" id="govVendorName">-</div>
+                    <div class="small text-muted mt-1">Current Status: <span class="badge bg-secondary" id="govCurrentStatus">-</span></div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Select New Governance Status <span class="text-danger">*</span></label>
+                    <select id="govTargetStatus" class="form-select">
+                        <option value="ACTIVE">ACTIVE — Full Bidding &amp; PO Authorization</option>
+                        <option value="ON_HOLD">ON_HOLD — Restrict New Bids &amp; PO Issuance</option>
+                        <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                        <option value="REJECTED">REJECTED — Rejected Qualification</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Governance Reason / Audit Rationale <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="govReason" rows="3" placeholder="Provide governance rationale or compliance violation details..."></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2">
+                    <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm" id="govSubmitBtn" onclick="submitVendorGovernance()">
+                        Update Status
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 3: Supplier Compliance Dossier -->
+<div class="modal fade" id="vendorDossierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-hpe-navy text-white px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-rose text-white fw-bold px-2 py-1 rounded" id="dossierBadge">DOSSIER</span>
+                    <h5 class="modal-title fw-bold font-heading mb-0" id="dossierVendorName">Supplier Compliance Dossier</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Top Summary Ribbon -->
+                <div class="row g-3 p-3 bg-slate-50 border rounded-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Vendor Number</div>
+                        <div class="fw-bold text-dark fs-6 font-monospace" id="dossierVendorNumber">-</div>
+                        <div class="small text-muted" id="dossierCategory">-</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Tax ID / Registration</div>
+                        <div class="fw-bold text-dark fs-6" id="dossierTaxId">-</div>
+                        <div class="small text-muted" id="dossierRegNumber">-</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Risk &amp; Governance Status</div>
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="badge bg-danger rounded-pill" id="dossierRiskLevel">HIGH RISK</span>
+                            <span class="badge bg-primary rounded-pill" id="dossierStatus">ACTIVE</span>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Total Committed Spend</div>
+                        <div class="fw-bold text-emerald fs-5" id="dossierTotalSpend">$0.00</div>
+                        <div class="small text-muted" id="dossierActivePos">0 active POs</div>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs inside Dossier Modal -->
+                <ul class="nav nav-tabs nav-fill mb-3" id="dossierTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-dossier-docs" data-bs-toggle="tab" data-bs-target="#panel-dossier-docs" type="button" role="tab">
+                            <i class="fa-solid fa-file-circle-check me-1"></i> Compliance Documents (<span id="dossierDocCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-dossier-risk" data-bs-toggle="tab" data-bs-target="#panel-dossier-risk" type="button" role="tab">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> Risk History (<span id="dossierRiskHistoryCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-dossier-pos" data-bs-toggle="tab" data-bs-target="#panel-dossier-pos" type="button" role="tab">
+                            <i class="fa-solid fa-cart-shopping me-1"></i> Purchase Orders (<span id="dossierPoCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-dossier-info" data-bs-toggle="tab" data-bs-target="#panel-dossier-info" type="button" role="tab">
+                            <i class="fa-solid fa-building me-1"></i> Profile &amp; Banking
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Panels -->
+                <div class="tab-content" id="dossierTabContent">
+                    <!-- Tab 1: Compliance Documents -->
+                    <div class="tab-pane fade show active" id="panel-dossier-docs" role="tabpanel">
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th class="ps-3">Document Title &amp; Type</th>
+                                        <th>Expiry Date</th>
+                                        <th>Verification</th>
+                                        <th>Verified By</th>
+                                        <th class="pe-3 text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dossierDocsTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No documents uploaded.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Risk Assessment History -->
+                    <div class="tab-pane fade" id="panel-dossier-risk" role="tabpanel">
+                        <div id="dossierRiskHistoryContainer">
+                            <div class="text-center py-4 text-muted">No risk assessment records.</div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Purchase Orders -->
+                    <div class="tab-pane fade" id="panel-dossier-pos" role="tabpanel">
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th class="ps-3">PO Number</th>
+                                        <th>Version</th>
+                                        <th>Status</th>
+                                        <th>Cost Center</th>
+                                        <th class="pe-3 text-end">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dossierPosTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No purchase orders found.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Profile & Banking -->
+                    <div class="tab-pane fade" id="panel-dossier-info" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card bg-slate-50 border p-3 h-100 rounded-3">
+                                    <h6 class="fw-bold text-dark font-heading mb-2">Corporate Information</h6>
+                                    <div class="small text-muted mb-1"><strong>Email:</strong> <span id="dossierEmail">-</span></div>
+                                    <div class="small text-muted mb-1"><strong>Phone:</strong> <span id="dossierPhone">-</span></div>
+                                    <div class="small text-muted mb-1"><strong>Address:</strong> <span id="dossierAddress">-</span></div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-slate-50 border p-3 h-100 rounded-3">
+                                    <h6 class="fw-bold text-dark font-heading mb-2">Banking &amp; Settlement Details</h6>
+                                    <div class="small text-muted mb-1"><strong>Bank:</strong> <span id="dossierBankName">-</span></div>
+                                    <div class="small text-muted mb-1"><strong>Account #:</strong> <span id="dossierAccountNum">-</span></div>
+                                    <div class="small text-muted mb-1"><strong>Routing Code:</strong> <span id="dossierRoutingCode">-</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-slate-50 px-4 py-3">
+                <button type="button" class="btn btn-light btn-sm rounded-pill px-4" data-bs-dismiss="modal">Close Dossier</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let vendorDataCache = [];
+    let vendorFilteredData = [];
+    let vendorSearchTimeout = null;
+    let vendorCurrentPage = 1;
+    const VENDOR_PAGE_SIZE = 15;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadVendorRiskData();
+    });
+
+    function onVendorSearchInput() {
+        clearTimeout(vendorSearchTimeout);
+        vendorSearchTimeout = setTimeout(() => {
+            applyVendorFilters();
+        }, 250);
+    }
+
+    function onVendorFilterChange() {
+        applyVendorFilters();
+    }
+
+    function clearAllVendorFilters() {
+        document.getElementById('vendorSearchInput').value = '';
+        document.getElementById('vendorRiskFilter').value = '';
+        document.getElementById('vendorStatusFilter').value = '';
+        document.getElementById('vendorComplianceFilter').value = '';
+        document.getElementById('vendorSortFilter').value = '-created_at';
+        applyVendorFilters();
+    }
+
+    async function loadVendorRiskData() {
+        const tableBody = document.getElementById('vendorTableBody');
+        const errorState = document.getElementById('riskErrorState');
+        const refreshIcon = document.getElementById('riskRefreshIcon');
+
+        if (refreshIcon) refreshIcon.classList.add('fa-spin');
+        if (errorState) errorState.classList.add('d-none');
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="7" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm text-rose me-2"></div>
+                    Loading supplier risk directory...
+                </td>
+            </tr>
+        `;
+
+        try {
+            const [vendorsRes, summaryRes] = await Promise.all([
+                fetchManagerAPI('/api/v1/vendors/'),
+                fetchManagerAPI('/api/v1/vendors/summary/').catch(() => null)
+            ]);
+
+            vendorDataCache = Array.isArray(vendorsRes) ? vendorsRes : (vendorsRes.results || []);
+
+            if (summaryRes) {
+                renderVendorKpis(summaryRes);
+            } else {
+                renderVendorKpisFromLocal(vendorDataCache);
+            }
+
+            applyVendorFilters();
+        } catch (err) {
+            if (errorState) {
+                errorState.classList.remove('d-none');
+                document.getElementById('riskErrorMessage').textContent = err.message || 'Failed to fetch vendor records.';
+            }
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-danger">
+                        <i class="fa-solid fa-triangle-exclamation fs-3 mb-2 d-block"></i>
+                        Unable to load supplier risk records.
+                    </td>
+                </tr>
+            `;
+        } finally {
+            if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        }
+    }
+
+    function renderVendorKpis(summary) {
+        document.getElementById('kpiTotalVendors').textContent = summary.total_vendors || 0;
+        document.getElementById('kpiActiveVendors').textContent = (summary.active_vendors || 0) + ' active';
+        document.getElementById('kpiHighRisk').textContent = summary.high_risk_vendors || 0;
+        document.getElementById('kpiMediumRisk').textContent = summary.medium_risk_vendors || 0;
+        document.getElementById('kpiOnHold').textContent = summary.on_hold_vendors || 0;
+        document.getElementById('kpiSuspended').textContent = summary.suspended_vendors || 0;
+        document.getElementById('kpiKycReview').textContent = summary.kyc_reviews_count || 0;
+        document.getElementById('kpiExpiringDocs').textContent = (summary.expiring_docs_vendors || 0) + ' expiring docs';
+    }
+
+    function renderVendorKpisFromLocal(vendors) {
+        const total = vendors.length;
+        const active = vendors.filter(v => v.status === 'ACTIVE').length;
+        const high = vendors.filter(v => v.current_risk_level === 'HIGH').length;
+        const medium = vendors.filter(v => v.current_risk_level === 'MEDIUM').length;
+        const hold = vendors.filter(v => v.status === 'ON_HOLD').length;
+        const suspended = vendors.filter(v => v.status === 'SUSPENDED').length;
+        const kyc = vendors.filter(v => ['KYC_REVIEW', 'SUBMITTED'].includes(v.status)).length;
+
+        renderVendorKpis({
+            total_vendors: total,
+            active_vendors: active,
+            high_risk_vendors: high,
+            medium_risk_vendors: medium,
+            on_hold_vendors: hold,
+            suspended_vendors: suspended,
+            kyc_reviews_count: kyc,
+            expiring_docs_vendors: 0
+        });
+    }
+
+    function applyVendorFilters() {
+        const search = (document.getElementById('vendorSearchInput')?.value || '').toLowerCase().trim();
+        const risk = document.getElementById('vendorRiskFilter')?.value || '';
+        const status = document.getElementById('vendorStatusFilter')?.value || '';
+        const compliance = document.getElementById('vendorComplianceFilter')?.value || '';
+        const sort = document.getElementById('vendorSortFilter')?.value || '-created_at';
+
+        // Filter Pills Display
+        const pillsContainer = document.getElementById('vendorFilterPills');
+        const activeFiltersRow = document.getElementById('vendorActiveFiltersRow');
+        let pillsHtml = '';
+
+        if (search) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Search: "${search}"</span>`;
+        if (risk) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Risk: ${risk}</span>`;
+        if (status) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Status: ${status}</span>`;
+        if (compliance) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Compliance: ${compliance}</span>`;
+
+        if (pillsHtml) {
+            pillsContainer.innerHTML = pillsHtml;
+            activeFiltersRow.classList.remove('d-none');
+        } else {
+            activeFiltersRow.classList.add('d-none');
+        }
+
+        // Apply filters to data cache
+        vendorFilteredData = vendorDataCache.filter(v => {
+            if (search) {
+                const name = (v.legal_name || '').toLowerCase();
+                const trade = (v.trade_name || '').toLowerCase();
+                const vNum = (v.vendor_number || '').toLowerCase();
+                const tin = (v.tax_identification_number || '').toLowerCase();
+                const email = (v.email || '').toLowerCase();
+                if (!name.includes(search) && !trade.includes(search) && !vNum.includes(search) && !tin.includes(search) && !email.includes(search)) {
+                    return false;
+                }
+            }
+
+            if (risk && (v.current_risk_level || 'LOW') !== risk) {
+                return false;
+            }
+
+            if (status && v.status !== status) {
+                return false;
+            }
+
+            if (compliance === 'expiring_soon') {
+                const docSum = v.documents_summary || {};
+                if ((docSum.expiring_soon_documents || 0) === 0) return false;
+            }
+            if (compliance === 'expired_docs') {
+                const docSum = v.documents_summary || {};
+                if ((docSum.expired_documents || 0) === 0) return false;
+            }
+            if (compliance === 'missing_docs') {
+                const docSum = v.documents_summary || {};
+                if (!docSum.missing_required_docs || docSum.missing_required_docs.length === 0) return false;
+            }
+
+            return true;
+        });
+
+        // Apply Sorting
+        vendorFilteredData.sort((a, b) => {
+            if (sort === '-created_at') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            if (sort === 'legal_name') return (a.legal_name || '').localeCompare(b.legal_name || '');
+            if (sort === '-active_pos_count') return Number(b.active_pos_count || 0) - Number(a.active_pos_count || 0);
+            if (sort === 'status') return (a.status || '').localeCompare(b.status || '');
+            return 0;
+        });
+
+        vendorCurrentPage = 1;
+        renderVendorTable();
+    }
+
+    function renderVendorTable() {
+        const tableBody = document.getElementById('vendorTableBody');
+        const countBadge = document.getElementById('vendorCountBadge');
+        const totalItems = vendorFilteredData.length;
+
+        if (countBadge) countBadge.textContent = totalItems + ' Suppliers';
+
+        if (totalItems === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <i class="fa-solid fa-shield-halved text-muted fs-2 mb-2 d-block"></i>
+                        <div class="fw-bold text-dark">No Suppliers Found</div>
+                        <div class="text-muted small">No supplier records match the selected filters or search criteria.</div>
+                        <button onclick="clearAllVendorFilters()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mt-3">Clear Filters</button>
+                    </td>
+                </tr>
+            `;
+            renderVendorPagination(0, 1);
+            return;
+        }
+
+        const startIndex = (vendorCurrentPage - 1) * VENDOR_PAGE_SIZE;
+        const endIndex = Math.min(startIndex + VENDOR_PAGE_SIZE, totalItems);
+        const pageItems = vendorFilteredData.slice(startIndex, endIndex);
+
+        tableBody.innerHTML = pageItems.map(v => {
+            let riskBadge = 'bg-success text-white';
+            let riskIcon = 'fa-shield';
+            if (v.current_risk_level === 'HIGH') {
+                riskBadge = 'bg-danger text-white';
+                riskIcon = 'fa-triangle-exclamation';
+            } else if (v.current_risk_level === 'MEDIUM') {
+                riskBadge = 'bg-warning text-dark';
+                riskIcon = 'fa-circle-exclamation';
+            }
+
+            let statusBadge = 'bg-secondary text-white';
+            if (v.status === 'ACTIVE') statusBadge = 'bg-success text-white';
+            else if (v.status === 'ON_HOLD') statusBadge = 'bg-amber text-dark';
+            else if (v.status === 'SUSPENDED') statusBadge = 'bg-dark text-white';
+            else if (v.status === 'KYC_REVIEW') statusBadge = 'bg-info text-dark';
+            else if (v.status === 'SUBMITTED') statusBadge = 'bg-primary text-white';
+            else if (v.status === 'REJECTED') statusBadge = 'bg-danger text-white';
+
+            const docSummary = v.documents_summary || {};
+            let compliancePill = `<span class="badge bg-success-subtle text-success rounded-pill small"><i class="fa-solid fa-check me-1"></i>Verified</span>`;
+            if (docSummary.expired_documents > 0) {
+                compliancePill = `<span class="badge bg-danger-subtle text-danger rounded-pill small"><i class="fa-solid fa-clock-rotate-left me-1"></i>${docSummary.expired_documents} Expired</span>`;
+            } else if (docSummary.expiring_soon_documents > 0) {
+                compliancePill = `<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill small"><i class="fa-solid fa-triangle-exclamation me-1"></i>${docSummary.expiring_soon_documents} Expiring</span>`;
+            } else if (docSummary.missing_required_docs && docSummary.missing_required_docs.length > 0) {
+                compliancePill = `<span class="badge bg-slate-100 text-muted border rounded-pill small">${docSummary.missing_required_docs.length} Missing</span>`;
+            }
+
+            const lastAssessed = v.last_risk_assessment_date ? new Date(v.last_risk_assessment_date).toLocaleDateString() : 'Initial';
+
+            return `
+                <tr>
+                    <td class="ps-4">
+                        <div class="fw-bold text-dark">${v.legal_name}</div>
+                        <div class="d-flex align-items-center gap-2 mt-1">
+                            <span class="badge bg-slate-100 text-dark border font-monospace" style="font-size: 0.65rem;">${v.vendor_number}</span>
+                            <span class="text-muted small" style="font-size: 0.7rem;">TIN: ${v.tax_identification_number}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge ${riskBadge} rounded-pill px-2 py-1">
+                            <i class="fa-solid ${riskIcon} me-1"></i>${v.current_risk_level || 'LOW'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge ${statusBadge} rounded-pill px-2 py-1">${v.status_display || v.status}</span>
+                        ${v.status_notes ? `<div class="small text-muted text-truncate mt-1" style="max-width: 140px; font-size: 0.68rem;" title="${v.status_notes}">${v.status_notes}</div>` : ''}
+                    </td>
+                    <td>
+                        ${compliancePill}
+                        <div class="small text-muted mt-1" style="font-size: 0.7rem;">${docSummary.total_documents || 0} docs attached</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">$${Number(v.total_po_spend || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div class="small text-muted" style="font-size: 0.7rem;">${v.active_pos_count || 0} active POs</div>
+                    </td>
+                    <td>
+                        <div class="small text-dark">${lastAssessed}</div>
+                        <div class="small text-muted text-truncate" style="max-width: 140px; font-size: 0.7rem;">${v.last_assessed_by_email || 'System'}</div>
+                    </td>
+                    <td class="pe-4 text-end">
+                        <div class="d-inline-flex gap-1">
+                            <button onclick="openDossierModal('${v.id}')" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" title="View Supplier Dossier">
+                                <i class="fa-solid fa-folder-open me-1"></i> Dossier
+                            </button>
+                            <button onclick="openRiskModal('${v.id}', '${v.legal_name}', '${v.vendor_number}', '${v.current_risk_level || 'LOW'}', '${v.status}')" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Assess Risk Level">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </button>
+                            <button onclick="openGovernanceModal('${v.id}', '${v.legal_name}', '${v.status}')" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1" title="Change Governance Status">
+                                <i class="fa-solid fa-sliders"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        renderVendorPagination(totalItems, vendorCurrentPage);
+    }
+
+    function renderVendorPagination(totalItems, currentPage) {
+        const summary = document.getElementById('vendorPaginationSummary');
+        const list = document.getElementById('vendorPaginationList');
+
+        if (totalItems === 0) {
+            summary.textContent = 'Showing 0 of 0 suppliers';
+            list.innerHTML = '';
+            return;
+        }
+
+        const totalPages = Math.ceil(totalItems / VENDOR_PAGE_SIZE);
+        const startIndex = (currentPage - 1) * VENDOR_PAGE_SIZE + 1;
+        const endIndex = Math.min(currentPage * VENDOR_PAGE_SIZE, totalItems);
+
+        summary.textContent = `Showing ${startIndex}-${endIndex} of ${totalItems} suppliers`;
+
+        let pagesHtml = `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <button class="page-link" onclick="changeVendorPage(${currentPage - 1})" aria-label="Previous">&laquo;</button>
+            </li>
+        `;
+
+        for (let p = 1; p <= totalPages; p++) {
+            if (p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)) {
+                pagesHtml += `
+                    <li class="page-item ${p === currentPage ? 'active' : ''}">
+                        <button class="page-link" onclick="changeVendorPage(${p})">${p}</button>
+                    </li>
+                `;
+            } else if (p === currentPage - 3 || p === currentPage + 3) {
+                pagesHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        pagesHtml += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <button class="page-link" onclick="changeVendorPage(${currentPage + 1})" aria-label="Next">&raquo;</button>
+            </li>
+        `;
+
+        list.innerHTML = pagesHtml;
+    }
+
+    function changeVendorPage(page) {
+        const totalPages = Math.ceil(vendorFilteredData.length / VENDOR_PAGE_SIZE);
+        if (page < 1 || page > totalPages) return;
+        vendorCurrentPage = page;
+        renderVendorTable();
+    }
+
+    function openRiskModal(vendorId, vendorName, vendorNumber, currentRisk, currentStatus) {
+        document.getElementById('riskVendorId').value = vendorId;
+        document.getElementById('riskModalVendorName').textContent = vendorName;
+        document.getElementById('riskModalVendorNumber').textContent = vendorNumber;
+        document.getElementById('riskModalLevel').value = currentRisk || 'LOW';
+        document.getElementById('riskModalNotes').value = '';
+
+        const govStatusEl = document.getElementById('riskModalGovStatus');
+        if (govStatusEl) {
+            if (['DRAFT', 'SUBMITTED', 'KYC_REVIEW'].includes(currentStatus)) {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ACTIVE">Approve & Set to ACTIVE</option>
+                    <option value="REJECTED">Reject Qualification</option>
+                `;
+            } else if (currentStatus === 'ACTIVE') {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ON_HOLD">Place ON_HOLD (Block new bids &amp; POs)</option>
+                    <option value="SUSPENDED">SUSPEND (Full blacklist)</option>
+                `;
+            } else if (currentStatus === 'ON_HOLD') {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ACTIVE">Release Hold (Set to ACTIVE)</option>
+                    <option value="SUSPENDED">SUSPEND (Full blacklist)</option>
+                `;
+            } else if (currentStatus === 'SUSPENDED') {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ACTIVE">Reinstate (Set to ACTIVE)</option>
+                `;
+            } else if (currentStatus === 'REJECTED') {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ACTIVE">Reconsider & Approve (Set to ACTIVE)</option>
+                `;
+            } else {
+                govStatusEl.innerHTML = `
+                    <option value="">Keep current governance status</option>
+                    <option value="ACTIVE">Set to ACTIVE</option>
+                    <option value="ON_HOLD">Place ON_HOLD</option>
+                    <option value="SUSPENDED">SUSPEND</option>
+                `;
+            }
+            govStatusEl.value = '';
+        }
+
+        const modalEl = document.getElementById('vendorRiskModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    async function submitVendorRiskAssessment() {
+        const vendorId = document.getElementById('riskVendorId').value;
+        const riskLevel = document.getElementById('riskModalLevel').value;
+        const notes = (document.getElementById('riskModalNotes').value || '').trim();
+        const govStatus = document.getElementById('riskModalGovStatus').value;
+
+        if (!notes) {
+            showManagerToast('Please provide an assessment justification reason.', 'warning');
+            return;
+        }
+
+        const submitBtn = document.getElementById('riskModalSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Recording...';
+
+        try {
+            const bodyData = {
+                risk_level: riskLevel,
+                assessment_notes: notes
+            };
+            if (govStatus) {
+                bodyData.governance_status = govStatus;
+            }
+
+            const res = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/assess-risk/`, {
+                method: 'POST',
+                body: JSON.stringify(bodyData)
+            });
+
+            showManagerToast(res.message || 'Risk assessment successfully recorded.', 'success');
+
+            const modalEl = document.getElementById('vendorRiskModal');
+            if (modalEl && window.bootstrap) {
+                const modalInst = bootstrap.Modal.getInstance(modalEl);
+                if (modalInst) modalInst.hide();
+            }
+
+            loadVendorRiskData();
+        } catch (err) {
+            showManagerToast(err.message || 'Failed to record risk assessment.', 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Record Assessment';
+        }
+    }
+
+    function openGovernanceModal(vendorId, vendorName, currentStatus) {
+        document.getElementById('govVendorId').value = vendorId;
+        document.getElementById('govVendorName').textContent = vendorName;
+        document.getElementById('govCurrentStatus').textContent = currentStatus;
+        document.getElementById('govReason').value = '';
+
+        const selectEl = document.getElementById('govTargetStatus');
+        if (selectEl) {
+            if (['DRAFT', 'SUBMITTED', 'KYC_REVIEW'].includes(currentStatus)) {
+                selectEl.innerHTML = `
+                    <option value="ACTIVE" selected>ACTIVE — Approve & Authorize Supplier</option>
+                    <option value="REJECTED">REJECTED — Reject Qualification</option>
+                `;
+            } else if (currentStatus === 'ACTIVE') {
+                selectEl.innerHTML = `
+                    <option value="ON_HOLD" selected>ON_HOLD — Restrict New Bids & PO Issuance</option>
+                    <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                `;
+            } else if (currentStatus === 'ON_HOLD') {
+                selectEl.innerHTML = `
+                    <option value="ACTIVE" selected>ACTIVE — Release Hold & Reinstate Authorization</option>
+                    <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                `;
+            } else if (currentStatus === 'SUSPENDED') {
+                selectEl.innerHTML = `
+                    <option value="ACTIVE" selected>ACTIVE — Reinstate Supplier Authorization</option>
+                `;
+            } else if (currentStatus === 'REJECTED') {
+                selectEl.innerHTML = `
+                    <option value="ACTIVE" selected>ACTIVE — Reconsider & Approve Supplier</option>
+                `;
+            } else {
+                selectEl.innerHTML = `
+                    <option value="ACTIVE" selected>ACTIVE — Full Bidding & PO Authorization</option>
+                    <option value="ON_HOLD">ON_HOLD — Restrict New Bids & PO Issuance</option>
+                    <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="REJECTED">REJECTED — Rejected Qualification</option>
+                `;
+            }
+        }
+
+        const modalEl = document.getElementById('vendorGovernanceModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    async function submitVendorGovernance() {
+        const vendorId = document.getElementById('govVendorId').value;
+        const targetStatus = document.getElementById('govTargetStatus').value;
+        const reason = (document.getElementById('govReason').value || '').trim();
+
+        if (!reason) {
+            showManagerToast('Please provide a mandatory reason for updating the vendor governance status.', 'warning');
+            return;
+        }
+
+        const submitBtn = document.getElementById('govSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Updating...';
+
+        try {
+            const res = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/governance-status/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    status: targetStatus,
+                    reason: reason
+                })
+            });
+
+            showManagerToast(res.message || `Vendor status updated to ${targetStatus}.`, 'success');
+
+            const modalEl = document.getElementById('vendorGovernanceModal');
+            if (modalEl && window.bootstrap) {
+                const modalInst = bootstrap.Modal.getInstance(modalEl);
+                if (modalInst) modalInst.hide();
+            }
+
+            loadVendorRiskData();
+        } catch (err) {
+            showManagerToast(err.message || 'Failed to update governance status.', 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Update Status';
+        }
+    }
+
+    async function openDossierModal(vendorId) {
+        let vendor = vendorDataCache.find(v => v.id === vendorId);
+
+        try {
+            const dossierRes = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/dossier/`);
+            if (dossierRes) vendor = dossierRes;
+        } catch (err) {
+            // fallback to cached data
+        }
+
+        if (!vendor) return;
+
+        document.getElementById('dossierVendorName').textContent = vendor.legal_name;
+        document.getElementById('dossierVendorNumber').textContent = vendor.vendor_number;
+        document.getElementById('dossierCategory').textContent = vendor.category_name || 'General Supplier';
+        document.getElementById('dossierTaxId').textContent = vendor.tax_identification_number;
+        document.getElementById('dossierRegNumber').textContent = vendor.registration_number ? 'Reg: ' + vendor.registration_number : 'Reg: Unspecified';
+        document.getElementById('dossierRiskLevel').textContent = (vendor.current_risk_level || 'LOW') + ' RISK';
+        document.getElementById('dossierStatus').textContent = vendor.status_display || vendor.status;
+        document.getElementById('dossierTotalSpend').textContent = '$' + Number(vendor.total_po_spend || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('dossierActivePos').textContent = (vendor.active_pos_count || 0) + ' active POs';
+
+        // Documents
+        const docs = vendor.documents || [];
+        document.getElementById('dossierDocCount').textContent = docs.length;
+        const docsBody = document.getElementById('dossierDocsTableBody');
+        if (docs.length === 0) {
+            docsBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No documents uploaded.</td></tr>`;
+        } else {
+            docsBody.innerHTML = docs.map(d => `
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-semibold text-dark">${d.title}</div>
+                        <div class="small text-muted">${d.document_type_display || d.document_type}</div>
+                    </td>
+                    <td>
+                        <div class="small ${d.is_expired ? 'text-danger fw-bold' : (d.is_expiring_soon ? 'text-warning-emphasis fw-bold' : 'text-dark')}">
+                            ${d.expiry_date || 'No Expiry'}
+                        </div>
+                    </td>
+                    <td>
+                        ${d.is_verified ? '<span class="badge bg-success rounded-pill">Verified</span>' : '<span class="badge bg-secondary rounded-pill">Pending</span>'}
+                    </td>
+                    <td class="small text-muted">${d.verified_by_email || 'Unverified'}</td>
+                    <td class="pe-3 text-end">
+                        ${d.file ? `<a href="${d.file}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1"><i class="fa-solid fa-download"></i></a>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Risk History
+        const riskRecords = vendor.risk_records || [];
+        document.getElementById('dossierRiskHistoryCount').textContent = riskRecords.length;
+        const riskContainer = document.getElementById('dossierRiskHistoryContainer');
+        if (riskRecords.length === 0) {
+            riskContainer.innerHTML = `<div class="text-center py-4 text-muted">No historical risk assessment records.</div>`;
+        } else {
+            riskContainer.innerHTML = riskRecords.map(rec => `
+                <div class="card border rounded-3 mb-3">
+                    <div class="card-header bg-slate-50 py-2 px-3 d-flex justify-content-between align-items-center">
+                        <span class="badge ${rec.risk_level === 'HIGH' ? 'bg-danger' : (rec.risk_level === 'MEDIUM' ? 'bg-warning text-dark' : 'bg-success')} rounded-pill px-2 py-1">
+                            ${rec.risk_level} RISK
+                        </span>
+                        <span class="text-muted small">${rec.created_at ? new Date(rec.created_at).toLocaleString() : ''} by ${rec.assessed_by_email || 'System'}</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="small text-dark">${rec.assessment_notes || 'No assessment notes recorded.'}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Purchase Orders
+        const pos = vendor.recent_purchase_orders || [];
+        document.getElementById('dossierPoCount').textContent = pos.length;
+        const posBody = document.getElementById('dossierPosTableBody');
+        if (pos.length === 0) {
+            posBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No recent purchase orders found for this supplier.</td></tr>`;
+        } else {
+            posBody.innerHTML = pos.map(po => `
+                <tr>
+                    <td class="ps-3 fw-bold text-dark font-monospace">${po.po_number}</td>
+                    <td>V${po.version || 1}</td>
+                    <td><span class="badge bg-secondary rounded-pill">${po.status_display || po.status}</span></td>
+                    <td><span class="badge bg-slate-100 text-dark border small">${po.cost_center_code || 'General'}</span></td>
+                    <td class="pe-3 text-end fw-bold text-dark">$${Number(po.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Profile & Banking
+        document.getElementById('dossierEmail').textContent = vendor.email || 'N/A';
+        document.getElementById('dossierPhone').textContent = vendor.phone || 'N/A';
+        document.getElementById('dossierAddress').textContent = vendor.address || 'N/A';
+        document.getElementById('dossierBankName').textContent = vendor.bank_name || 'N/A';
+        document.getElementById('dossierAccountNum').textContent = vendor.bank_account_number || 'N/A';
+        document.getElementById('dossierRoutingCode').textContent = vendor.bank_routing_code || 'N/A';
+
+        // Show Modal
+        const modalEl = document.getElementById('vendorDossierModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+</script>
+{% endblock manager_content %}

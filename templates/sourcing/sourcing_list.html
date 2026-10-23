@@ -1,0 +1,109 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}RFQ / RFP Sourcing{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-gavel text-warning me-2"></i>RFQ / RFP Sourcing</h2>
+        <p class="text-muted small mb-0">Sealed sourcing events from draft through bid window, two-envelope evaluation and award.</p>
+    </div>
+    {% if caps.can_manage %}
+        <a href="{% url 'sourcing_create' %}" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm"><i class="fa-solid fa-plus me-1"></i>Create Sourcing Event</a>
+    {% endif %}
+</div>
+
+{% include 'partials/messages.html' %}
+
+<div class="row g-3 mb-4">
+    {% with m=metrics %}
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=OPEN"><div class="stat-card h-100 border-start border-primary border-4"><div class="text-muted small fw-semibold">ACTIVE</div><div class="metric-value text-dark">{{ m.active }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=DRAFT"><div class="stat-card h-100 border-start border-secondary border-4"><div class="text-muted small fw-semibold">DRAFT</div><div class="metric-value text-secondary">{{ m.draft }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=PUBLISHED"><div class="stat-card h-100 border-start border-info border-4"><div class="text-muted small fw-semibold">PUBLISHED</div><div class="metric-value text-info">{{ m.published }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=BID_WINDOW"><div class="stat-card h-100 border-start border-dark border-4"><div class="text-muted small fw-semibold">IN BID WINDOW</div><div class="metric-value text-dark">{{ m.bid_window }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=CLOSING_SOON"><div class="stat-card h-100 border-start border-danger border-4"><div class="text-muted small fw-semibold">CLOSING ≤ 3 DAYS</div><div class="metric-value text-danger">{{ m.closing_soon }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=EVALUATION"><div class="stat-card h-100 border-start border-warning border-4"><div class="text-muted small fw-semibold">AWAITING EVALUATION</div><div class="metric-value text-warning">{{ m.awaiting_evaluation }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=AWARD_APPROVAL"><div class="stat-card h-100 border-start border-primary border-4"><div class="text-muted small fw-semibold">AWAITING AWARD</div><div class="metric-value text-primary">{{ m.awaiting_award }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=AWARDED"><div class="stat-card h-100 border-start border-success border-4"><div class="text-muted small fw-semibold">AWARDED</div><div class="metric-value text-success">{{ m.awarded }}</div></div></a></div>
+    <div class="col-6 col-md-4 col-xl"><a class="text-decoration-none" href="?status=CANCELLED"><div class="stat-card h-100 border-start border-secondary border-4"><div class="text-muted small fw-semibold">CANCELLED</div><div class="metric-value text-muted">{{ m.cancelled }}</div></div></a></div>
+    {% endwith %}
+</div>
+
+<form method="get" class="glass-card p-3 shadow-sm mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-lg-3">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-q">Search</label>
+            <input id="s-q" type="search" name="q" value="{{ params.q|default:'' }}" class="form-control form-control-sm" placeholder="Event no., title or invited vendor">
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-status">Status</label>
+            <select id="s-status" name="status" class="form-select form-select-sm">
+                {% for value, label in status_filters %}<option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-type">Type</label>
+            <select id="s-type" name="event_type" class="form-select form-select-sm">
+                <option value="">All</option>
+                {% for value, label in type_choices %}<option value="{{ value }}" {% if params.event_type == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-2">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-cat">Invited vendor category</label>
+            <select id="s-cat" name="category" class="form-select form-select-sm">
+                <option value="">All</option>
+                {% for c in categories %}<option value="{{ c.id }}" {% if params.category == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-3 col-lg-1">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-from">Deadline from</label>
+            <input id="s-from" type="date" name="deadline_from" value="{{ params.deadline_from|default:'' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-6 col-md-3 col-lg-1">
+            <label class="form-label small fw-semibold text-muted mb-1" for="s-to">Deadline to</label>
+            <input id="s-to" type="date" name="deadline_to" value="{{ params.deadline_to|default:'' }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-12 col-lg-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm px-3"><i class="fa-solid fa-filter me-1"></i>Apply</button>
+            <a href="{% url 'sourcing_list' %}" class="btn btn-outline-secondary btn-sm px-3">Reset</a>
+        </div>
+    </div>
+</form>
+
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-3">Event</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Bid window</th>
+                    <th>Invited</th>
+                    <th>Bids received</th>
+                    <th class="text-end pe-3">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for event in events %}
+                <tr>
+                    <td class="ps-3">
+                        <a href="{% url 'sourcing_detail' event.id %}" class="fw-semibold text-decoration-none text-dark">{{ event.title }}</a>
+                        <div><code class="small">{{ event.event_number }}</code></div>
+                    </td>
+                    <td><span class="badge bg-light text-dark border">{{ event.event_type }}</span></td>
+                    <td>{% include 'sourcing/partials/status_badge.html' with status=event.status label=event.get_status_display %}</td>
+                    <td class="small text-nowrap">{{ event.bid_start_date|date:"Y-m-d H:i" }}<br><span class="text-muted">to</span> {{ event.bid_end_date|date:"Y-m-d H:i" }}</td>
+                    <td>{{ event.invite_count }}</td>
+                    <td>{{ event.submitted_bid_count }}{% if event.status == 'BID_WINDOW' %} <i class="fa-solid fa-lock text-muted" title="Sealed until close"></i>{% endif %}</td>
+                    <td class="text-end pe-3"><a href="{% url 'sourcing_detail' event.id %}" class="btn btn-outline-warning btn-sm rounded-pill px-3 text-dark">Open</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center py-5 text-muted"><i class="fa-solid fa-gavel fa-2x mb-2 d-block"></i>No sourcing events match the current filters.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'partials/pagination.html' %}
+</div>
+{% endblock %}

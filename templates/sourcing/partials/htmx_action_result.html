@@ -1,0 +1,14 @@
+{% if success %}
+<div class="alert alert-success alert-dismissible fade show small" role="alert">
+    <i class="fa-solid fa-circle-check me-1"></i>
+    {% if event %}{{ detail|default:"Saved." }} <a href="{% url 'sourcing_detail' event.id %}" class="alert-link">{{ event.event_number }}</a>
+    {% else %}{{ detail|default:"Saved." }}{% endif %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% else %}
+<div class="alert alert-danger alert-dismissible fade show small" role="alert">
+    <i class="fa-solid fa-circle-xmark me-1"></i>
+    {% for e in errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% empty %}Action failed.{% endfor %}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}

@@ -1,0 +1,33 @@
+{% if pending %}
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th>Event</th><th>Awarded vendor</th><th class="text-end">Award amount</th><th class="text-end">Action</th></tr></thead>
+    <tbody>
+    {% for e in pending %}
+        {% with d=e.award_decision %}
+        <tr>
+            <td><a href="{% url 'evaluation_event' e.id %}">{{ e.event_number }}</a><div class="text-muted small">{{ e.title|truncatechars:60 }}</div></td>
+            <td>{% if d %}{{ d.winning_bid.vendor.legal_name }}<div class="text-muted small">{{ d.winning_bid.bid_number }}</div>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end">{% if d %}${{ d.winning_bid.total_bid_amount|floatformat:2 }}{% else %}—{% endif %}</td>
+            <td class="text-end">
+                <form method="post" action="{% url 'orders_generate_from_award' e.id %}"
+                      hx-post="{% url 'orders_generate_from_award' e.id %}"
+                      hx-target="#po-action-result" hx-swap="innerHTML">
+                    {% csrf_token %}
+                    <button class="btn btn-sm btn-primary rounded-pill px-3" type="submit">
+                        <i class="fa-solid fa-cart-plus me-1"></i>Generate PO
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endwith %}
+    {% endfor %}
+    </tbody>
+</table></div>
+<div id="po-action-result" class="mt-2" aria-live="polite"></div>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <i class="fa-solid fa-circle-check fa-2x text-success mb-2"></i>
+    <div class="fw-semibold">All awarded events have Purchase Orders.</div>
+    <div class="small">Approved awards appear here when PO generation is pending.</div>
+</div>
+{% endif %}

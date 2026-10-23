@@ -1,0 +1,527 @@
+{% extends 'base.html' %}
+
+{% block title %}Procurement Manager Workspace — ProcureSphere 360{% endblock %}
+
+{% block navbar %}
+{# Suppress default base navbar to render dedicated Procurement Manager layout #}
+{% endblock navbar %}
+
+{% block layout %}
+<!-- Mobile & Tablet Sidebar Backdrop Overlay -->
+<div id="managerSidebarBackdrop" class="manager-backdrop d-lg-none" onclick="toggleManagerSidebar()"></div>
+
+<div class="manager-app-layout d-flex min-vh-100 bg-slate-50">
+
+    <!-- ========================================================================= -->
+    <!-- 1. STICKY DARK SIDEBAR (ProcureSphere 360 Theme: Navy #002B49 / #0F172A)  -->
+    <!-- ========================================================================= -->
+    <aside id="managerSidebar" class="manager-sidebar bg-dark text-white border-end border-secondary border-opacity-25 d-flex flex-column flex-shrink-0 shadow-sm" style="width: 268px;">
+        
+        <!-- Sidebar Brand Header -->
+        <div class="sidebar-brand-box px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+            <a href="/manager/" class="d-flex align-items-center text-white text-decoration-none" id="managerSidebarLabel">
+                <i class="fa-solid fa-layer-group text-primary fa-xl me-2"></i>
+                <div>
+                    <div class="brand-title fw-bold font-heading lh-1 text-white fs-6">ProcureSphere <span class="text-primary fw-light">360</span></div>
+                    <span class="badge bg-info text-dark rounded-pill fw-bold" style="font-size: 0.62rem; letter-spacing: 0.04em;">
+                        PROCUREMENT MANAGER
+                    </span>
+                </div>
+            </a>
+            <!-- Mobile/Tablet Close Button -->
+            <button class="btn btn-link text-white-50 p-1 d-lg-none" type="button" aria-label="Close Navigation" onclick="toggleManagerSidebar()">
+                <i class="fa-solid fa-xmark fs-5"></i>
+            </button>
+        </div>
+
+        <!-- Sidebar Navigation Menu -->
+        <div class="sidebar-nav-container flex-grow-1 overflow-y-auto px-2 py-3">
+            <ul class="nav nav-pills flex-column gap-1 small" id="managerSidebarMenu">
+                
+                <!-- DASHBOARD SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-1 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    DASHBOARD
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if request.path == '/manager/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-chart-pie me-2"></i>
+                        <span>Executive Dashboard</span>
+                    </a>
+                </li>
+
+                <!-- PROCUREMENT SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    PROCUREMENT
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/pipeline/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/pipeline/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-filter-circle-dollar me-2"></i>
+                        <span>Procurement Pipeline</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/pr-aging/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/pr-aging/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-clock-rotate-left me-2"></i>
+                        <span>PR Aging &amp; Bottlenecks</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/sourcing/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/sourcing/' in request.path or '/sourcing-events/' in request.path or '/sourcing/bid-portal/' in request.path or request.path == '/sourcing/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-gavel me-2"></i>
+                        <span>Sourcing Events</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/awards/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/awards/' in request.path or '/sourcing/evaluation' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-award me-2"></i>
+                        <span>Award Approvals</span>
+                    </a>
+                </li>
+
+                <!-- ORDERS SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    ORDERS
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/purchase-orders/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/purchase-orders/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-cart-shopping me-2"></i>
+                        <span>Purchase Orders</span>
+                    </a>
+                </li>
+
+                <!-- SUPPLIERS SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    SUPPLIERS
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/vendor-risk/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/vendor-risk/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-shield-halved me-2"></i>
+                        <span>Vendor Risk</span>
+                    </a>
+                </li>
+
+                <!-- ANALYTICS SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    ANALYTICS
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/spend/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/spend/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-chart-line me-2"></i>
+                        <span>Spend Analysis</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/performance/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/performance/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-star-half-stroke me-2"></i>
+                        <span>Supplier Performance</span>
+                    </a>
+                </li>
+
+                <!-- WORKFLOW SECTION -->
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    WORKFLOW
+                </li>
+                <li class="nav-item">
+                    <a href="/manager/notifications/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/notifications/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-bell me-2"></i>
+                        <span>Notifications &amp; Alerts</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer border-top border-secondary border-opacity-25 px-3 py-3 mt-auto">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div class="d-flex align-items-center" style="min-width: 0;">
+                    <i class="fa-solid fa-circle-user text-info fs-4 me-2"></i>
+                    <div style="min-width: 0;">
+                        <div class="small fw-semibold text-white text-truncate" title="{{ user.email }}">{{ user.email }}</div>
+                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Procurement Manager</div>
+                    </div>
+                </div>
+                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill" title="Sign out"><i class="fa-solid fa-arrow-right-from-bracket"></i><span class="visually-hidden">Sign out</span></a>
+            </div>
+            <div class="d-flex align-items-center justify-content-between small text-white-50 pt-2 border-top border-secondary border-opacity-25">
+                <span class="d-flex align-items-center text-truncate me-2" title="Organization: {{ user_org_name|default:'Global Enterprise' }}">
+                    <i class="fa-solid fa-building me-2 text-info"></i>
+                    <span class="text-truncate">{{ user_org_name|default:'Global Enterprise' }}</span>
+                </span>
+                <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-50">v2026.1</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ========================================================================= -->
+    <!-- 2. MAIN CONTENT WRAPPER                                                   -->
+    <!-- ========================================================================= -->
+    <div class="manager-main-content flex-grow-1 d-flex flex-column min-vh-100">
+        
+        <!-- Top Sticky Navigation Bar -->
+        <header class="manager-topbar sticky-top bg-white border-bottom px-3 px-md-4 py-2 d-flex align-items-center justify-content-between shadow-xs z-3">
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                <!-- Hamburger Button for Mobile & Tablet -->
+                <button class="btn btn-outline-secondary btn-sm rounded-3 d-lg-none d-flex align-items-center justify-content-center" type="button" aria-label="Toggle Navigation" onclick="toggleManagerSidebar()" style="width: 36px; height: 36px;">
+                    <i class="fa-solid fa-bars fs-6"></i>
+                </button>
+                
+                <!-- Breadcrumbs & Title Area -->
+                <div class="d-flex flex-column">
+                    <nav aria-label="breadcrumb" class="d-none d-sm-block">
+                        <ol class="breadcrumb mb-0 py-0" style="font-size: 0.78rem;">
+                            <li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+                            {% block manager_breadcrumbs %}
+                            <li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Dashboard</li>
+                            {% endblock manager_breadcrumbs %}
+                        </ol>
+                    </nav>
+                    <div class="fw-bold text-dark fs-6 d-block d-sm-none">
+                        {% block mobile_page_title %}Procurement Manager{% endblock mobile_page_title %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Header Right Area (Scope Context, Notification Indicator, User Pill & Logout) -->
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                
+                <!-- Organization / Scope Badge (Authoritative Backend Tenant Context) -->
+                <div class="d-none d-md-flex align-items-center px-3 py-1 bg-light border rounded-pill text-dark small" title="Scope is determined by authenticated tenant isolation">
+                    <i class="fa-solid fa-building-circle-check text-primary me-2"></i>
+                    <span class="fw-semibold me-1">Scope:</span>
+                    <span class="text-secondary text-truncate" style="max-width: 180px;">{{ user_org_name|default:'Global Enterprise' }}</span>
+                </div>
+
+                <!-- Notifications Quick Indicator -->
+                <a href="/manager/notifications/" class="btn btn-sm btn-light border rounded-circle d-flex align-items-center justify-content-center position-relative shadow-2xs" style="width: 36px; height: 36px;" title="Notifications & Escalations">
+                    <i class="fa-solid fa-bell text-secondary"></i>
+                    <span id="topbarNotificationBadge" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle d-none">
+                        <span class="visually-hidden">New alerts</span>
+                    </span>
+                </a>
+
+                <!-- User Profile Pill -->
+                <div class="d-flex align-items-center gap-2">
+                    <div class="avatar-circle-sm bg-primary text-white fw-bold d-flex align-items-center justify-content-center rounded-circle flex-shrink-0 shadow-2xs">
+                        {{ user.email|slice:":1"|upper|default:"M" }}
+                    </div>
+                    <div class="d-none d-lg-block text-start leading-tight">
+                        <div class="fw-bold text-dark small">{{ user.email }}</div>
+                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">
+                            Procurement Manager
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Signout Button -->
+                <a href="/logout/" class="btn btn-outline-secondary btn-sm rounded-pill px-2 px-md-3 fw-semibold d-flex align-items-center gap-1 shadow-2xs">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span class="d-none d-sm-inline">Sign out</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Toast / Alert Region for Async Feedback -->
+        <div id="managerToastContainer" class="toast-container position-fixed top-0 end-0 p-3 z-3" style="margin-top: 55px;"></div>
+
+        <!-- Main Body Content Block -->
+        <main class="manager-page-body flex-grow-1 p-2 p-sm-3 p-md-4">
+            {% block manager_content %}
+                {% block content %}{% endblock content %}
+            {% endblock manager_content %}
+        </main>
+    </div>
+</div>
+
+<style>
+    /* ProcureSphere 360 Procurement Manager Design Tokens - Unified with Procurement Executive */
+    :root {
+        --hpe-navy: #0F172A;
+        --hpe-cyan: #00B0B9;
+        --hpe-emerald: #10B981;
+        --hpe-amber: #F59E0B;
+        --hpe-rose: #F43F5E;
+        --hpe-indigo: #6366F1;
+        --slate-50: #F8FAFC;
+        --slate-100: #F1F5F9;
+        --slate-200: #E2E8F0;
+    }
+
+    .bg-hpe-navy { background-color: #212529 !important; }
+    .bg-slate-50 { background-color: var(--slate-50) !important; }
+    .bg-slate-100 { background-color: var(--slate-100) !important; }
+    .text-cyan { color: #00B0B9 !important; }
+    .text-emerald { color: var(--hpe-emerald) !important; }
+    .text-amber { color: var(--hpe-amber) !important; }
+    .text-rose { color: var(--hpe-rose) !important; }
+    .text-indigo { color: var(--hpe-indigo) !important; }
+    .bg-cyan { background-color: #00B0B9 !important; }
+    .bg-amber { background-color: var(--hpe-amber) !important; }
+    .bg-emerald { background-color: var(--hpe-emerald) !important; }
+    .bg-amber-10 { background-color: rgba(245, 158, 11, 0.12) !important; }
+    .bg-cyan-10 { background-color: rgba(0, 176, 185, 0.12) !important; }
+    .bg-emerald-10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+    .bg-rose-10 { background-color: rgba(244, 63, 94, 0.12) !important; }
+    .bg-indigo-10 { background-color: rgba(99, 102, 241, 0.12) !important; }
+    .bg-black-20 { background-color: rgba(0, 0, 0, 0.2) !important; }
+    .border-white-10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+    .border-amber-30 { border-color: rgba(245, 158, 11, 0.3) !important; }
+    .text-white-75 { color: rgba(255, 255, 255, 0.75) !important; }
+    .hover-bg-slate:hover { background-color: #F8FAFC; }
+
+    .brand-badge-square {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+    .bg-amber-gradient {
+        background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    }
+
+    .avatar-circle-sm {
+        width: 34px;
+        height: 34px;
+        font-size: 0.85rem;
+    }
+
+    /* Sticky Topbar across all screen sizes */
+    .manager-topbar {
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1030 !important;
+        background-color: rgba(255, 255, 255, 0.98) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .manager-main-content {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .manager-sidebar,
+    .sidebar-nav-container {
+        overscroll-behavior: contain !important;
+        overscroll-behavior-y: contain !important;
+    }
+
+    /* Desktop Sidebar (>= 992px) */
+    @media (min-width: 992px) {
+        .manager-sidebar {
+            width: 268px !important;
+            min-width: 268px !important;
+            height: 100vh;
+            position: -webkit-sticky !important;
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 1020;
+            background-color: #212529 !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
+        .manager-backdrop {
+            display: none !important;
+        }
+    }
+
+    /* Mobile & Tablet Sidebar Drawer (< 992px) */
+    @media (max-width: 991.98px) {
+        .manager-sidebar {
+            position: fixed !important;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            z-index: 1050;
+            transform: translateX(-100%);
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: #212529 !important;
+        }
+        .manager-sidebar.show {
+            transform: translateX(0);
+        }
+        .manager-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 1040;
+            display: none;
+        }
+        .manager-backdrop.show {
+            display: block !important;
+        }
+    }
+
+    /* Sidebar Navigation Links matching Procurement Executive */
+    .manager-nav-link {
+        font-size: 0.875rem !important;
+        transition: all 0.18s ease-in-out;
+        border: 1px solid transparent;
+        color: rgba(255, 255, 255, 0.75) !important;
+    }
+    .manager-nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #FFFFFF !important;
+        transform: none;
+    }
+    .manager-nav-link.active {
+        background-color: #0d6efd !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-color: transparent !important;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+    }
+    .manager-nav-link.active i {
+        color: #FFFFFF !important;
+    }
+
+    /* UI State Containers: Loading, Empty, Error */
+    .state-container {
+        padding: 3rem 1.5rem;
+        text-align: center;
+        background: #FFFFFF;
+        border-radius: 12px;
+        border: 1px solid #E2E8F0;
+    }
+    .state-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<script>
+    // Responsive Mobile/Tablet Sidebar Drawer Toggle
+    function toggleManagerSidebar() {
+        const sidebar = document.getElementById('managerSidebar');
+        const backdrop = document.getElementById('managerSidebarBackdrop');
+        if (sidebar && backdrop) {
+            const isShown = sidebar.classList.contains('show');
+            if (isShown) {
+                sidebar.classList.remove('show');
+                backdrop.classList.remove('show');
+            } else {
+                sidebar.classList.add('show');
+                backdrop.classList.add('show');
+            }
+        }
+    }
+
+    // Standardized Manager Toast Notification Helper
+    function showManagerToast(message, type = 'info') {
+        const container = document.getElementById('managerToastContainer');
+        if (!container) return;
+
+        const bgClass = type === 'success' ? 'bg-success text-white' :
+                        type === 'error' ? 'bg-danger text-white' :
+                        type === 'warning' ? 'bg-warning text-dark' : 'bg-primary text-white';
+        
+        const iconClass = type === 'success' ? 'fa-circle-check' :
+                          type === 'error' ? 'fa-circle-exclamation' :
+                          type === 'warning' ? 'fa-triangle-exclamation' : 'fa-circle-info';
+
+        const toastId = 'toast_' + Date.now();
+        const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center ${bgClass} border-0 shadow-lg mb-2" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body d-flex align-items-center gap-2">
+                        <i class="fa-solid ${iconClass}"></i>
+                        <span>${message}</span>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', toastHtml);
+        const toastElement = document.getElementById(toastId);
+        if (toastElement && window.bootstrap) {
+            const bsToast = new bootstrap.Toast(toastElement, { delay: 4500 });
+            bsToast.show();
+        }
+    }
+
+    // Standardized API Fetch with CSRF and Error Handling
+    async function fetchManagerAPI(url, options = {}) {
+        const defaultHeaders = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        };
+        
+        // Retrieve CSRF token if cookie is present
+        const csrfCookie = document.cookie.split('; ').find(row => row.startsWith('csrftoken='));
+        if (csrfCookie) {
+            defaultHeaders['X-CSRFToken'] = csrfCookie.split('=')[1];
+        }
+
+        options.headers = { ...defaultHeaders, ...(options.headers || {}) };
+
+        try {
+            const response = await fetch(url, options);
+            if (response.status === 401) {
+                window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+                return null;
+            }
+            if (!response.ok) {
+                const errData = await response.json().catch(() => ({}));
+                const errMsg = errData.detail || errData.error || `HTTP ${response.status}: Request failed`;
+                throw new Error(errMsg);
+            }
+            return await response.json();
+        } catch (err) {
+            console.error('[Manager API Error]:', err);
+            throw err;
+        }
+    }
+
+    // Update Topbar Notification Badge & isolate sidebar mouse wheel scroll
+    document.addEventListener('DOMContentLoaded', async () => {
+        const sidebar = document.getElementById('managerSidebar');
+        const backdrop = document.getElementById('managerSidebarBackdrop');
+
+        if (sidebar) {
+            // Isolate mouse wheel scrolling so the background dashboard NEVER scrolls up/down when cursor is over sidebar
+            sidebar.addEventListener('wheel', (e) => {
+                const nav = sidebar.querySelector('.sidebar-nav-container');
+                if (nav && nav.scrollHeight > nav.clientHeight) {
+                    const atTop = nav.scrollTop <= 0 && e.deltaY < 0;
+                    const atBottom = (nav.scrollHeight - nav.scrollTop - nav.clientHeight <= 1) && e.deltaY > 0;
+                    if (!atTop && !atBottom) {
+                        nav.scrollTop += e.deltaY;
+                    }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+        }
+
+        // Auto-close sidebar on mobile/tablet when a route is clicked
+        if (window.innerWidth < 992) {
+            const navLinks = document.querySelectorAll('.manager-nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (sidebar) sidebar.classList.remove('show');
+                    if (backdrop) backdrop.classList.remove('show');
+                });
+            });
+        }
+
+        const topbarBadge = document.getElementById('topbarNotificationBadge');
+        if (topbarBadge) {
+            try {
+                const summary = await fetchManagerAPI('/api/v1/notifications/summary/');
+                if (summary && summary.unread_count > 0) {
+                    topbarBadge.classList.remove('d-none');
+                } else {
+                    topbarBadge.classList.add('d-none');
+                }
+            } catch (e) {
+                // Silently ignore topbar indicator check failures
+            }
+        }
+    });
+</script>
+{% endblock layout %}

@@ -1,0 +1,89 @@
+{% extends 'layouts/legal_base.html' %}
+
+{% block title %}Contract Vault & SLA Alerts — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-file-contract text-info me-2"></i> Contract Vault & SLA Expiry Alerts</h2>
+        <p class="text-muted small mb-0">Legal repository, versioning history, milestone SLA tracking & Celery Beat automated alert scans.</p>
+    </div>
+</div>
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Status Filter Pills -->
+<div class="mb-4">
+    <div class="btn-group border rounded-pill p-1 bg-white shadow-sm" role="group">
+        <a href="/contracts/" class="btn btn-sm rounded-pill px-3 {% if not status_filter %}btn-info text-white{% else %}btn-light{% endif %}">All Contracts</a>
+        <a href="/contracts/?status=ACTIVE" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'ACTIVE' %}btn-info text-white{% else %}btn-light{% endif %}">Active</a>
+        <a href="/contracts/?status=RENEWAL_DUE" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'RENEWAL_DUE' %}btn-info text-white{% else %}btn-light{% endif %}">Renewal Due</a>
+        <a href="/contracts/?status=EXPIRED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'EXPIRED' %}btn-info text-white{% else %}btn-light{% endif %}">Expired</a>
+    </div>
+</div>
+
+<!-- Contract Repository Table -->
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-4">Contract Reference & Title</th>
+                    <th>Supplier / Party</th>
+                    <th>Total Contract Value</th>
+                    <th>Expiration Date</th>
+                    <th>Status</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for contract in contracts %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ contract.title }}</div>
+                            <div class="text-muted small"><code>{{ contract.contract_number }}</code></div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ contract.vendor.legal_name }}</div>
+                            <div class="text-muted small"><code>{{ contract.vendor.vendor_code }}</code></div>
+                        </td>
+                        <td class="fw-bold text-navy">${{ contract.total_value|floatformat:2 }} {{ contract.currency }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border"><i class="fa-solid fa-calendar-days me-1"></i> {{ contract.end_date|date:"M d, Y" }}</span>
+                        </td>
+                        <td>
+                            {% if contract.status == 'ACTIVE' %}
+                                <span class="badge badge-status badge-status-approved">ACTIVE</span>
+                            {% elif contract.status == 'RENEWAL_DUE' %}
+                                <span class="badge badge-status badge-status-pending"><i class="fa-solid fa-bell me-1"></i> RENEWAL DUE</span>
+                            {% else %}
+                                <span class="badge badge-status badge-status-suspended">{{ contract.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="/api/v1/contracts/contracts/{{ contract.id }}/" class="btn btn-outline-info btn-sm rounded-pill px-3">
+                                Inspect Vault <i class="fa-solid fa-arrow-right ms-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-file-signature fa-3x mb-3 text-secondary"></i>
+                            <div>No Contracts found matching the criteria.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

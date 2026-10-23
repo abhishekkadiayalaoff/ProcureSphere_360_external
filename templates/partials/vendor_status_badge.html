@@ -1,0 +1,6 @@
+{% if status == 'ACTIVE' %}<span class="badge bg-success">{{ label }}</span>
+{% elif status == 'ON_HOLD' %}<span class="badge bg-warning text-dark">{{ label }}</span>
+{% elif status == 'SUSPENDED' or status == 'REJECTED' %}<span class="badge bg-danger">{{ label }}</span>
+{% elif status == 'KYC_REVIEW' or status == 'SUBMITTED' %}<span class="badge bg-info text-dark">{{ label }}</span>
+{% elif status == 'APPROVED' %}<span class="badge bg-primary">{{ label }}</span>
+{% else %}<span class="badge bg-secondary">{{ label }}</span>{% endif %}

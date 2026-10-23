@@ -39,21 +39,22 @@ from apps.vendors.services import (
     approve_vendor_service,
     register_vendor_service,
     submit_vendor_kyc_service,
+    verify_vendor_document_service,
 )
 
 
 class Command(BaseCommand):
     help = "Seeds ProcureSphere 360 database with realistic demonstration data for all core ERP workflows."
 
-    def get_or_create_user(self, email, role, is_superuser=True):
+    def get_or_create_user(self, email, role, is_superuser=False, password="Password123!"):
         user = User.objects.filter(email=email).first()
         if not user:
             user = User.objects.create_user(email=email, role=role)
         user.role = role
-        user.set_password("Password123!")
+        user.set_password(password)
         user.is_active = True
         user.is_staff = True
-        user.is_superuser = True
+        user.is_superuser = is_superuser
         user.save()
         return user
 
@@ -101,16 +102,114 @@ class Command(BaseCommand):
             roles[code] = role
 
         # 2. Seed Users
-        self.get_or_create_user("admin@hpe.com", roles[Role.SUPER_ADMIN], is_superuser=True)
-        requester = self.get_or_create_user("requester@hpe.com", roles[Role.REQUESTER])
-        approver = self.get_or_create_user("approver@hpe.com", roles[Role.DEPT_APPROVER])
-        proc_exec = self.get_or_create_user("procexec@hpe.com", roles[Role.PROC_EXEC])
-        proc_mgr = self.get_or_create_user("procmgr@hpe.com", roles[Role.PROC_MGR])
-        finance_user = self.get_or_create_user("finance@hpe.com", roles[Role.FINANCE_AP])
-        receiver_user = self.get_or_create_user("receiver@hpe.com", roles[Role.STORES_RECEIVER])
-        legal_user = self.get_or_create_user("legal@hpe.com", roles[Role.LEGAL_MGR])
-        self.get_or_create_user("auditor@hpe.com", roles[Role.AUDITOR])
-        vendor_user = self.get_or_create_user("vendoruser@cisco.com", roles[Role.VENDOR_USER])
+        self.get_or_create_user(
+            "admin@hpe.com", roles[Role.SUPER_ADMIN], is_superuser=True, password="Password123!"
+        )
+        self.get_or_create_user(
+            "admin@procuresphere.com",
+            roles[Role.SUPER_ADMIN],
+            is_superuser=True,
+            password="ProcureAdmin@360!",
+        )
+
+        requester = self.get_or_create_user(
+            "requester@hpe.com", roles[Role.REQUESTER], is_superuser=False, password="Password123!"
+        )
+        req_ps = self.get_or_create_user(
+            "requester01@procuresphere.com",
+            roles[Role.REQUESTER],
+            is_superuser=False,
+            password="Requester@360!",
+        )
+
+        approver = self.get_or_create_user(
+            "approver@hpe.com",
+            roles[Role.DEPT_APPROVER],
+            is_superuser=False,
+            password="Password123!",
+        )
+        app_ps = self.get_or_create_user(
+            "dept.approver01@procuresphere.com",
+            roles[Role.DEPT_APPROVER],
+            is_superuser=False,
+            password="DeptApprover@360!",
+        )
+
+        proc_exec = self.get_or_create_user(
+            "procexec@hpe.com", roles[Role.PROC_EXEC], is_superuser=False, password="Password123!"
+        )
+        self.get_or_create_user(
+            "proc.executive01@procuresphere.com",
+            roles[Role.PROC_EXEC],
+            is_superuser=False,
+            password="ProcExec@360!",
+        )
+
+        proc_mgr = self.get_or_create_user(
+            "procmgr@hpe.com", roles[Role.PROC_MGR], is_superuser=False, password="Password123!"
+        )
+        self.get_or_create_user(
+            "proc.manager01@procuresphere.com",
+            roles[Role.PROC_MGR],
+            is_superuser=False,
+            password="ProcManager@360!",
+        )
+
+        finance_user = self.get_or_create_user(
+            "finance@hpe.com", roles[Role.FINANCE_AP], is_superuser=False, password="Password123!"
+        )
+        self.get_or_create_user(
+            "finance.ap01@procuresphere.com",
+            roles[Role.FINANCE_AP],
+            is_superuser=False,
+            password="FinanceAP@360!",
+        )
+
+        receiver_user = self.get_or_create_user(
+            "receiver@hpe.com",
+            roles[Role.STORES_RECEIVER],
+            is_superuser=False,
+            password="Password123!",
+        )
+        self.get_or_create_user(
+            "stores.recv01@procuresphere.com",
+            roles[Role.STORES_RECEIVER],
+            is_superuser=False,
+            password="StoresRecv@360!",
+        )
+
+        legal_user = self.get_or_create_user(
+            "legal@hpe.com", roles[Role.LEGAL_MGR], is_superuser=False, password="Password123!"
+        )
+        self.get_or_create_user(
+            "legal.contract01@procuresphere.com",
+            roles[Role.LEGAL_MGR],
+            is_superuser=False,
+            password="LegalContract@360!",
+        )
+
+        self.get_or_create_user(
+            "auditor@hpe.com", roles[Role.AUDITOR], is_superuser=False, password="Password123!"
+        )
+        self.get_or_create_user(
+            "compliance.audit01@procuresphere.com",
+            roles[Role.AUDITOR],
+            is_superuser=False,
+            password="ComplianceAudit@360!",
+        )
+
+        vendor_user = self.get_or_create_user(
+            "vendoruser@cisco.com",
+            roles[Role.VENDOR_USER],
+            is_superuser=False,
+            password="Password123!",
+        )
+        self.get_or_create_user(
+            "vendor.user01@procuresphere.com",
+            roles[Role.VENDOR_USER],
+            is_superuser=False,
+            password="VendorUser@360!",
+        )
 
         # 3. Organization Master Data
         org, _ = Organization.objects.get_or_create(
@@ -119,14 +218,37 @@ class Command(BaseCommand):
         dept_it, _ = Department.objects.get_or_create(
             organization=org, code="IT-OPS", defaults={"name": "IT Infrastructure Operations"}
         )
-        _, _ = Department.objects.get_or_create(
+        dept_ops, _ = Department.objects.get_or_create(
             organization=org, code="OPS", defaults={"name": "Global Operations"}
         )
+        dept_eng, _ = Department.objects.get_or_create(
+            organization=org, code="ENG", defaults={"name": "Hardware Engineering & R&D"}
+        )
+
+        approver.department = dept_it
+        approver.save(update_fields=["department"])
+        app_ps.department = dept_it
+        app_ps.save(update_fields=["department"])
+
+        requester.department = dept_it
+        requester.save(update_fields=["department"])
+        req_ps.department = dept_it
+        req_ps.save(update_fields=["department"])
 
         cost_center, _ = CostCenter.objects.get_or_create(
             department=dept_it,
             code="CC-IT-101",
             defaults={"name": "Compute & Cloud Center", "manager": approver},
+        )
+        cost_center_ops, _ = CostCenter.objects.get_or_create(
+            department=dept_ops,
+            code="CC-OPS-201",
+            defaults={"name": "Supply Chain & Facilities", "manager": approver},
+        )
+        cost_center_eng, _ = CostCenter.objects.get_or_create(
+            department=dept_eng,
+            code="CC-ENG-301",
+            defaults={"name": "Hardware Systems R&D", "manager": approver},
         )
 
         today = timezone.now().date()
@@ -147,7 +269,19 @@ class Command(BaseCommand):
             fiscal_period=fiscal_period,
             allocated_amount=Decimal("250000.00"),
         )
+        budget_ops = allocate_budget_service(
+            cost_center=cost_center_ops,
+            fiscal_period=fiscal_period,
+            allocated_amount=Decimal("150000.00"),
+        )
+        budget_eng = allocate_budget_service(
+            cost_center=cost_center_eng,
+            fiscal_period=fiscal_period,
+            allocated_amount=Decimal("350000.00"),
+        )
         self.stdout.write(f"Budget allocated for {cost_center.code}: ${budget.allocated_amount}")
+        self.stdout.write(f"Budget allocated for {cost_center_ops.code}: ${budget_ops.allocated_amount}")
+        self.stdout.write(f"Budget allocated for {cost_center_eng.code}: ${budget_eng.allocated_amount}")
 
         # 5. Vendor Master & Onboarding
         cat_hw, _ = VendorCategory.objects.get_or_create(
@@ -167,20 +301,24 @@ class Command(BaseCommand):
                 address="170 West Tasman Dr, San Jose, CA",
                 created_by_user=proc_exec,
             )
-            VendorDocument.objects.create(
+            kyc_doc = VendorDocument.objects.create(
                 vendor=vendor1,
                 document_type=VendorDocument.DOC_TYPE_CERT,
                 title="Certificate of Incorporation",
                 file=SimpleUploadedFile(
                     "cert.pdf", b"%PDF-1.4 Content", content_type="application/pdf"
                 ),
-                is_verified=True,
             )
             submit_vendor_kyc_service(vendor=vendor1, user=proc_exec)
+            verify_vendor_document_service(document=kyc_doc, verifier=legal_user)
             approve_vendor_service(vendor=vendor1, manager=proc_mgr, notes="Verified & Approved")
 
         vendor_user.vendor = vendor1
         vendor_user.save(update_fields=["vendor"])
+        v_ps = User.objects.filter(email="vendor.user01@procuresphere.com").first()
+        if v_ps:
+            v_ps.vendor = vendor1
+            v_ps.save(update_fields=["vendor"])
 
         vendor2 = Vendor.objects.filter(tax_identification_number="TAX-INTEL-882").first()
         if not vendor2:
@@ -191,6 +329,27 @@ class Command(BaseCommand):
                 email="sales@intel.com",
                 address="2200 Mission College Blvd, Santa Clara, CA",
                 created_by_user=proc_exec,
+            )
+
+        # 5b. Approval Policies
+        from apps.approvals.models import ApprovalPolicy
+        from apps.approvals.services import (
+            add_approval_step_service,
+            create_approval_policy_service,
+        )
+
+        if not ApprovalPolicy.objects.filter(module=ApprovalPolicy.MODULE_PR, is_active=True).exists():
+            default_pr_policy = create_approval_policy_service(
+                name="Default Standard PR Approval Policy",
+                module=ApprovalPolicy.MODULE_PR,
+                min_amount=Decimal("0.00"),
+                department=None,
+            )
+            add_approval_step_service(
+                policy=default_pr_policy,
+                step_number=1,
+                approver_role=roles[Role.DEPT_APPROVER],
+                description="Department Manager Approval",
             )
 
         # 6. Requisition & Budget Reservation

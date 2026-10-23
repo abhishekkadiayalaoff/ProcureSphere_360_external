@@ -52,16 +52,37 @@ def create_supplier_invoice_service(
         notes=notes,
     )
 
+    if not line_items:
+        raise ValidationError("Invoice must contain at least one line item.")
+
     for item in line_items:
         po_line = item.get("po_line")
-        qty = Decimal(str(item["quantity"]))
-        unit_price = Decimal(str(item["unit_price"]))
+        item_desc = item.get(
+            "item_description", getattr(po_line, "item_description", "Line Item")
+        )
+        try:
+            qty = Decimal(str(item["quantity"]))
+            unit_price = Decimal(str(item["unit_price"]))
+        except Exception:
+            raise ValidationError(
+                f"Quantity and unit price for '{item_desc}' must be valid numeric values."
+            )
+
+        if qty <= Decimal("0.00"):
+            raise ValidationError(
+                f"Invoice line quantity for '{item_desc}' must be greater than zero. "
+                f"Negative or zero counts ({qty}) are not permitted."
+            )
+        if unit_price < Decimal("0.00"):
+            raise ValidationError(
+                f"Invoice line unit price for '{item_desc}' cannot be negative. "
+                f"Negative value ({unit_price}) is not permitted."
+            )
+
         line = InvoiceLine.objects.create(
             invoice=invoice,
             po_line=po_line,
-            item_description=item.get(
-                "item_description", getattr(po_line, "item_description", "Line Item")
-            ),
+            item_description=item_desc,
             quantity=qty,
             unit_price=unit_price,
         )
@@ -95,14 +116,22 @@ def create_supplier_invoice_service(
 def run_3_way_match_service(
     *,
     invoice: SupplierInvoice,
-    price_tolerance_pct: Decimal = Decimal("0.05"),
-    qty_tolerance_pct: Decimal = Decimal("0.05"),
+    price_tolerance_pct: Decimal = None,
+    qty_tolerance_pct: Decimal = None,
     user=None,
 ) -> tuple[SupplierInvoice, list[MatchException]]:
     """
     Executes automated 3-way match: PO line vs Goods Receipt line vs Supplier Invoice line.
     Generates explicit MatchException records if variance exceeds tolerance thresholds.
     """
+    from apps.invoices.models import MatchTolerancePolicy
+
+    policy = MatchTolerancePolicy.get_current()
+    if price_tolerance_pct is None:
+        price_tolerance_pct = policy.price_tolerance_pct
+    if qty_tolerance_pct is None:
+        qty_tolerance_pct = policy.qty_tolerance_pct
+
     invoice.status = SupplierInvoice.STATUS_MATCHING
     invoice.save(update_fields=["status", "updated_at"])
 
@@ -120,21 +149,40 @@ def run_3_way_match_service(
             exceptions.append(exc)
             continue
 
-        # 1. Quantity Variance check (Billed Qty vs Goods Receipt Accepted Qty)
+        # 1. Quantity Variance check (Billed Qty vs Remaining Uninvoiced Goods Receipt Accepted Qty)
         accepted_qty_agg = ReceiptLine.objects.filter(po_line=po_line).aggregate(
             total_accepted=models.Sum("quantity_accepted")
         )["total_accepted"] or Decimal("0.00")
 
-        max_allowed_qty = accepted_qty_agg * (Decimal("1.00") + qty_tolerance_pct)
+        # Deduct prior invoiced quantities from other active/matched invoices on this PO line
+        prior_invoiced_qty = (
+            InvoiceLine.objects.filter(
+                po_line=po_line,
+                invoice__status__in=[
+                    SupplierInvoice.STATUS_MATCHING,
+                    SupplierInvoice.STATUS_EXCEPTION,
+                    SupplierInvoice.STATUS_APPROVAL,
+                    SupplierInvoice.STATUS_READY_FOR_PAYMENT,
+                    SupplierInvoice.STATUS_PAID,
+                ],
+            )
+            .exclude(invoice_id=invoice.id)
+            .aggregate(total_prior=models.Sum("quantity"))["total_prior"]
+            or Decimal("0.00")
+        )
+
+        remaining_accepted_qty = max(Decimal("0.00"), accepted_qty_agg - prior_invoiced_qty)
+        max_allowed_qty = remaining_accepted_qty * (Decimal("1.00") + qty_tolerance_pct)
+
         if inv_line.quantity > max_allowed_qty:
-            qty_diff = inv_line.quantity - accepted_qty_agg
+            qty_diff = inv_line.quantity - remaining_accepted_qty
             variance = qty_diff * inv_line.unit_price
             exc = MatchException.objects.create(
                 invoice=invoice,
                 exception_type=MatchException.TYPE_QUANTITY_VARIANCE,
                 description=(
-                    f"Billed qty {inv_line.quantity} exceeds accepted GRN qty {accepted_qty_agg} "
-                    f"for item '{po_line.item_description}' (Tolerance: {qty_tolerance_pct * 100}%)."
+                    f"Billed qty {inv_line.quantity} exceeds remaining uninvoiced accepted GRN qty "
+                    f"{remaining_accepted_qty} (Total accepted: {accepted_qty_agg}, Prior invoiced: {prior_invoiced_qty}, Tolerance: {qty_tolerance_pct * 100}%)."
                 ),
                 variance_amount=variance,
             )
@@ -158,6 +206,22 @@ def run_3_way_match_service(
 
     if exceptions:
         invoice.status = SupplierInvoice.STATUS_EXCEPTION
+
+        from apps.accounts.models import Role, User
+        from apps.notifications.models import Notification
+
+        finance_users = User.objects.filter(role__code=Role.FINANCE_AP, is_active=True)
+        for fin_user in finance_users:
+            Notification.objects.create(
+                recipient=fin_user,
+                notification_type=Notification.TYPE_EXCEPTION_RAISED,
+                title=f"3-Way Match Exception: Invoice {invoice.invoice_number}",
+                message=(
+                    f"Invoice {invoice.invoice_number} from {invoice.vendor.legal_name} "
+                    f"has {len(exceptions)} match exception(s) requiring Finance resolution."
+                ),
+                target_url=f"/invoices/{invoice.id}/",
+            )
     else:
         invoice.status = SupplierInvoice.STATUS_READY_FOR_PAYMENT
 

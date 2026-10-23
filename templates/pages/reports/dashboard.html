@@ -1,0 +1,106 @@
+{% extends base_layout|default:'layouts/finance_base.html' %}
+
+{% block title %}Reports & Exports — ProcureSphere 360{% endblock %}
+{% block page_heading %}Reports & Analytics Hub{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-chart-line text-success me-2"></i> Analytics & Exports</h2>
+        <p class="text-muted mb-0">Generate, download, and review standard financial and compliance reports.</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+                <h5 class="fw-bold mb-0">Available Reports</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} py-2 px-3 small">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+                
+                <form action="{% url 'generate_report' %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Select Report Module</label>
+                        <select name="report_type" class="form-select bg-light" required>
+                            <option value="">-- Choose a report --</option>
+                            {% for r in reports %}
+                                <option value="{{ r.id }}">{{ r.name }} - {{ r.desc }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Export Format</label>
+                        <select name="format_type" class="form-select bg-light" required>
+                            <option value="CSV">CSV (Comma Separated Values)</option>
+                            <option value="XLSX">Excel Spreadsheet (.xlsx)</option>
+                            <option value="PDF">PDF Document (.pdf)</option>
+                        </select>
+                        <div class="form-text mt-2"><i class="fa-solid fa-info-circle me-1"></i> Generated in real-time. Large datasets may take a moment.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary fw-bold px-4 rounded-pill shadow-sm">
+                        <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Generate Report
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card shadow-sm border-0 h-100">
+            <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">My Recent Exports</h5>
+                <button class="btn btn-sm btn-outline-secondary rounded-pill" onclick="window.location.reload()"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <tbody>
+                            {% for job in jobs %}
+                            <tr>
+                                <td>
+                                    <div class="fw-bold">{{ job.report_type|title }}</div>
+                                    <div class="text-muted small">{{ job.created_at|date:"M d, H:i" }}</div>
+                                </td>
+                                <td>
+                                    {% if job.status == 'COMPLETED' %}
+                                        <span class="badge bg-success text-white px-2 py-1 rounded-pill"><i class="fa-solid fa-check me-1"></i> Ready</span>
+                                    {% elif job.status == 'FAILED' %}
+                                        <span class="badge bg-danger text-white px-2 py-1 rounded-pill"><i class="fa-solid fa-xmark me-1"></i> Failed</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark px-2 py-1 rounded-pill"><i class="fa-solid fa-spinner fa-spin me-1"></i> Processing</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if job.status == 'COMPLETED' and job.result_file %}
+                                        <a href="{{ job.result_file.url }}" class="btn btn-sm btn-success rounded-pill px-3" download>
+                                            <i class="fa-solid fa-download me-1"></i> Download {{ job.export_format }}
+                                        </a>
+                                    {% elif job.status == 'FAILED' %}
+                                        <span class="text-danger small" title="{{ job.error_message }}">Error</span>
+                                    {% else %}
+                                        <button class="btn btn-sm btn-light rounded-pill px-3" disabled>Waiting...</button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">
+                                    No recent exports found.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

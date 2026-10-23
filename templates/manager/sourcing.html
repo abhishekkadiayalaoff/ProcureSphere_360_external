@@ -1,0 +1,590 @@
+{% extends 'manager/base_manager.html' %}
+
+{% block title %}Sourcing Events Oversight — Procurement Manager{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Sourcing Events</li>
+{% endblock manager_breadcrumbs %}
+
+{% block mobile_page_title %}Sourcing Events{% endblock mobile_page_title %}
+
+{% block manager_content %}
+<div class="container-fluid px-0">
+
+    <!-- Page Header Area -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-indigo-subtle text-indigo fw-bold px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                    <i class="fa-solid fa-gavel me-1"></i> SOURCING OVERSIGHT
+                </span>
+                <span class="text-muted small">RFQ/RFP bidding rounds & evaluation governance</span>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-1 font-heading">Sourcing Events & RFQ/RFP Oversight</h1>
+            <p class="text-muted small mb-0">Monitor open bid windows, sealed submissions, technical/commercial scoring, and readiness for award.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button onclick="loadSourcingEvents()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-2xs" id="sourcingRefreshBtn">
+                <i class="fa-solid fa-arrows-rotate me-1" id="sourcingRefreshIcon"></i> Refresh Sourcing
+            </button>
+            <a href="/manager/awards/" class="btn btn-warning btn-sm rounded-pill px-3 fw-semibold shadow-2xs">
+                <i class="fa-solid fa-award me-1"></i> Pending Awards Desk
+            </a>
+        </div>
+    </div>
+
+    <!-- Sourcing KPI Summary Cards -->
+    <div class="row g-3 mb-4" id="sourcingKpiRow">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-primary">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Active Sourcing Rounds</span>
+                    <span class="badge bg-primary-subtle text-primary rounded-circle p-2"><i class="fa-solid fa-gavel"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiActiveEvents">-</h3>
+                <div class="text-muted small" id="kpiTotalEvents">- total rounds</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Open Bid Windows</span>
+                    <span class="badge bg-info-subtle text-info rounded-circle p-2"><i class="fa-solid fa-clock"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiBiddingOpen">-</h3>
+                <div class="text-muted small" id="kpiBidsReceived">- bids submitted</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-indigo">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">In Evaluation</span>
+                    <span class="badge bg-indigo-subtle text-indigo rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiInEvaluation">-</h3>
+                <div class="text-muted small" id="kpiEvalBreakdown">Tech & Commercial</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-warning">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Ready for Award</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis rounded-circle p-2"><i class="fa-solid fa-award"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiAwardApproval">-</h3>
+                <div class="text-muted small" id="kpiAttention">- requiring attention</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-4">
+        <div class="row g-2 align-items-center">
+            <!-- Search Bar -->
+            <div class="col-12 col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-slate-50 border"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="sourcingSearchInput" class="form-control" placeholder="Search event #, title, PR..." oninput="onSourcingSearchInput()">
+                </div>
+            </div>
+
+            <!-- Event Type Filter -->
+            <div class="col-6 col-md-2">
+                <select id="sourcingTypeFilter" class="form-select form-select-sm" onchange="onSourcingFilterChange()">
+                    <option value="">All Event Types</option>
+                    <option value="RFQ">RFQ (Quotation)</option>
+                    <option value="RFP">RFP (Proposal)</option>
+                </select>
+            </div>
+
+            <!-- Lifecycle Status Filter -->
+            <div class="col-6 col-md-2">
+                <select id="sourcingStatusFilter" class="form-select form-select-sm" onchange="onSourcingFilterChange()">
+                    <option value="">All Statuses</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="PUBLISHED">Published</option>
+                    <option value="BID_WINDOW">Bid Window Open</option>
+                    <option value="TECHNICAL_REVIEW">Technical Review</option>
+                    <option value="COMMERCIAL_REVIEW">Commercial Review</option>
+                    <option value="AWARD_APPROVAL">Award Approval</option>
+                    <option value="AWARDED">Awarded</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+
+            <!-- Award Readiness Filter -->
+            <div class="col-6 col-md-2">
+                <select id="sourcingReadinessFilter" class="form-select form-select-sm" onchange="onSourcingFilterChange()">
+                    <option value="">All Readiness</option>
+                    <option value="READY_FOR_AWARD">Ready for Award</option>
+                    <option value="EVALUATION_PENDING">Evaluation Pending</option>
+                    <option value="BIDDING_OPEN">Bidding Open</option>
+                    <option value="AWARDED">Awarded</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+
+            <!-- Department Filter -->
+            <div class="col-6 col-md-2">
+                <select id="sourcingDeptFilter" class="form-select form-select-sm" onchange="onSourcingFilterChange()">
+                    <option value="">All Departments</option>
+                </select>
+            </div>
+
+            <!-- Sort By Selector -->
+            <div class="col-12 col-md-1 text-md-end">
+                <select id="sourcingSortFilter" class="form-select form-select-sm" onchange="onSourcingFilterChange()">
+                    <option value="date_desc">Newest</option>
+                    <option value="date_asc">Oldest</option>
+                    <option value="title_asc">Title A-Z</option>
+                    <option value="status">Status</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Active Filter Pills Bar -->
+        <div id="activeFilterPills" class="d-none mt-2 pt-2 border-top d-flex flex-wrap align-items-center gap-1">
+            <span class="text-muted small me-1">Active filters:</span>
+            <div id="pillsContainer" class="d-flex flex-wrap gap-1"></div>
+            <button onclick="clearAllSourcingFilters()" class="btn btn-link btn-sm text-danger text-decoration-none py-0 px-1 ms-auto" style="font-size: 0.75rem;">
+                <i class="fa-solid fa-xmark me-1"></i> Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="sourcingErrorState" class="alert alert-danger rounded-3 border-0 shadow-sm d-none mb-4 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation fs-5"></i>
+            <span id="sourcingErrorMessage">Failed to load sourcing events.</span>
+        </div>
+        <button onclick="loadSourcingEvents()" class="btn btn-outline-danger btn-sm rounded-pill px-3">Retry</button>
+    </div>
+
+    <!-- Sourcing Events Table Container -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Event # & Title</th>
+                            <th>Department & PR</th>
+                            <th>Status</th>
+                            <th>Bid Window</th>
+                            <th>Invites & Bids</th>
+                            <th>Evaluation Progress</th>
+                            <th>Award Readiness</th>
+                            <th class="pe-4 text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sourcingTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm text-info me-2"></div>
+                                Loading sourcing events...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Server-Side Pagination Footer -->
+            <div id="sourcingPaginationFooter" class="d-flex flex-column flex-md-row justify-content-between align-items-center p-3 border-top gap-2">
+                <div class="text-muted small" id="sourcingPaginationInfo">
+                    Showing 0 of 0 events
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <label class="text-muted small me-1">Per page:</label>
+                    <select id="sourcingPageSize" class="form-select form-select-sm" style="width: auto;" onchange="onPageSizeChange()">
+                        <option value="10" selected>10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                    </select>
+                    <nav aria-label="Sourcing pagination">
+                        <ul class="pagination pagination-sm mb-0" id="sourcingPaginationControls">
+                            <li class="page-item disabled"><a class="page-link" href="#">Prev</a></li>
+                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                            <li class="page-item disabled"><a class="page-link" href="#">Next</a></li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentSourcingPage = 1;
+    let currentSourcingPageSize = 10;
+    let searchDebounceTimer = null;
+    let availableDepartments = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSourcingEvents();
+    });
+
+    function onSourcingSearchInput() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            currentSourcingPage = 1;
+            loadSourcingEvents();
+        }, 350);
+    }
+
+    function onSourcingFilterChange() {
+        currentSourcingPage = 1;
+        loadSourcingEvents();
+    }
+
+    function onPageSizeChange() {
+        currentSourcingPageSize = parseInt(document.getElementById('sourcingPageSize').value, 10) || 10;
+        currentSourcingPage = 1;
+        loadSourcingEvents();
+    }
+
+    function goToPage(pageNum) {
+        currentSourcingPage = pageNum;
+        loadSourcingEvents();
+    }
+
+    function clearAllSourcingFilters() {
+        document.getElementById('sourcingSearchInput').value = '';
+        document.getElementById('sourcingTypeFilter').value = '';
+        document.getElementById('sourcingStatusFilter').value = '';
+        document.getElementById('sourcingReadinessFilter').value = '';
+        document.getElementById('sourcingDeptFilter').value = '';
+        document.getElementById('sourcingSortFilter').value = 'date_desc';
+        currentSourcingPage = 1;
+        loadSourcingEvents();
+    }
+
+    async function loadSourcingEvents() {
+        const tableBody = document.getElementById('sourcingTableBody');
+        const errorState = document.getElementById('sourcingErrorState');
+        const refreshIcon = document.getElementById('sourcingRefreshIcon');
+
+        if (refreshIcon) refreshIcon.classList.add('fa-spin');
+        if (errorState) errorState.classList.add('d-none');
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm text-info me-2"></div>
+                    Loading sourcing events...
+                </td>
+            </tr>
+        `;
+
+        const searchQuery = (document.getElementById('sourcingSearchInput')?.value || '').trim();
+        const typeFilter = document.getElementById('sourcingTypeFilter')?.value || '';
+        const statusFilter = document.getElementById('sourcingStatusFilter')?.value || '';
+        const readinessFilter = document.getElementById('sourcingReadinessFilter')?.value || '';
+        const deptFilter = document.getElementById('sourcingDeptFilter')?.value || '';
+        const sortFilter = document.getElementById('sourcingSortFilter')?.value || 'date_desc';
+
+        updateActiveFilterPills(searchQuery, typeFilter, statusFilter, readinessFilter, deptFilter);
+
+        const params = new URLSearchParams({
+            page: currentSourcingPage,
+            page_size: currentSourcingPageSize,
+            sort_by: sortFilter,
+        });
+
+        if (searchQuery) params.append('search', searchQuery);
+        if (typeFilter) params.append('event_type', typeFilter);
+        if (statusFilter) params.append('status', statusFilter);
+        if (readinessFilter) params.append('award_readiness', readinessFilter);
+        if (deptFilter) params.append('department', deptFilter);
+
+        try {
+            const data = await fetchManagerAPI(`/api/v1/sourcing-events/events/?${params.toString()}`);
+            
+            // Populate department selector if empty
+            if (data.departments && availableDepartments.length === 0) {
+                availableDepartments = data.departments;
+                populateDepartmentDropdown(data.departments);
+            }
+
+            // Render KPI cards
+            if (data.summary) {
+                renderSourcingKPIs(data.summary);
+            }
+
+            // Render Events Table
+            const events = data.results || (Array.isArray(data) ? data : []);
+            renderSourcingEventsTable(events);
+
+            // Render Pagination
+            renderSourcingPagination(data.pagination || {
+                total_count: data.count || events.length,
+                page: currentSourcingPage,
+                page_size: currentSourcingPageSize,
+                total_pages: Math.ceil((data.count || events.length) / currentSourcingPageSize) || 1,
+                has_next: false,
+                has_previous: false,
+            });
+
+        } catch (err) {
+            if (errorState) {
+                errorState.classList.remove('d-none');
+                document.getElementById('sourcingErrorMessage').textContent = err.message || 'Failed to fetch sourcing events.';
+            }
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-danger">
+                        <i class="fa-solid fa-triangle-exclamation fs-3 mb-2 d-block"></i>
+                        Unable to load sourcing records.
+                    </td>
+                </tr>
+            `;
+        } finally {
+            if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        }
+    }
+
+    function populateDepartmentDropdown(departments) {
+        const select = document.getElementById('sourcingDeptFilter');
+        if (!select) return;
+        const currentVal = select.value;
+        select.innerHTML = '<option value="">All Departments</option>' + 
+            departments.map(d => `<option value="${d.id}" ${d.id === currentVal ? 'selected' : ''}>${d.name} (${d.code})</option>`).join('');
+    }
+
+    function renderSourcingKPIs(summary) {
+        const elActive = document.getElementById('kpiActiveEvents');
+        const elTotal = document.getElementById('kpiTotalEvents');
+        const elBidding = document.getElementById('kpiBiddingOpen');
+        const elBids = document.getElementById('kpiBidsReceived');
+        const elEval = document.getElementById('kpiInEvaluation');
+        const elEvalBreak = document.getElementById('kpiEvalBreakdown');
+        const elAward = document.getElementById('kpiAwardApproval');
+        const elAttention = document.getElementById('kpiAttention');
+
+        if (elActive) elActive.textContent = summary.active_events || 0;
+        if (elTotal) elTotal.textContent = `${summary.total_events || 0} total rounds`;
+        if (elBidding) elBidding.textContent = summary.bidding_open || 0;
+        if (elBids) elBids.textContent = `${summary.total_bids_received || 0} bids / ${summary.total_invited_vendors || 0} invites`;
+        if (elEval) elEval.textContent = (summary.technical_review || 0) + (summary.commercial_review || 0);
+        if (elEvalBreak) elEvalBreak.textContent = `${summary.technical_review || 0} Tech • ${summary.commercial_review || 0} Comm`;
+        if (elAward) elAward.textContent = summary.award_approval || 0;
+        if (elAttention) elAttention.textContent = `${summary.attention_count || 0} attention required`;
+    }
+
+    function renderSourcingEventsTable(events) {
+        const tableBody = document.getElementById('sourcingTableBody');
+
+        if (!events || events.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5">
+                        <i class="fa-solid fa-folder-open text-muted fs-2 mb-2 d-block"></i>
+                        <div class="fw-bold text-dark font-heading">No Sourcing Events Found</div>
+                        <div class="text-muted small">No active or historical sourcing events match the selected criteria.</div>
+                        <button onclick="clearAllSourcingFilters()" class="btn btn-outline-primary btn-sm rounded-pill mt-3 px-3">
+                            <i class="fa-solid fa-arrows-rotate me-1"></i> Reset Filters
+                        </button>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const now = new Date();
+
+        tableBody.innerHTML = events.map(ev => {
+            // Status badge logic
+            let statusBadge = 'bg-secondary text-white';
+            if (ev.status === 'BID_WINDOW') statusBadge = 'bg-primary text-white';
+            else if (ev.status === 'AWARD_APPROVAL') statusBadge = 'bg-warning text-dark';
+            else if (ev.status === 'AWARDED') statusBadge = 'bg-success text-white';
+            else if (ev.status === 'TECHNICAL_REVIEW' || ev.status === 'COMMERCIAL_REVIEW') statusBadge = 'bg-info text-white';
+            else if (ev.status === 'CANCELLED') statusBadge = 'bg-danger text-white';
+            else if (ev.status === 'DRAFT') statusBadge = 'bg-secondary text-white';
+
+            // Bid window timing & countdown
+            const startDate = ev.bid_start_date ? new Date(ev.bid_start_date) : null;
+            const endDate = ev.bid_end_date ? new Date(ev.bid_end_date) : null;
+            let windowDisplay = 'N/A';
+            let windowSubtext = '';
+
+            if (startDate && endDate) {
+                windowDisplay = `${startDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})} &rarr; ${endDate.toLocaleDateString(undefined, {month:'short', day:'numeric'})}`;
+                if (ev.status === 'BID_WINDOW') {
+                    const msRemaining = endDate - now;
+                    if (msRemaining > 0) {
+                        const daysLeft = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+                        windowSubtext = `<span class="badge bg-success-subtle text-success border-0 px-2 py-0" style="font-size: 0.65rem;">${daysLeft}d remaining</span>`;
+                    } else {
+                        windowSubtext = `<span class="badge bg-danger-subtle text-danger border-0 px-2 py-0" style="font-size: 0.65rem;">Window Closed</span>`;
+                    }
+                }
+            }
+
+            // Award readiness badge
+            let readinessBadge = '<span class="badge bg-slate-100 text-muted border">Pending</span>';
+            const rCode = ev.award_readiness || 'NOT_READY';
+            if (rCode === 'READY_FOR_AWARD') {
+                readinessBadge = '<span class="badge bg-warning text-dark fw-bold"><i class="fa-solid fa-award me-1"></i> Ready for Award</span>';
+            } else if (rCode === 'AWARDED') {
+                readinessBadge = '<span class="badge bg-success text-white"><i class="fa-solid fa-check-circle me-1"></i> Awarded</span>';
+            } else if (rCode === 'EVALUATION_PENDING') {
+                readinessBadge = '<span class="badge bg-info-subtle text-info-emphasis border"><i class="fa-solid fa-spinner me-1"></i> Evaluating</span>';
+            } else if (rCode === 'BIDDING_OPEN') {
+                readinessBadge = '<span class="badge bg-primary-subtle text-primary border"><i class="fa-solid fa-lock-open me-1"></i> Bidding</span>';
+            } else if (rCode === 'CANCELLED') {
+                readinessBadge = '<span class="badge bg-danger-subtle text-danger border">Cancelled</span>';
+            }
+
+            // Evaluation progress info
+            let evalProgress = '<span class="text-muted small">None</span>';
+            if (ev.evaluations_summary && ev.evaluations_summary.completed_count > 0) {
+                evalProgress = `
+                    <div class="fw-semibold text-dark small">${ev.evaluations_summary.completed_count} evaluated</div>
+                    <div class="text-muted" style="font-size: 0.7rem;">Top: <span class="text-success fw-bold">${ev.evaluations_summary.top_weighted_score} pts</span></div>
+                `;
+            } else if (ev.status === 'TECHNICAL_REVIEW' || ev.status === 'COMMERCIAL_REVIEW') {
+                evalProgress = '<span class="badge bg-info-subtle text-info border">In Review</span>';
+            }
+
+            // Action buttons
+            let actionBtn = `
+                <a href="/sourcing-events/${ev.id}/" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                    <i class="fa-solid fa-eye me-1"></i> Inspect
+                </a>
+            `;
+            if (ev.status === 'AWARD_APPROVAL' || rCode === 'READY_FOR_AWARD') {
+                actionBtn = `
+                    <div class="btn-group btn-group-sm">
+                        <a href="/manager/awards/" class="btn btn-warning fw-semibold rounded-start-pill px-3">
+                            <i class="fa-solid fa-award me-1"></i> Award
+                        </a>
+                        <a href="/sourcing-events/${ev.id}/" class="btn btn-outline-secondary rounded-end-pill px-2" title="Inspect Sourcing Event">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </div>
+                `;
+            }
+
+            return `
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-slate-100 text-dark border font-monospace" style="font-size: 0.75rem;">${ev.event_type || 'RFQ'}</span>
+                            <span class="fw-bold text-dark font-monospace">${ev.event_number}</span>
+                        </div>
+                        <div class="text-dark fw-semibold small mt-1 text-truncate" style="max-width: 280px;" title="${ev.title}">${ev.title}</div>
+                    </td>
+                    <td>
+                        <div class="text-dark fw-semibold small">${ev.department_name || 'Global / Direct'}</div>
+                        ${ev.requisition_number ? `<a href="/requisitions/${ev.requisition_id}/" class="text-decoration-none text-muted small" style="font-size: 0.75rem;"><i class="fa-solid fa-link me-1"></i>PR: ${ev.requisition_number}</a>` : '<span class="text-muted small" style="font-size: 0.75rem;">Direct Sourcing</span>'}
+                    </td>
+                    <td>
+                        <span class="badge ${statusBadge} rounded-pill px-2 py-1">${ev.status_display || ev.status}</span>
+                    </td>
+                    <td class="small">
+                        <div class="text-dark">${windowDisplay}</div>
+                        ${windowSubtext}
+                    </td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2 small">
+                            <span><i class="fa-solid fa-users text-muted me-1"></i>${ev.invitation_count || 0}</span>
+                            <span><i class="fa-solid fa-file-lines text-muted me-1"></i>${ev.bid_count || 0}</span>
+                            ${ev.is_sealed && ev.status === 'BID_WINDOW' ? '<i class="fa-solid fa-lock text-warning" title="Sealed Bidding Active"></i>' : ''}
+                        </div>
+                    </td>
+                    <td>
+                        ${evalProgress}
+                    </td>
+                    <td>
+                        ${readinessBadge}
+                    </td>
+                    <td class="pe-4 text-end">
+                        ${actionBtn}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function renderSourcingPagination(pagination) {
+        const infoEl = document.getElementById('sourcingPaginationInfo');
+        const controlsEl = document.getElementById('sourcingPaginationControls');
+        if (!infoEl || !controlsEl) return;
+
+        const totalCount = pagination.total_count || 0;
+        const page = pagination.page || 1;
+        const pageSize = pagination.page_size || 10;
+        const totalPages = pagination.total_pages || 1;
+
+        const startItem = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+        const endItem = Math.min(page * pageSize, totalCount);
+
+        infoEl.textContent = `Showing ${startItem} to ${endItem} of ${totalCount} events`;
+
+        if (totalPages <= 1) {
+            controlsEl.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        html += `<li class="page-item ${pagination.has_previous ? '' : 'disabled'}">
+            <button class="page-link" onclick="goToPage(${page - 1})" ${pagination.has_previous ? '' : 'disabled'}>Prev</button>
+        </li>`;
+
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+                html += `<li class="page-item ${i === page ? 'active' : ''}">
+                    <button class="page-link" onclick="goToPage(${i})">${i}</button>
+                </li>`;
+            } else if (i === page - 2 || i === page + 2) {
+                html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        html += `<li class="page-item ${pagination.has_next ? '' : 'disabled'}">
+            <button class="page-link" onclick="goToPage(${page + 1})" ${pagination.has_next ? '' : 'disabled'}>Next</button>
+        </li>`;
+
+        controlsEl.innerHTML = html;
+    }
+
+    function updateActiveFilterPills(search, type, status, readiness, dept) {
+        const container = document.getElementById('activeFilterPills');
+        const pills = document.getElementById('pillsContainer');
+        if (!container || !pills) return;
+
+        const activeList = [];
+        if (search) activeList.push({ label: `Search: "${search}"`, clear: () => { document.getElementById('sourcingSearchInput').value = ''; loadSourcingEvents(); } });
+        if (type) activeList.push({ label: `Type: ${type}`, clear: () => { document.getElementById('sourcingTypeFilter').value = ''; loadSourcingEvents(); } });
+        if (status) activeList.push({ label: `Status: ${status}`, clear: () => { document.getElementById('sourcingStatusFilter').value = ''; loadSourcingEvents(); } });
+        if (readiness) activeList.push({ label: `Readiness: ${readiness}`, clear: () => { document.getElementById('sourcingReadinessFilter').value = ''; loadSourcingEvents(); } });
+        if (dept) {
+            const deptObj = availableDepartments.find(d => d.id === dept);
+            const deptName = deptObj ? deptObj.name : dept;
+            activeList.push({ label: `Dept: ${deptName}`, clear: () => { document.getElementById('sourcingDeptFilter').value = ''; loadSourcingEvents(); } });
+        }
+
+        if (activeList.length === 0) {
+            container.classList.add('d-none');
+            pills.innerHTML = '';
+        } else {
+            container.classList.remove('d-none');
+            pills.innerHTML = activeList.map((item, idx) => `
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill py-1 px-2 d-inline-flex align-items-center gap-1">
+                    ${item.label}
+                    <i class="fa-solid fa-xmark cursor-pointer" onclick="clearFilterByIndex(${idx})"></i>
+                </span>
+            `).join('');
+            window._currentPillClearers = activeList.map(a => a.clear);
+        }
+    }
+
+    function clearFilterByIndex(idx) {
+        if (window._currentPillClearers && window._currentPillClearers[idx]) {
+            window._currentPillClearers[idx]();
+        }
+    }
+</script>
+{% endblock manager_content %}

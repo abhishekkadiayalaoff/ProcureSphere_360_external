@@ -64,6 +64,31 @@ def test_cost_center_section_and_add_button_rendered(superadmin_client, sample_o
 
 
 @pytest.mark.django_db
+def test_cost_center_manager_column_shows_assigned_user_email(superadmin_client, sample_org_and_dept):
+    client, _ = superadmin_client
+    _, dept_it, dept_hr = sample_org_and_dept
+    role, _ = Role.objects.get_or_create(code=Role.REQUESTER, defaults={"name": "Requester"})
+
+    assigned_cc = CostCenter.objects.create(name="Infra Ops", code="CC-HPE-INF", department=dept_it)
+    empty_cc = CostCenter.objects.create(name="Finance Operations", code="CC-FIN-101", department=dept_hr)
+    User.objects.create_user(
+        email="eabcd5463@gmail.com",
+        password="Password123!",
+        role=role,
+        department=dept_it,
+        cost_center=assigned_cc,
+    )
+
+    response = client.get(reverse("superadmin:organizations"))
+    assert response.status_code == 200
+    content = response.content.decode("utf-8")
+    assert "eabcd5463@gmail.com" in content
+    assert assigned_cc.manager is None
+    assert empty_cc.manager is None
+    assert "Unassigned" in content
+
+
+@pytest.mark.django_db
 def test_cost_center_department_filter(superadmin_client, sample_org_and_dept):
     client, _ = superadmin_client
     _, dept_it, dept_hr = sample_org_and_dept
@@ -109,7 +134,10 @@ def test_cost_center_create_modal_fields_and_dropdowns(superadmin_client, sample
     assert "Manager" in content
     assert "IT Operations" in content
     assert "Human Resources" in content
-    assert "manager@procuresphere.local" in content
+    assert 'type="email"' in content
+    assert 'placeholder="Enter manager email"' in content
+    assert "-- Select Manager (Optional) --" not in content
+    assert "manager@procuresphere.local" not in content
 
 
 @pytest.mark.django_db
@@ -153,7 +181,7 @@ def test_successful_cost_center_creation_and_audit_logging(superadmin_client, sa
             "code": "cc-devops-01",
             "name": "DevOps Operations",
             "department": str(dept_it.pk),
-            "manager": str(manager_user.pk),
+            "manager": manager_user.email,
         },
     )
     assert response.status_code == 200
@@ -173,6 +201,10 @@ def test_successful_cost_center_creation_and_audit_logging(superadmin_client, sa
     assert audit_log.new_state["code"] == "CC-DEVOPS-01"
     assert audit_log.new_state["department"] == "IT-OPS"
     assert audit_log.new_state["manager"] == "it_manager@procuresphere.local"
+
+    listing = client.get(reverse("superadmin:organizations"))
+    assert listing.status_code == 200
+    assert "it_manager@procuresphere.local" in listing.content.decode("utf-8")
 
 
 @pytest.mark.django_db
@@ -218,6 +250,49 @@ def test_cost_center_edit_modal_and_update(superadmin_client, sample_org_and_dep
     assert audit_log.previous_state["department"] == "IT-OPS"
     assert audit_log.new_state["name"] == "Updated CC Name"
     assert audit_log.new_state["department"] == "HR"
+
+    manager_user = User.objects.create_user(
+        email="assigned.manager@procuresphere.local",
+        password="Password123!",
+    )
+    unassigned = CostCenter.objects.create(name="Still Open", code="CC-OPEN-01", department=dept_hr)
+
+    response = client.post(
+        reverse("superadmin:cost_center_edit", kwargs={"cc_id": cc.pk}),
+        {
+            "code": "CC-EDIT-01",
+            "name": "Updated CC Name",
+            "department": str(dept_hr.pk),
+            "manager": "assigned.manager@procuresphere.local",
+        },
+    )
+    assert response.status_code == 200
+    cc.refresh_from_db()
+    assert cc.manager == manager_user
+
+    listing = client.get(reverse("superadmin:organizations"))
+    page = listing.content.decode("utf-8")
+    assert "assigned.manager@procuresphere.local" in page
+    assert "Unassigned" in page
+    unassigned.refresh_from_db()
+    assert unassigned.manager is None
+
+    edit_form = client.get(reverse("superadmin:cost_center_edit", kwargs={"cc_id": cc.pk}))
+    assert 'value="assigned.manager@procuresphere.local"' in edit_form.content.decode("utf-8")
+
+    rejected = client.post(
+        reverse("superadmin:cost_center_edit", kwargs={"cc_id": unassigned.pk}),
+        {
+            "code": "CC-OPEN-01",
+            "name": "Still Open",
+            "department": str(dept_hr.pk),
+            "manager": "nobody@procuresphere.local",
+        },
+    )
+    assert rejected.status_code == 200
+    assert "No active user exists with this email." in rejected.content.decode("utf-8")
+    unassigned.refresh_from_db()
+    assert unassigned.manager is None
 
 
 @pytest.mark.django_db

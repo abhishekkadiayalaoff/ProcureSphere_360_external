@@ -1,0 +1,415 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}PO {{ po.po_number }}{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'vendor_purchase_orders_list' %}" class="text-decoration-none text-muted">Purchase Orders</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">{{ po.po_number }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header Banner -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h3 class="fw-bold text-dark mb-0 font-monospace">{{ po.po_number }}</h3>
+                        <span class="badge bg-secondary rounded-pill">Version {{ po.version }}</span>
+                        {% if po.status == 'ISSUED' %}
+                        <span class="badge bg-primary">ISSUED</span>
+                        {% elif po.status == 'ACKNOWLEDGED' %}
+                        <span class="badge bg-info text-dark">ACKNOWLEDGED</span>
+                        {% elif po.status == 'PARTIAL_RECEIPT' %}
+                        <span class="badge bg-warning text-dark">PARTIAL RECEIPT</span>
+                        {% elif po.status == 'COMPLETED' or po.status == 'COMPLETELY_RECEIVED' %}
+                        <span class="badge bg-success">COMPLETED</span>
+                        {% elif po.status == 'CANCELLED' %}
+                        <span class="badge bg-danger">CANCELLED</span>
+                        {% else %}
+                        <span class="badge bg-secondary">{{ po.status }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-0">
+                        Order Date: <span class="fw-semibold text-dark">{{ po.po_date|date:"F d, Y" }}</span>
+                        &bull; Buyer Entity: <span class="fw-semibold text-dark">{{ po.requisition.cost_center.department|default:"ProcureSphere Organization" }}</span>
+                    </p>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                        <i class="fa-solid fa-print me-1"></i> Print / Save PDF
+                    </button>
+                    {% if po.status == 'ISSUED' or po.status == 'ACKNOWLEDGED' or po.status == 'PARTIAL_RECEIPT' %}
+                    <a href="{% url 'vendor_po_submit_invoice' po.id %}" class="btn btn-outline-primary btn-sm shadow-sm">
+                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Submit Invoice
+                    </a>
+                    {% endif %}
+                    {% if can_acknowledge %}
+                    <a href="#acknowledge" class="btn btn-success btn-sm shadow-sm">
+                        <i class="fa-solid fa-signature me-1"></i> Acknowledge Order
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Acknowledgement Status Box -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            {% if po.acknowledged_at %}
+            <div class="card border-0 shadow-sm bg-success bg-opacity-10 border-start border-success border-4">
+                <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-success text-white p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                            <i class="fa-solid fa-check fs-5"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-success">Purchase Order Formally Acknowledged</div>
+                            <div class="small text-muted">
+                                Acknowledged on {{ po.acknowledged_at|date:"M d, Y H:i" }}
+                                {% if po.acknowledged_by %}by {{ po.acknowledged_by.get_full_name|default:po.acknowledged_by.email }}{% endif %}
+                            </div>
+                            {% if po.acknowledgement_notes %}
+                            <div class="small text-dark mt-1 fst-italic">"{{ po.acknowledgement_notes }}"</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div>
+                        <span class="badge bg-success px-3 py-2 text-uppercase fw-semibold">Legally Confirmed</span>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card border-0 shadow-sm bg-warning bg-opacity-10 border-start border-warning border-4" id="acknowledge">
+                <div class="card-body p-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-warning text-dark p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fa-solid fa-clock fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark">Formal Acknowledgement Required</div>
+                                <div class="small text-muted">
+                                    Please review all line items, delivery schedules, and commercial terms before submitting formal acknowledgement.
+                                </div>
+                            </div>
+                        </div>
+                        {% if can_acknowledge %}
+                        <button type="button" class="btn btn-warning btn-sm text-dark fw-bold px-3 shadow-sm" data-bs-toggle="collapse" data-bs-target="#ackFormCollapse">
+                            <i class="fa-solid fa-file-signature me-1"></i> Submit Acknowledgement
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    {% if can_acknowledge %}
+                    <div class="collapse mt-3 pt-3 border-top border-warning border-opacity-25" id="ackFormCollapse">
+                        <form method="post" action="{% url 'vendor_purchase_order_acknowledge' po_id=po.id %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-dark">Acknowledgement Notes / Reference (Optional)</label>
+                                <textarea name="acknowledgement_notes" class="form-control" rows="2" placeholder="e.g., Confirmed receipt. Production scheduled according to agreed timeline. Internal ref #..."></textarea>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="ackConsent" required>
+                                <label class="form-check-label small text-muted" for="ackConsent">
+                                    I hereby confirm on behalf of <strong>{{ vendor.legal_name }}</strong> that we accept this Purchase Order, quantities, pricing, delivery schedule, and terms & conditions.
+                                </label>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="collapse" data-bs-target="#ackFormCollapse">Cancel</button>
+                                <button type="submit" class="btn btn-success btn-sm fw-bold px-3 shadow-sm">
+                                    <i class="fa-solid fa-check me-1"></i> Confirm & Acknowledge PO
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if can_invoice %}
+            <div class="card border-0 shadow-sm bg-primary bg-opacity-10 border-start border-primary border-4 mt-3" id="invoice">
+                <div class="card-body p-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="rounded-circle bg-primary text-white p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                <i class="fa-solid fa-file-invoice-dollar fs-5"></i>
+                            </div>
+                            <div>
+                                <div class="fw-bold text-dark">Submit Supplier Invoice</div>
+                                <div class="small text-muted">
+                                    Generate an invoice for the fulfilled line items of this Purchase Order.
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="collapse" data-bs-target="#invoiceFormCollapse">
+                            <i class="fa-solid fa-plus me-1"></i> Create Invoice
+                        </button>
+                    </div>
+
+                    <div class="collapse mt-3 pt-3 border-top border-primary border-opacity-25" id="invoiceFormCollapse">
+                        <form method="post" action="{% url 'vendor_invoice_submit' po_id=po.id %}">
+                            {% csrf_token %}
+                            <div class="row g-3 mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold text-dark">Invoice Number *</label>
+                                    <input type="text" name="invoice_number" class="form-control" required placeholder="INV-2026-001">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold text-dark">Invoice Date *</label>
+                                    <input type="date" name="invoice_date" class="form-control" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold text-dark">Due Date *</label>
+                                    <input type="date" name="due_date" class="form-control" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-dark">Line Items</label>
+                                <div class="table-responsive border rounded">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light small text-secondary">
+                                            <tr>
+                                                <th class="ps-3">Item Description</th>
+                                                <th style="width: 100px;">PO Qty</th>
+                                                <th style="width: 120px;">Inv Qty</th>
+                                                <th style="width: 140px;" class="pe-3">Unit Price ($)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for line in lines %}
+                                            <tr>
+                                                <td class="small ps-3 text-dark">{{ line.item_description }}</td>
+                                                <td class="small text-muted">{{ line.quantity|floatformat:2 }}</td>
+                                                <td>
+                                                    <input type="number" step="0.01" name="qty_{{ line.id }}" class="form-control form-control-sm" value="{{ line.quantity|stringformat:'f' }}" min="0">
+                                                </td>
+                                                <td class="pe-3">
+                                                    <input type="number" step="0.01" name="price_{{ line.id }}" class="form-control form-control-sm" value="{{ line.unit_price|stringformat:'f' }}" min="0">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="form-text small text-muted mt-1 mb-3"><i class="fa-solid fa-circle-info me-1"></i>Set quantity to 0 to exclude a line item from this invoice.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-dark">Additional Notes</label>
+                                <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes for Accounts Payable..."></textarea>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="collapse" data-bs-target="#invoiceFormCollapse">Cancel</button>
+                                <button type="submit" class="btn btn-primary btn-sm fw-bold px-3 shadow-sm">
+                                    <i class="fa-solid fa-paper-plane me-1"></i> Submit Invoice
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- PO Details & Financial Summary -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="fw-bold text-dark mb-0">Line Items & Fulfillment</h5>
+                </div>
+                <div class="card-body p-0 pt-3">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light small text-uppercase text-secondary">
+                                <tr>
+                                    <th class="ps-4">Item Description</th>
+                                    <th>UOM</th>
+                                    <th class="text-end">Ordered Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Line Total</th>
+                                    <th class="text-end pe-4">Received Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for line in lines %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="fw-semibold text-dark">{{ line.item_description }}</div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark border">{{ line.unit_of_measure }}</span></td>
+                                    <td class="text-end fw-semibold text-dark">{{ line.quantity|floatformat:2 }}</td>
+                                    <td class="text-end text-muted">${{ line.unit_price|floatformat:2 }}</td>
+                                    <td class="text-end fw-bold text-dark">${{ line.line_total|floatformat:2 }}</td>
+                                    <td class="text-end pe-4">
+                                        <span class="fw-semibold {% if line.quantity_received >= line.quantity %}text-success{% elif line.quantity_received > 0 %}text-warning{% else %}text-muted{% endif %}">
+                                            {{ line.quantity_received|floatformat:2 }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-3 text-muted">No line items specified.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <!-- Financial Summary Card -->
+            <div class="card glass-card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="fw-bold text-dark mb-0">Financial Summary</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-muted">Subtotal:</span>
+                            <span class="fw-semibold text-dark">${{ po.subtotal|floatformat:2 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0">
+                            <span class="text-muted">Tax Amount:</span>
+                            <span class="fw-semibold text-dark">${{ po.tax_amount|floatformat:2 }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between px-0 bg-light rounded px-2 py-2 mt-2">
+                            <span class="fw-bold text-dark fs-6">Total Amount:</span>
+                            <span class="fw-bold text-primary fs-5">${{ po.total_amount|floatformat:2 }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Linked Procurement Data -->
+            <div class="card glass-card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 pt-3 pb-0">
+                    <h5 class="fw-bold text-dark mb-0">Associated Records</h5>
+                </div>
+                <div class="card-body small">
+                    <div class="mb-2">
+                        <span class="text-muted d-block">Cost Center:</span>
+                        <span class="fw-semibold text-dark">{{ po.cost_center.code }} - {{ po.cost_center.name }}</span>
+                    </div>
+                    {% if po.requisition %}
+                    <div class="mb-2">
+                        <span class="text-muted d-block">Purchase Requisition:</span>
+                        <span class="font-monospace text-dark">{{ po.requisition.pr_number }}</span>
+                    </div>
+                    {% endif %}
+                    {% if po.sourcing_event %}
+                    <div class="mb-2">
+                        <span class="text-muted d-block">Sourcing Event:</span>
+                        <a href="{% url 'vendor_sourcing_detail' event_id=po.sourcing_event.id %}" class="font-monospace text-primary text-decoration-none">
+                            {{ po.sourcing_event.event_number }}
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delivery Schedules -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Delivery Schedule & Milestones</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if delivery_schedules %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Line Item</th>
+                            <th>Expected Delivery Date</th>
+                            <th class="text-end">Expected Quantity</th>
+                            <th>Destination Address</th>
+                            <th class="text-end pe-4">Schedule Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sched in delivery_schedules %}
+                        <tr>
+                            <td class="ps-4 fw-semibold text-dark">{{ sched.po_line.item_description }}</td>
+                            <td>{{ sched.expected_delivery_date|date:"M d, Y" }}</td>
+                            <td class="text-end fw-semibold text-dark">{{ sched.quantity_expected|floatformat:2 }}</td>
+                            <td class="small text-muted">{{ sched.destination_address|default:"Standard Delivery Facility" }}</td>
+                            <td class="text-end pe-4">
+                                <span class="badge bg-secondary rounded-pill">{{ sched.status }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-center text-muted small">
+                No specific staggered delivery schedules recorded. Standard fulfillment according to agreed delivery timeline applies.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Terms and Conditions -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Terms & Conditions</h5>
+        </div>
+        <div class="card-body">
+            {% if po.terms_and_conditions %}
+            <div class="bg-light p-3 rounded small text-dark" style="white-space: pre-wrap; font-family: monospace;">{{ po.terms_and_conditions }}</div>
+            {% else %}
+            <p class="text-muted small mb-0">Standard enterprise procurement terms and conditions apply to this purchase order.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Amendment History -->
+    {% if amendments %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Change Order & Amendment History</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Amendment #</th>
+                            <th>Date</th>
+                            <th>Requested By</th>
+                            <th>Reason / Justification</th>
+                            <th class="pe-4">Snapshot Snapshot Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for am in amendments %}
+                        <tr>
+                            <td class="ps-4 fw-bold font-monospace text-primary">#{{ am.amendment_number }}</td>
+                            <td class="small text-muted">{{ am.created_at|date:"M d, Y H:i" }}</td>
+                            <td class="small text-dark">{{ am.requested_by.email }}</td>
+                            <td class="small text-dark">{{ am.reason }}</td>
+                            <td class="small text-muted pe-4">Immutable Snapshot Preserved</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

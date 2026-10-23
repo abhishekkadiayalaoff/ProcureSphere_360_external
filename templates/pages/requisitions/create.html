@@ -1,0 +1,612 @@
+{% extends 'layouts/requester_base.html' %}
+
+{% block title %}Create Requisition — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'requisitions_list' %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+        <i class="fa-solid fa-arrow-left me-1"></i> Back to Requisitions
+    </a>
+    <h2 class="fw-bold text-dark mb-1">Create Purchase Requisition</h2>
+    <p class="text-muted mb-0">Fill out the details below to request goods or services.</p>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="POST" action="{% url 'requisition_create' %}" enctype="multipart/form-data" id="pr_create_form">
+    {% csrf_token %}
+    <div class="row">
+        <!-- Main Details -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                    <h5 class="fw-bold text-dark mb-0">General Information</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Requisition Title *</label>
+                        <input type="text" name="title" class="form-control form-control-lg bg-light border-0" required placeholder="E.g., Office Supplies for Q4">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Business Justification *</label>
+                        <textarea name="justification" class="form-control bg-light border-0" rows="3" required placeholder="Why is this purchase necessary?"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Department *</label>
+                            <select name="department" class="form-select bg-light border-0" required>
+                                {% if departments|length != 1 %}
+                                <option value="" disabled selected>Select Department...</option>
+                                {% endif %}
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if departments|length == 1 %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Cost Center *</label>
+                            <select name="cost_center" id="cost_center_select" class="form-select bg-light border-0" required onchange="updateBudgetNotice()">
+                                {% if cost_centers|length != 1 %}
+                                <option value="" disabled selected>Select Cost Center...</option>
+                                {% endif %}
+                                {% for cc in cost_centers %}
+                                <option value="{{ cc.id }}" data-budget="{% if cc.available_budget != None %}{{ cc.available_budget|floatformat:2 }}{% else %}N/A{% endif %}" {% if cost_centers|length == 1 %}selected{% endif %}>
+                                    {{ cc.code }} - {{ cc.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            {% if user_assigned_cost_center %}
+                            <div class="form-text text-success small mt-1">
+                                <i class="fa-solid fa-lock me-1"></i> Designated Cost Center: <strong>{{ user_assigned_cost_center.code }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div id="budget_notice_box" class="alert border-0 rounded-4 shadow-sm d-none mb-3 p-3">
+                        <div class="d-flex align-items-center">
+                            <i id="budget_notice_icon" class="fa-solid fa-circle-check text-success fs-3 me-3"></i>
+                            <div>
+                                <span class="fw-bold text-dark d-block">Cost Center Budget Status</span>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span id="budget_notice_status" class="badge bg-success rounded-pill px-3 py-2 fw-bold">Within Budget</span>
+                                    <span id="budget_notice_desc" class="small text-muted">Estimated amount is within the allocated Cost Center budget.</span>
+                                </div>
+                                <span id="budget_notice_amount" class="d-none"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Items -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0">Line Items</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addLineItem()">
+                        <i class="fa-solid fa-plus me-1"></i> Add Item
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table align-middle" id="line-items-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40%">Description *</th>
+                                    <th style="width: 15%">Qty *</th>
+                                    <th style="width: 15%">UOM *</th>
+                                    <th style="width: 20%">Est. Unit Price *</th>
+                                    <th style="width: 10%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="line-items-body">
+                                <tr>
+                                    <td>
+                                        <input type="text" name="item_description[]" class="form-control form-control-sm bg-light border-0" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="quantity[]" class="form-control form-control-sm bg-light border-0 item-qty" step="1" min="1" required oninput="validateQuantityInput(this); calculateTotalAmount();" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                                    </td>
+                                    <td>
+                                        <select name="unit_of_measure[]" class="form-select form-select-sm bg-light border-0">
+                                            <option value="EA">EA (Each)</option>
+                                            <option value="HR">HR (Hour)</option>
+                                            <option value="BOX">BOX</option>
+                                            <option value="LOT">LOT</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light border-0">$</span>
+                                            <input type="number" name="estimated_unit_price[]" class="form-control bg-light border-0 item-price" step="0.01" min="0" required oninput="calculateTotalAmount()">
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-light text-danger" onclick="removeLineItem(this);" title="Delete or clear item"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar config -->
+        <div class="col-lg-4">
+
+            <!-- Attachments Card -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex align-items-center justify-content-between">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="fa-solid fa-paperclip text-primary me-2"></i>Supporting Documents
+                    </h5>
+                    <span class="badge bg-primary-subtle text-primary rounded-pill small">Optional</span>
+                </div>
+                <div class="card-body p-4">
+                    <!-- Drop Zone -->
+                    <div id="attachment_dropzone"
+                         class="border border-2 border-dashed rounded-4 text-center p-4 mb-3 position-relative"
+                         style="border-color: #dee2e6 !important; background: #f8f9fc; cursor: pointer; transition: all 0.2s;"
+                         onclick="document.getElementById('attachment_picker').click()"
+                         ondragover="handleDragOver(event)"
+                         ondragleave="handleDragLeave(event)"
+                         ondrop="handleDrop(event)">
+                        <i class="fa-solid fa-cloud-arrow-up fs-2 text-primary mb-2 d-block"></i>
+                        <p class="fw-semibold text-dark mb-1">Click to browse or drag & drop</p>
+                        <p class="text-muted small mb-0">PDF, DOC, DOCX only &bull; Max 10MB per file</p>
+                        <!-- Picker input used solely to open file dialogue and capture additions -->
+                        <input type="file"
+                               id="attachment_picker"
+                               multiple
+                               accept=".pdf,.doc,.docx"
+                               class="d-none"
+                               onchange="handleFileSelect(event)">
+                        <!-- Actual form submission input whose .files is kept synced with selectedFiles -->
+                        <input type="file"
+                               id="attachment_input"
+                               name="attachments"
+                               multiple
+                               class="d-none">
+                    </div>
+
+                    <!-- File List Preview -->
+                    <ul class="list-group list-group-flush" id="attachment_list"></ul>
+                </div>
+            </div>
+
+            <!-- Delivery Details -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                    <h5 class="fw-bold text-dark mb-0">Delivery Details</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Required Delivery Date *</label>
+                        <input type="date" name="requested_delivery_date" id="requested_delivery_date" class="form-control bg-light border-0" required min="{{ today }}">
+                    </div>
+                    <hr>
+                    <div class="d-grid gap-2">
+                        <button type="submit" name="submit_action" value="draft" class="btn btn-primary rounded-pill fw-bold py-2 shadow-sm">
+                            <i class="fa-solid fa-floppy-disk me-2"></i>Save as Draft
+                        </button>
+                        <a href="{% url 'requisitions_list' %}" class="btn btn-light rounded-pill fw-bold py-2 text-muted">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Insufficient Budget Modal Pop-up -->
+<div class="modal fade" id="budgetExceededModal" tabindex="-1" aria-labelledby="budgetExceededModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 bg-danger text-white rounded-top-4 p-4">
+                <h5 class="modal-title fw-bold" id="budgetExceededModalLabel">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> Budget Notice
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 64px; height: 64px;">
+                    <i class="fa-solid fa-wallet fs-2"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Requisition Out of Budget</h5>
+                <p class="text-muted mb-3">
+                    This requisition is <strong class="text-danger fs-5">Out of Budget</strong> for <strong id="modal_cc_code">Cost Center</strong>.
+                </p>
+                <span id="modal_total_amt" class="d-none"></span>
+                <span id="modal_available_amt" class="d-none"></span>
+                <div class="alert alert-warning small border-0 mb-3 text-start">
+                    <i class="fa-solid fa-info-circle me-1"></i> You may save this draft, but if you proceed, this requisition will be routed for <strong>Budget Exception Review</strong> by the Finance team when submitted.
+                </div>
+                <button type="button" class="btn btn-warning fw-bold text-dark rounded-pill px-4 shadow-sm" onclick="forceSubmitForm(this)">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>Proceed Anyway
+                </button>
+            </div>
+            <div class="modal-footer border-top-0 p-4 justify-content-center bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.forceSubmitForm = function(btn) {
+        const modalEl = document.getElementById('budgetExceededModal');
+        const form = document.getElementById('pr_create_form');
+        const proceedBtn = btn || (modalEl ? modalEl.querySelector('.btn-warning') : null);
+        if (proceedBtn) {
+            window.setButtonLoading(proceedBtn, 'Saving Draft...');
+        }
+        const draftBtn = form ? form.querySelector('button[name="submit_action"]') : null;
+        if (draftBtn) {
+            window.setButtonLoading(draftBtn, 'Saving Draft...');
+        }
+        form.removeEventListener('submit', validateBudgetOnSubmit);
+        if (typeof syncAttachmentInput === 'function') {
+            syncAttachmentInput();
+        }
+        if (form.requestSubmit) {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    };
+
+    function validateQuantityInput(input) {
+        if (!input) return;
+        input.value = input.value.replace(/[^0-9]/g, '');
+        if (input.value !== '' && parseInt(input.value, 10) <= 0) {
+            input.value = '1';
+        }
+    }
+
+    function validateBudgetOnSubmit(e) {
+        const rows = document.querySelectorAll('#line-items-body tr');
+        let hasValidItem = false;
+        rows.forEach(tr => {
+            const desc = tr.querySelector('input[name="item_description[]"]');
+            if (desc && desc.value.trim() !== '') {
+                hasValidItem = true;
+            }
+        });
+        if (!hasValidItem || rows.length === 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            alert('A purchase requisition must have at least one line item with a description and quantity.');
+            const form = document.getElementById('pr_create_form');
+            if (form) {
+                delete form.dataset.submitting;
+                const draftBtn = form.querySelector('button[name="submit_action"]');
+                if (draftBtn && window.resetButtonLoading) window.resetButtonLoading(draftBtn);
+            }
+            if (rows.length === 0) {
+                addLineItem();
+            }
+            const firstDesc = document.querySelector('input[name="item_description[]"]');
+            if (firstDesc) firstDesc.focus();
+            return;
+        }
+
+        const total = calculateTotalAmount(false);
+        const select = document.getElementById('cost_center_select');
+        const selectedOpt = select ? select.options[select.selectedIndex] : null;
+        const budgetVal = selectedOpt ? selectedOpt.getAttribute('data-budget') : null;
+        
+        const isOverBudget = !budgetVal || budgetVal === 'N/A' || (parseFloat(budgetVal) <= 0) || (total > parseFloat(budgetVal));
+        if (isOverBudget) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            
+            const form = document.getElementById('pr_create_form');
+            if (form) {
+                delete form.dataset.submitting;
+                const draftBtn = form.querySelector('button[name="submit_action"]');
+                if (draftBtn) window.resetButtonLoading(draftBtn);
+            }
+            
+            const totalAmtEl = document.getElementById('modal_total_amt');
+            if (totalAmtEl) totalAmtEl.textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            const availAmtEl = document.getElementById('modal_available_amt');
+            if (availAmtEl) availAmtEl.textContent = (budgetVal && budgetVal !== 'N/A') ? ('$' + parseFloat(budgetVal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})) : 'N/A';
+            
+            const ccCodeEl = document.getElementById('modal_cc_code');
+            if (ccCodeEl && selectedOpt) ccCodeEl.textContent = selectedOpt.text.trim();
+            
+            const modal = new bootstrap.Modal(document.getElementById('budgetExceededModal'));
+            modal.show();
+        }
+    }
+
+    function addLineItem() {
+        const tbody = document.getElementById('line-items-body');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" name="item_description[]" class="form-control form-control-sm bg-light border-0" required>
+            </td>
+            <td>
+                <input type="number" name="quantity[]" class="form-control form-control-sm bg-light border-0 item-qty" step="1" min="1" required oninput="validateQuantityInput(this); calculateTotalAmount();" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+            </td>
+            <td>
+                <select name="unit_of_measure[]" class="form-select form-select-sm bg-light border-0">
+                    <option value="EA">EA (Each)</option>
+                    <option value="HR">HR (Hour)</option>
+                    <option value="BOX">BOX</option>
+                    <option value="LOT">LOT</option>
+                </select>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light border-0">$</span>
+                    <input type="number" name="estimated_unit_price[]" class="form-control bg-light border-0 item-price" step="0.01" min="0" required oninput="calculateTotalAmount()">
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-light text-danger" onclick="removeLineItem(this);" title="Delete or clear item"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        calculateTotalAmount();
+    }
+
+    function removeLineItem(btn) {
+        const tbody = document.getElementById('line-items-body');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) {
+            // Cannot remove the only row: clear its inputs instead to maintain at least one row
+            const tr = btn.closest('tr');
+            if (tr) {
+                const desc = tr.querySelector('input[name="item_description[]"]');
+                const qty = tr.querySelector('input[name="quantity[]"]');
+                const price = tr.querySelector('input[name="estimated_unit_price[]"]');
+                const uom = tr.querySelector('select[name="unit_of_measure[]"]');
+                if (desc) desc.value = '';
+                if (qty) qty.value = '1';
+                if (price) price.value = '';
+                if (uom) uom.value = 'EA';
+                calculateTotalAmount();
+            }
+            return;
+        }
+        btn.closest('tr').remove();
+        calculateTotalAmount();
+    }
+
+    function calculateTotalAmount(updateNotice = true) {
+        const qties = document.querySelectorAll('.item-qty');
+        const prices = document.querySelectorAll('.item-price');
+        let total = 0;
+        for (let i = 0; i < qties.length; i++) {
+            const q = parseFloat(qties[i].value) || 0;
+            const p = parseFloat(prices[i].value) || 0;
+            total += (q * p);
+        }
+        if (updateNotice) {
+            updateBudgetNotice();
+        }
+        return total;
+    }
+
+    function updateBudgetNotice() {
+        const select = document.getElementById('cost_center_select');
+        if (!select) return;
+        const selectedOpt = select.options[select.selectedIndex];
+        const budgetVal = selectedOpt ? selectedOpt.getAttribute('data-budget') : null;
+        const box = document.getElementById('budget_notice_box');
+        const icon = document.getElementById('budget_notice_icon');
+        const statusSpan = document.getElementById('budget_notice_status');
+        const descSpan = document.getElementById('budget_notice_desc');
+        
+        if (!box || !select.value) {
+            if (box) box.classList.add('d-none');
+            return;
+        }
+
+        box.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-warning', 'alert-danger');
+
+        const total = calculateTotalAmount(false);
+
+        if (budgetVal && budgetVal !== 'N/A') {
+            const available = parseFloat(budgetVal);
+            if (total > available || available <= 0) {
+                box.classList.add('alert-danger');
+                if (icon) icon.className = 'fa-solid fa-triangle-exclamation text-danger fs-3 me-3';
+                if (statusSpan) {
+                    statusSpan.className = 'badge bg-danger rounded-pill px-3 py-2 fw-bold';
+                    statusSpan.textContent = 'Out of Budget';
+                }
+                if (descSpan) {
+                    descSpan.textContent = 'This requisition exceeds the allocated Cost Center budget and will require Finance Exception approval.';
+                }
+            } else {
+                box.classList.add('alert-success');
+                if (icon) icon.className = 'fa-solid fa-circle-check text-success fs-3 me-3';
+                if (statusSpan) {
+                    statusSpan.className = 'badge bg-success rounded-pill px-3 py-2 fw-bold';
+                    statusSpan.textContent = 'Within Budget';
+                }
+                if (descSpan) {
+                    descSpan.textContent = 'Estimated amount is within the allocated Cost Center budget.';
+                }
+            }
+        } else {
+            box.classList.add('alert-warning');
+            if (icon) icon.className = 'fa-solid fa-circle-info text-warning fs-3 me-3';
+            if (statusSpan) {
+                statusSpan.className = 'badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold';
+                statusSpan.textContent = 'Out of Budget';
+            }
+            if (descSpan) {
+                descSpan.textContent = 'No active budget allocation found for this Cost Center (will require Finance Exception approval).';
+            }
+        }
+    }
+
+    document.getElementById('pr_create_form').addEventListener('submit', function(e) {
+        syncAttachmentInput();
+        validateBudgetOnSubmit(e);
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const deliveryDateInput = document.querySelector('input[name="requested_delivery_date"]');
+        if (deliveryDateInput) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            deliveryDateInput.min = todayStr;
+        }
+        updateBudgetNotice();
+    });
+
+    // ---- Attachment Drag & Drop ----
+    let selectedFiles = new DataTransfer();
+
+    function getFileIcon(filename) {
+        const ext = filename.split('.').pop().toLowerCase();
+        if (ext === 'pdf') return '<i class="fa-solid fa-file-pdf text-danger me-2 fs-5"></i>';
+        if (ext === 'doc' || ext === 'docx') return '<i class="fa-solid fa-file-word text-primary me-2 fs-5"></i>';
+        return '<i class="fa-solid fa-file me-2 fs-5"></i>';
+    }
+
+    function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function syncAttachmentInput() {
+        const input = document.getElementById('attachment_input');
+        if (input) {
+            input.files = selectedFiles.files;
+        }
+    }
+
+    function renderFileList() {
+        const list = document.getElementById('attachment_list');
+        list.innerHTML = '';
+        for (let i = 0; i < selectedFiles.files.length; i++) {
+            const f = selectedFiles.files[i];
+            const li = document.createElement('li');
+            li.className = 'list-group-item px-0 border-0 d-flex align-items-center justify-content-between py-2';
+            li.innerHTML = `
+                <div class="d-flex align-items-center overflow-hidden">
+                    ${getFileIcon(f.name)}
+                    <div class="overflow-hidden">
+                        <div class="fw-semibold text-dark text-truncate small" style="max-width:160px;" title="${f.name}">${f.name}</div>
+                        <div class="text-muted" style="font-size:0.72rem;">${formatBytes(f.size)}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-light text-danger ms-2 flex-shrink-0" onclick="removeFile(${i})" title="Remove">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>`;
+            list.appendChild(li);
+        }
+        // Sync to hidden form input
+        syncAttachmentInput();
+    }
+
+    function checkFileMagicBytes(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = function(e) {
+                if (e.target.readyState !== FileReader.DONE) {
+                    resolve(false);
+                    return;
+                }
+                const arr = new Uint8Array(e.target.result);
+                const ext = file.name.split('.').pop().toLowerCase();
+                if (ext === 'pdf') {
+                    resolve(arr.length >= 5 && arr[0] === 0x25 && arr[1] === 0x50 && arr[2] === 0x44 && arr[3] === 0x46 && arr[4] === 0x2D);
+                } else if (ext === 'doc') {
+                    resolve(arr.length >= 8 && arr[0] === 0xD0 && arr[1] === 0xCF && arr[2] === 0x11 && arr[3] === 0xE0 && arr[4] === 0xA1 && arr[5] === 0xB1 && arr[6] === 0x1A && arr[7] === 0xE1);
+                } else if (ext === 'docx') {
+                    resolve(arr.length >= 4 && arr[0] === 0x50 && arr[1] === 0x4B && arr[2] === 0x03 && arr[3] === 0x04);
+                } else {
+                    resolve(false);
+                }
+            };
+            reader.onerror = () => resolve(false);
+            reader.readAsArrayBuffer(file.slice(0, 8));
+        });
+    }
+
+    async function addFiles(files) {
+        const allowed = ['pdf', 'doc', 'docx'];
+        for (const f of files) {
+            const ext = f.name.split('.').pop().toLowerCase();
+            if (!allowed.includes(ext)) {
+                alert("Invalid file format.");
+                continue;
+            }
+            if (f.size > 10 * 1024 * 1024) {
+                alert(`"${f.name}" exceeds the 10MB limit.`);
+                continue;
+            }
+            const isValidMagic = await checkFileMagicBytes(f);
+            if (!isValidMagic) {
+                alert("Invalid file format.");
+                continue;
+            }
+            selectedFiles.items.add(f);
+        }
+        renderFileList();
+    }
+
+
+    function removeFile(index) {
+        const dt = new DataTransfer();
+        for (let i = 0; i < selectedFiles.files.length; i++) {
+            if (i !== index) dt.items.add(selectedFiles.files[i]);
+        }
+        selectedFiles = dt;
+        renderFileList();
+    }
+
+    function handleFileSelect(event) {
+        if (event.target.files && event.target.files.length > 0) {
+            addFiles(event.target.files);
+        }
+        // Clears only the browse picker input so re-selecting works without clearing attachment_input
+        event.target.value = '';
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        const dz = document.getElementById('attachment_dropzone');
+        dz.style.borderColor = '#0d6efd';
+        dz.style.background = '#eef3ff';
+    }
+
+    function handleDragLeave(e) {
+        const dz = document.getElementById('attachment_dropzone');
+        dz.style.borderColor = '#dee2e6';
+        dz.style.background = '#f8f9fc';
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        handleDragLeave(e);
+        if (e.dataTransfer && e.dataTransfer.files) {
+            addFiles(e.dataTransfer.files);
+        }
+    }
+</script>
+{% endblock %}

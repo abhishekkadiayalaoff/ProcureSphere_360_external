@@ -1,6 +1,4 @@
-version: '3.8'
-
-services:
+﻿services:
   db:
     image: postgres:15-alpine
     container_name: procuresphere_db
@@ -9,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USER:-procure_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-procure_password}
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

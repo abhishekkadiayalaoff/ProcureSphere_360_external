@@ -1,0 +1,279 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Goods Receipt Notes (GRN) — ProcureSphere 360{% endblock %}
+{% block page_heading %}Goods Receipt Notes (GRN) Register{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <span class="badge bg-secondary px-3 py-2 text-uppercase mb-2">
+            <i class="fa-solid fa-box-open me-1"></i> Warehouse & Receiving
+        </span>
+        <h2 class="fw-bold text-dark mb-1">Goods Receipt Notes (GRN)</h2>
+        <p class="text-muted mb-0">Record and review physical goods receipts, delivery notes, and quality inspections.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'orders_list' %}" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+            <i class="fa-solid fa-plus me-1"></i> Record Goods Receipt
+        </a>
+        <a href="{% url 'orders_list' %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <i class="fa-solid fa-truck-ramp-box me-1"></i> View Pending Deliveries
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Open Purchase Orders Eligible for Receiving -->
+{% if open_pos %}
+<div class="card border-0 shadow-sm rounded-4 mb-4 border-start border-4 border-primary">
+    <div class="card-header bg-white border-bottom-0 pt-3 pb-0 px-4 d-flex justify-content-between align-items-center">
+        <h6 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-truck-ramp-box text-primary me-2"></i> Pending POs Ready for Receiving ({{ open_pos|length }})
+        </h6>
+        <a href="{% url 'orders_list' %}" class="small text-decoration-none fw-semibold">View All Receivable POs &rarr;</a>
+    </div>
+    <div class="card-body p-4 pt-2">
+        <div class="row g-3">
+            {% for po in open_pos|slice:":3" %}
+            <div class="col-md-4">
+                <div class="p-3 bg-light rounded-3 border d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold font-monospace text-primary small">{{ po.po_number }}</div>
+                        <div class="small fw-semibold text-dark text-truncate" style="max-width: 180px;">{{ po.vendor.legal_name }}</div>
+                        <small class="badge bg-secondary-subtle text-secondary border">{{ po.get_status_display }}</small>
+                    </div>
+                    <a href="{% url 'receipt_create' po_id=po.id %}" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold">
+                        Receive
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Filter & Search Bar Card -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-4">
+        <form method="GET" action="{% url 'receipts_list' %}" class="row g-3 align-items-end">
+            <!-- Search Input -->
+            <div class="col-lg-3 col-md-6">
+                <label for="search_q" class="form-label small fw-semibold text-dark mb-1">Search</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" class="form-control bg-light border-start-0" id="search_q" name="q" 
+                           placeholder="GRN #, PO #, Vendor, Delivery Note..." value="{{ search_query }}">
+                </div>
+            </div>
+
+            <!-- Inspection Status Dropdown -->
+            <div class="col-lg-2 col-md-6">
+                <label for="filter_status" class="form-label small fw-semibold text-dark mb-1">Inspection Status</label>
+                <select class="form-select bg-light" id="filter_status" name="status">
+                    <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+                    <option value="PENDING" {% if status_filter == 'PENDING' %}selected{% endif %}>Pending Inspection</option>
+                    <option value="PASSED" {% if status_filter == 'PASSED' %}selected{% endif %}>Passed</option>
+                    <option value="FAILED" {% if status_filter == 'FAILED' or status_filter == 'REJECTED' %}selected{% endif %}>Failed / Rejected</option>
+                    <option value="PARTIALLY_INSPECTED" {% if status_filter == 'PARTIALLY_INSPECTED' %}selected{% endif %}>Partially Inspected</option>
+                </select>
+            </div>
+
+            <!-- PO Filter Dropdown -->
+            <div class="col-lg-2 col-md-6">
+                <label for="filter_po" class="form-label small fw-semibold text-dark mb-1">Purchase Order</label>
+                <select class="form-select bg-light" id="filter_po" name="po">
+                    <option value="" {% if not po_filter %}selected{% endif %}>All POs</option>
+                    {% for po in po_list %}
+                    <option value="{{ po.id }}" {% if po_filter == po.id|stringformat:"s" or po_filter == po.po_number %}selected{% endif %}>
+                        {{ po.po_number }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Date Range From -->
+            <div class="col-lg-2 col-md-3 col-sm-6">
+                <label for="date_from" class="form-label small fw-semibold text-dark mb-1">Received From</label>
+                <input type="date" class="form-control bg-light" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+
+            <!-- Date Range To -->
+            <div class="col-lg-2 col-md-3 col-sm-6">
+                <label for="date_to" class="form-label small fw-semibold text-dark mb-1">Received To</label>
+                <input type="date" class="form-control bg-light" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="col-lg-1 col-md-6 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 rounded-3 fw-semibold">
+                    <i class="fa-solid fa-filter"></i>
+                </button>
+                {% if has_active_filters %}
+                <a href="{% url 'receipts_list' %}" class="btn btn-outline-secondary rounded-3" title="Clear All Filters">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Recorded GRNs Table -->
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-header bg-white border-bottom-0 py-3 px-4 d-flex justify-content-between align-items-center">
+        <h5 class="fw-bold mb-0 text-dark">
+            <i class="fa-solid fa-receipt text-primary me-2"></i> Recorded Shipments & GRNs
+        </h5>
+        <span class="badge bg-light text-secondary border">
+            {{ total_count }} total record{{ total_count|pluralize }}
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-secondary">
+                    <tr>
+                        <th class="ps-4 py-3">GRN Number</th>
+                        <th class="py-3">PO Reference</th>
+                        <th class="py-3">Vendor / Supplier</th>
+                        <th class="py-3">Delivery Note #</th>
+                        <th class="py-3 text-center">Items</th>
+                        <th class="py-3 text-center">Inspection</th>
+                        <th class="py-3">Received Date</th>
+                        <th class="py-3">Received By</th>
+                        <th class="pe-4 py-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for grn in receipts %}
+                    <tr>
+                        <td class="ps-4 fw-semibold font-monospace">
+                            <a href="{% url 'receipt_detail' grn.id %}" class="text-primary text-decoration-none fw-bold">
+                                {{ grn.grn_number }}
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{% url 'order_detail' grn.po.id %}" class="text-decoration-none font-monospace fw-semibold">
+                                <span class="badge bg-light text-dark border">{{ grn.po.po_number }}</span>
+                            </a>
+                        </td>
+                        <td>
+                            <div class="text-dark fw-semibold text-truncate" style="max-width: 180px;">{{ grn.po.vendor.legal_name }}</div>
+                        </td>
+                        <td>{{ grn.delivery_note_number|default:"N/A" }}</td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary-subtle text-secondary border">{{ grn.lines.count }} line{{ grn.lines.count|pluralize }}</span>
+                        </td>
+                        <td class="text-center">
+                            {% if grn.overall_inspection_status == 'PASSED' %}
+                                <span class="badge bg-success-subtle text-success border border-success">
+                                    <i class="fa-solid fa-check me-1"></i> Passed
+                                </span>
+                            {% elif grn.overall_inspection_status == 'FAILED' or grn.overall_inspection_status == 'REJECTED' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Rejections
+                                </span>
+                            {% elif grn.overall_inspection_status == 'PARTIALLY_INSPECTED' %}
+                                <span class="badge bg-info-subtle text-info border border-info">
+                                    <i class="fa-solid fa-clock-rotate-left me-1"></i> Partial
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning">
+                                    <i class="fa-solid fa-hourglass-half me-1"></i> Pending
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td>{{ grn.received_date|date:"M d, Y H:i" }}</td>
+                        <td><small class="text-muted">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</small></td>
+                        <td class="pe-4 text-end">
+                            <div class="d-inline-flex gap-1">
+                                <a href="{% url 'receipt_detail' grn.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold">
+                                    View
+                                </a>
+                                <a href="{% url 'receipt_inspect' grn_id=grn.id %}" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-semibold">
+                                    <i class="fa-solid fa-clipboard-check me-1"></i> Inspect
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                                <i class="fa-solid fa-inbox text-muted fs-2"></i>
+                            </div>
+                            <h6 class="fw-bold text-muted">No Goods Receipt Notes Found</h6>
+                            <p class="small text-secondary mb-3">
+                                {% if has_active_filters %}
+                                No receipts matched your search/filter criteria.
+                                {% else %}
+                                No shipments have been processed into the receiving register yet.
+                                {% endif %}
+                            </p>
+                            {% if has_active_filters %}
+                            <a href="{% url 'receipts_list' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-4 fw-semibold">
+                                <i class="fa-solid fa-rotate-left me-1"></i> Clear Filters
+                            </a>
+                            {% else %}
+                            <a href="{% url 'orders_list' %}" class="btn btn-sm btn-primary rounded-pill px-4 fw-semibold">
+                                <i class="fa-solid fa-plus me-1"></i> Record Goods Receipt
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Server-side Pagination Footer -->
+        {% if page_obj.has_other_pages %}
+        <div class="card-footer bg-white border-top py-3 px-4 d-flex justify-content-between align-items-center">
+            <span class="small text-muted">
+                Showing page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} ({{ total_count }} items)
+            </span>
+            <nav aria-label="GRN pagination">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">&laquo; Prev</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">&laquo; Prev</span></li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                        <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% if query_string %}&{{ query_string }}{% endif %}">{{ num }}</a>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if query_string %}&{{ query_string }}{% endif %}">Next &raquo;</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">Next &raquo;</span></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

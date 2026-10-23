@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchase Orders & Change Orders — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-file-contract text-primary me-2"></i> Purchase Orders (PO) Register</h2>
+        <p class="text-muted small mb-0">PO execution, vendor portal acknowledgement, Change Order versioning & delivery tracking.</p>
+    </div>
+    <div>
+        <button class="btn btn-primary fw-bold rounded-pill px-4 shadow-sm" hx-get="/purchase-orders/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">
+            <i class="fa-solid fa-plus me-1"></i> Issue Purchase Order
+        </button>
+    </div>
+</div>
+
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Status Filter Pills -->
+<div class="mb-4">
+    <div class="btn-group border rounded-pill p-1 bg-white shadow-sm" role="group">
+        <a href="/purchase-orders/" class="btn btn-sm rounded-pill px-3 {% if not status_filter %}btn-primary{% else %}btn-light{% endif %}">All POs</a>
+        <a href="/purchase-orders/?status=ISSUED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'ISSUED' %}btn-primary{% else %}btn-light{% endif %}">Issued</a>
+        <a href="/purchase-orders/?status=ACKNOWLEDGED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'ACKNOWLEDGED' %}btn-primary{% else %}btn-light{% endif %}">Acknowledged</a>
+        <a href="/purchase-orders/?status=PARTIAL_RECEIPT" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'PARTIAL_RECEIPT' %}btn-primary{% else %}btn-light{% endif %}">Partial Receipt</a>
+        <a href="/purchase-orders/?status=COMPLETED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'COMPLETED' %}btn-primary{% else %}btn-light{% endif %}">Completed</a>
+    </div>
+</div>
+
+<!-- PO Register Table -->
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-4">PO Number & Version</th>
+                    <th>Supplier / Vendor</th>
+                    <th>Total Amount</th>
+                    <th>Receipt Status</th>
+                    <th>PO Status</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark"><code>{{ order.po_number }}</code></div>
+                            <div class="text-muted small">Version: <span class="badge bg-secondary">V{{ order.version|default:1 }}</span></div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ order.vendor.legal_name }}</div>
+                            <div class="text-muted small"><code>{{ order.vendor.vendor_code }}</code></div>
+                        </td>
+                        <td class="fw-bold text-navy">${{ order.total_amount|floatformat:2 }} {{ order.currency }}</td>
+                        <td>
+                            <span class="badge bg-light text-dark border"><i class="fa-solid fa-truck-ramp-box me-1"></i> {{ order.receipt_status|default:"PENDING" }}</span>
+                        </td>
+                        <td>
+                            {% if order.status == 'COMPLETED' %}
+                                <span class="badge badge-status badge-status-approved">COMPLETED</span>
+                            {% elif order.status == 'ACKNOWLEDGED' %}
+                                <span class="badge badge-status badge-status-active"><i class="fa-solid fa-check me-1"></i> ACKNOWLEDGED</span>
+                            {% else %}
+                                <span class="badge badge-status badge-status-pending">{{ order.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="/api/v1/purchase-orders/{{ order.id }}/" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                Inspect PO <i class="fa-solid fa-arrow-right ms-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-file-contract fa-3x mb-3 text-secondary"></i>
+                            <div>No Purchase Orders found matching the criteria.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

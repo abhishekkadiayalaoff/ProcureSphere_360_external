@@ -1,0 +1,918 @@
+{% extends 'manager/base_manager.html' %}
+
+{% block title %}Purchase Orders & Commitments — Procurement Manager{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Purchase Orders</li>
+{% endblock manager_breadcrumbs %}
+
+{% block mobile_page_title %}Purchase Orders{% endblock mobile_page_title %}
+
+{% block manager_content %}
+<div class="container-fluid px-0">
+
+    <!-- Page Header Area -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-emerald text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
+                    <i class="fa-solid fa-cart-shopping me-1"></i> ORDER EXECUTION &amp; COMMITMENTS
+                </span>
+                <span class="text-muted small">Purchase order fulfillment, version amendments &amp; budget commitments</span>
+            </div>
+            <h1 class="h3 fw-bold text-dark mb-1 font-heading">Purchase Orders &amp; Spend Commitments</h1>
+            <p class="text-muted small mb-0">Track issued purchase orders, vendor acknowledgments, partial goods receipt, change orders, and financial ledger status.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button onclick="loadPurchaseOrders()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-2xs" id="poRefreshBtn">
+                <i class="fa-solid fa-arrows-rotate me-1" id="poRefreshIcon"></i> Refresh Orders
+            </button>
+            <a href="/manager/vendor-risk/" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-2xs">
+                <i class="fa-solid fa-shield-halved me-1"></i> Vendor Risk Desk
+            </a>
+        </div>
+    </div>
+
+    <!-- PO KPI Summary Cards -->
+    <div class="row g-3 mb-4" id="poKpiRow">
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-emerald">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Active Commitments</span>
+                    <span class="badge bg-success-subtle text-success rounded-circle p-2"><i class="fa-solid fa-dollar-sign"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiActiveCommitments">$0.00</h3>
+                <div class="text-muted small" id="kpiTotalPOsCount">0 total orders</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-primary">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Issued &amp; Pending Ack</span>
+                    <span class="badge bg-primary-subtle text-primary rounded-circle p-2"><i class="fa-solid fa-paper-plane"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiPendingAck">0</h3>
+                <div class="text-muted small" id="kpiIssuedTotal">0 issued orders</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-info">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">Acknowledged Orders</span>
+                    <span class="badge bg-info-subtle text-info rounded-circle p-2"><i class="fa-solid fa-check-double"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiAcknowledged">0</h3>
+                <div class="text-muted small" id="kpiAckRate">Confirmed by suppliers</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100 border-start border-4 border-warning">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <span class="text-muted small text-uppercase fw-bold" style="font-size: 0.7rem;">In Fulfillment / Partial</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis rounded-circle p-2"><i class="fa-solid fa-truck-ramp-box"></i></span>
+                </div>
+                <h3 class="fw-bold text-dark mb-1 font-heading" id="kpiPartialReceipt">0</h3>
+                <div class="text-muted small" id="kpiAmendedCount">0 amended (V2+)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white p-3 mb-4">
+        <div class="row g-2 align-items-center">
+            <!-- Search Bar -->
+            <div class="col-12 col-md-3">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-slate-50 border"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="poSearchInput" class="form-control" placeholder="Search PO #, vendor, items..." oninput="onPOSearchInput()">
+                </div>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="col-6 col-md-2">
+                <select id="poStatusFilter" class="form-select form-select-sm" onchange="onPOFilterChange()">
+                    <option value="">All Order Statuses</option>
+                    <option value="ISSUED">Issued</option>
+                    <option value="ACKNOWLEDGED">Acknowledged</option>
+                    <option value="PARTIAL_RECEIPT">Partial Receipt</option>
+                    <option value="COMPLETED">Completed / Fulfilled</option>
+                    <option value="APPROVAL">In Approval</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+            </div>
+
+            <!-- Acknowledgement Filter -->
+            <div class="col-6 col-md-2">
+                <select id="poAckFilter" class="form-select form-select-sm" onchange="onPOFilterChange()">
+                    <option value="">All Acknowledgements</option>
+                    <option value="acknowledged">Acknowledged by Vendor</option>
+                    <option value="pending">Pending Vendor Ack</option>
+                </select>
+            </div>
+
+            <!-- Amendments Filter -->
+            <div class="col-6 col-md-2">
+                <select id="poAmendmentFilter" class="form-select form-select-sm" onchange="onPOFilterChange()">
+                    <option value="">All Versions</option>
+                    <option value="true">Amended Orders (V2+)</option>
+                    <option value="false">Original Version (V1)</option>
+                </select>
+            </div>
+
+            <!-- Sort Filter -->
+            <div class="col-6 col-md-3">
+                <select id="poSortFilter" class="form-select form-select-sm" onchange="onPOFilterChange()">
+                    <option value="-created_at">Sort: Newest First</option>
+                    <option value="created_at">Sort: Oldest First</option>
+                    <option value="-total_amount">Sort: Highest Value</option>
+                    <option value="total_amount">Sort: Lowest Value</option>
+                    <option value="po_number">Sort: PO Number (A-Z)</option>
+                    <option value="-version">Sort: Highest Version</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Active Filter Badges -->
+        <div id="poActiveFiltersRow" class="d-flex flex-wrap align-items-center gap-2 pt-2 mt-2 border-top d-none">
+            <span class="text-muted small fw-bold" style="font-size: 0.72rem;">ACTIVE FILTERS:</span>
+            <div id="poFilterPills" class="d-flex flex-wrap gap-1"></div>
+            <button onclick="clearAllPOFilters()" class="btn btn-link btn-sm text-danger text-decoration-none p-0 ms-auto small" style="font-size: 0.75rem;">
+                <i class="fa-solid fa-xmark me-1"></i> Clear All
+            </button>
+        </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="poErrorState" class="alert alert-danger rounded-3 border-0 shadow-sm d-none mb-4 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+            <i class="fa-solid fa-triangle-exclamation fs-5"></i>
+            <span id="poErrorMessage">Unable to fetch purchase order records.</span>
+        </div>
+        <button onclick="loadPurchaseOrders()" class="btn btn-outline-danger btn-sm rounded-pill px-3">Retry</button>
+    </div>
+
+    <!-- Purchase Orders Table Container -->
+    <div class="card border-0 shadow-sm rounded-3 bg-white overflow-hidden mb-4">
+        <div class="card-header bg-white py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0 font-heading">
+                <i class="fa-solid fa-cart-shopping text-emerald me-2"></i> Purchase Order Ledger &amp; Fulfillment
+            </h5>
+            <span class="badge bg-slate-100 text-dark border px-3 py-1 rounded-pill" id="poCountBadge">0 Orders</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase">
+                        <tr>
+                            <th class="ps-4">PO Number &amp; Version</th>
+                            <th>Vendor &amp; Risk</th>
+                            <th>Cost Center / Dept</th>
+                            <th>Order Status</th>
+                            <th>Fulfillment</th>
+                            <th>Total Amount ($)</th>
+                            <th>Issued / Ack Date</th>
+                            <th class="pe-4 text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="poTableBody">
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <div class="spinner-border spinner-border-sm text-emerald me-2"></div>
+                                Loading purchase orders...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination Footer -->
+        <div class="card-footer bg-white border-top py-3 px-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2" id="poPaginationFooter">
+            <div class="text-muted small" id="poPaginationSummary">Showing 0 of 0 orders</div>
+            <nav aria-label="PO navigation">
+                <ul class="pagination pagination-sm mb-0" id="poPaginationList"></ul>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Comprehensive Purchase Order Detail & Inspection -->
+<div class="modal fade" id="poDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-hpe-navy text-white px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-emerald text-white fw-bold px-2 py-1 rounded" id="modalPoBadge">PO</span>
+                    <h5 class="modal-title fw-bold font-heading mb-0" id="modalPoNumber">Purchase Order Details</h5>
+                    <span class="badge bg-white-20 text-white ms-2" id="modalPoVersion">V1</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Top Summary Ribbon -->
+                <div class="row g-3 p-3 bg-slate-50 border rounded-3 mb-4">
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Vendor Partner</div>
+                        <div class="fw-bold text-dark fs-6" id="modalPoVendor">-</div>
+                        <span class="badge bg-secondary rounded-pill" id="modalPoVendorRisk">LOW RISK</span>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Cost Center / Dept</div>
+                        <div class="fw-bold text-dark fs-6" id="modalPoCostCenter">-</div>
+                        <div class="small text-muted" id="modalPoDepartment">-</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Total Committed Amount</div>
+                        <div class="fw-bold text-emerald fs-5" id="modalPoTotalAmount">$0.00</div>
+                        <div class="small text-muted" id="modalPoTaxAmount">Tax: $0.00</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="small text-muted text-uppercase fw-bold" style="font-size: 0.65rem;">Order Lifecycle Status</div>
+                        <div><span class="badge bg-primary px-3 py-1 rounded-pill" id="modalPoStatus">ISSUED</span></div>
+                        <div class="small text-muted mt-1" id="modalPoAckStatus">Ack: Pending</div>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs inside Modal -->
+                <ul class="nav nav-tabs nav-fill mb-3" id="poDetailTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" id="tab-lines" data-bs-toggle="tab" data-bs-target="#panel-lines" type="button" role="tab">
+                            <i class="fa-solid fa-list-check me-1"></i> Line Items (<span id="modalLineCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-schedules" data-bs-toggle="tab" data-bs-target="#panel-schedules" type="button" role="tab">
+                            <i class="fa-solid fa-calendar-days me-1"></i> Deliveries (<span id="modalScheduleCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-amendments" data-bs-toggle="tab" data-bs-target="#panel-amendments" type="button" role="tab">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> Amendments (<span id="modalAmendmentCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-invoices" data-bs-toggle="tab" data-bs-target="#panel-invoices" type="button" role="tab">
+                            <i class="fa-solid fa-file-invoice-dollar me-1"></i> Invoices (<span id="modalInvoiceCount">0</span>)
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" id="tab-terms" data-bs-toggle="tab" data-bs-target="#panel-terms" type="button" role="tab">
+                            <i class="fa-solid fa-file-contract me-1"></i> Terms &amp; Notes
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Panels -->
+                <div class="tab-content" id="poDetailTabContent">
+                    <!-- Tab 1: Line Items -->
+                    <div class="tab-pane fade show active" id="panel-lines" role="tabpanel">
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th class="ps-3">Item Description</th>
+                                        <th class="text-center">Qty Ordered</th>
+                                        <th class="text-center">Qty Received</th>
+                                        <th class="text-center">Qty Remaining</th>
+                                        <th class="text-end">Unit Price</th>
+                                        <th class="pe-3 text-end">Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalLinesTableBody">
+                                    <tr>
+                                        <td colspan="6" class="text-center py-4 text-muted">No line items.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Delivery Schedules -->
+                    <div class="tab-pane fade" id="panel-schedules" role="tabpanel">
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th class="ps-3">Line Item</th>
+                                        <th>Expected Delivery Date</th>
+                                        <th class="text-center">Quantity Expected</th>
+                                        <th>Destination Address</th>
+                                        <th class="pe-3 text-end">Schedule Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalSchedulesTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No delivery schedules recorded.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Amendment Version History -->
+                    <div class="tab-pane fade" id="panel-amendments" role="tabpanel">
+                        <div id="modalAmendmentsContainer">
+                            <div class="text-center py-4 text-muted">No change orders or amendments for this purchase order.</div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Invoices & 3-Way Matching -->
+                    <div class="tab-pane fade" id="panel-invoices" role="tabpanel">
+                        <div class="table-responsive border rounded-3">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light small text-uppercase">
+                                    <tr>
+                                        <th class="ps-3">Invoice Number</th>
+                                        <th>Invoice Date</th>
+                                        <th>Due Date</th>
+                                        <th>Match Status</th>
+                                        <th class="pe-3 text-end">Total Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modalInvoicesTableBody">
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">No invoices submitted against this purchase order.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Tab 5: Terms & Notes -->
+                    <div class="tab-pane fade" id="panel-terms" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card bg-slate-50 border p-3 h-100 rounded-3">
+                                    <h6 class="fw-bold text-dark font-heading mb-2">Terms &amp; Conditions</h6>
+                                    <div class="small text-muted" id="modalTermsText" style="white-space: pre-wrap;">Standard HPE Enterprise Procurement Terms &amp; Conditions</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-slate-50 border p-3 h-100 rounded-3">
+                                    <h6 class="fw-bold text-dark font-heading mb-2">Vendor Acknowledgement Notes</h6>
+                                    <div class="small text-muted" id="modalAckNotesText" style="white-space: pre-wrap;">No acknowledgement notes submitted.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-slate-50 px-4 py-3">
+                <button type="button" class="btn btn-light btn-sm rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Purchase Order Governance Cancellation -->
+<div class="modal fade" id="poCancelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-danger text-white px-4 py-3">
+                <h6 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 mb-0">
+                    <i class="fa-solid fa-ban"></i> Cancel Purchase Order &amp; Release Budget
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="cancelPoId">
+
+                <div class="alert alert-warning border-0 rounded-3 small mb-3">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                    <strong>Governance Notice:</strong> Cancelling this purchase order will immediately transition status to <code>CANCELLED</code>, release all unfulfilled budget commitments back to the cost center ledger, and generate an immutable audit log entry.
+                </div>
+
+                <div class="p-3 bg-slate-50 border rounded-3 mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Target PO:</span>
+                        <span class="fw-bold text-dark font-monospace" id="cancelPoNumber">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1">
+                        <span class="text-muted small">Vendor:</span>
+                        <span class="fw-semibold text-dark" id="cancelPoVendor">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted small">Total Committed Amount:</span>
+                        <span class="fw-bold text-danger" id="cancelPoAmount">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Cancellation Justification / Governance Reason <span class="text-danger">*</span></label>
+                    <textarea class="form-control form-control-sm" id="cancelPoReason" rows="3" placeholder="Provide clear procurement governance rationale for cancelling this purchase order..."></textarea>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 pt-2">
+                    <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Keep Order Active</button>
+                    <button type="button" class="btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-sm" id="cancelPoSubmitBtn" onclick="submitPOCancellation()">
+                        <i class="fa-solid fa-ban me-1"></i> Confirm Cancellation
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let poDataCache = [];
+    let poFilteredData = [];
+    let poSearchTimeout = null;
+    let poCurrentPage = 1;
+    const PO_PAGE_SIZE = 15;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPurchaseOrders();
+    });
+
+    function onPOSearchInput() {
+        clearTimeout(poSearchTimeout);
+        poSearchTimeout = setTimeout(() => {
+            applyPOFilters();
+        }, 250);
+    }
+
+    function onPOFilterChange() {
+        applyPOFilters();
+    }
+
+    function clearAllPOFilters() {
+        document.getElementById('poSearchInput').value = '';
+        document.getElementById('poStatusFilter').value = '';
+        document.getElementById('poAckFilter').value = '';
+        document.getElementById('poAmendmentFilter').value = '';
+        document.getElementById('poSortFilter').value = '-created_at';
+        applyPOFilters();
+    }
+
+    async function loadPurchaseOrders() {
+        const tableBody = document.getElementById('poTableBody');
+        const errorState = document.getElementById('poErrorState');
+        const refreshIcon = document.getElementById('poRefreshIcon');
+
+        if (refreshIcon) refreshIcon.classList.add('fa-spin');
+        if (errorState) errorState.classList.add('d-none');
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-5 text-muted">
+                    <div class="spinner-border spinner-border-sm text-emerald me-2"></div>
+                    Loading purchase orders &amp; commitments...
+                </td>
+            </tr>
+        `;
+
+        try {
+            const [ordersRes, summaryRes] = await Promise.all([
+                fetchManagerAPI('/api/v1/purchase-orders/'),
+                fetchManagerAPI('/api/v1/purchase-orders/summary/').catch(() => null)
+            ]);
+
+            poDataCache = Array.isArray(ordersRes) ? ordersRes : (ordersRes.results || []);
+
+            if (summaryRes) {
+                renderPOKpis(summaryRes);
+            } else {
+                renderPOKpisFromLocal(poDataCache);
+            }
+
+            applyPOFilters();
+        } catch (err) {
+            if (errorState) {
+                errorState.classList.remove('d-none');
+                document.getElementById('poErrorMessage').textContent = err.message || 'Failed to fetch purchase order records.';
+            }
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5 text-danger">
+                        <i class="fa-solid fa-triangle-exclamation fs-3 mb-2 d-block"></i>
+                        Unable to load purchase order records.
+                    </td>
+                </tr>
+            `;
+        } finally {
+            if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+        }
+    }
+
+    function renderPOKpis(summary) {
+        document.getElementById('kpiActiveCommitments').textContent = '$' + Number(summary.active_commitments_value || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('kpiTotalPOsCount').textContent = (summary.total_pos || 0) + ' total orders';
+        document.getElementById('kpiPendingAck').textContent = summary.pending_acknowledgement_count || 0;
+        document.getElementById('kpiIssuedTotal').textContent = (summary.issued_count || 0) + ' issued orders';
+        document.getElementById('kpiAcknowledged').textContent = summary.acknowledged_count || 0;
+        document.getElementById('kpiPartialReceipt').textContent = summary.partial_receipt_count || 0;
+        document.getElementById('kpiAmendedCount').textContent = (summary.has_amendments_count || 0) + ' amended (V2+)';
+    }
+
+    function renderPOKpisFromLocal(orders) {
+        const totalPOs = orders.length;
+        const activeCommitments = orders
+            .filter(po => ['ISSUED', 'ACKNOWLEDGED', 'PARTIAL_RECEIPT'].includes(po.status))
+            .reduce((sum, po) => sum + Number(po.total_amount || 0), 0);
+        const pendingAck = orders.filter(po => po.status === 'ISSUED' && !po.is_acknowledged).length;
+        const issued = orders.filter(po => po.status === 'ISSUED').length;
+        const acknowledged = orders.filter(po => po.is_acknowledged || po.status === 'ACKNOWLEDGED').length;
+        const partial = orders.filter(po => po.status === 'PARTIAL_RECEIPT').length;
+        const amended = orders.filter(po => (po.amendments_count || 0) > 0 || (po.version || 1) > 1).length;
+
+        renderPOKpis({
+            total_pos: totalPOs,
+            active_commitments_value: activeCommitments,
+            pending_acknowledgement_count: pendingAck,
+            issued_count: issued,
+            acknowledged_count: acknowledged,
+            partial_receipt_count: partial,
+            has_amendments_count: amended
+        });
+    }
+
+    function applyPOFilters() {
+        const search = (document.getElementById('poSearchInput')?.value || '').toLowerCase().trim();
+        const status = document.getElementById('poStatusFilter')?.value || '';
+        const ack = document.getElementById('poAckFilter')?.value || '';
+        const amendment = document.getElementById('poAmendmentFilter')?.value || '';
+        const sort = document.getElementById('poSortFilter')?.value || '-created_at';
+
+        // Filter Pills Display
+        const pillsContainer = document.getElementById('poFilterPills');
+        const activeFiltersRow = document.getElementById('poActiveFiltersRow');
+        let pillsHtml = '';
+
+        if (search) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Search: "${search}"</span>`;
+        if (status) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Status: ${status}</span>`;
+        if (ack) pillsHtml += `<span class="badge bg-slate-100 text-dark border">Ack: ${ack}</span>`;
+        if (amendment) pillsHtml += `<span class="badge bg-slate-100 text-dark border">${amendment === 'true' ? 'Amended (V2+)' : 'Original (V1)'}</span>`;
+
+        if (pillsHtml) {
+            pillsContainer.innerHTML = pillsHtml;
+            activeFiltersRow.classList.remove('d-none');
+        } else {
+            activeFiltersRow.classList.add('d-none');
+        }
+
+        // Apply filters to data cache
+        poFilteredData = poDataCache.filter(po => {
+            if (search) {
+                const poNum = (po.po_number || '').toLowerCase();
+                const vendorName = (po.vendor_name || '').toLowerCase();
+                const costCenter = (po.cost_center_code || '').toLowerCase();
+                const terms = (po.terms_and_conditions || '').toLowerCase();
+                if (!poNum.includes(search) && !vendorName.includes(search) && !costCenter.includes(search) && !terms.includes(search)) {
+                    return false;
+                }
+            }
+
+            if (status && po.status !== status) {
+                return false;
+            }
+
+            if (ack === 'acknowledged' && !po.is_acknowledged && po.status !== 'ACKNOWLEDGED') {
+                return false;
+            }
+            if (ack === 'pending' && (po.is_acknowledged || po.status === 'ACKNOWLEDGED' || po.status === 'CANCELLED' || po.status === 'COMPLETED')) {
+                return false;
+            }
+
+            if (amendment === 'true' && (po.amendments_count || 0) === 0 && (po.version || 1) <= 1) {
+                return false;
+            }
+            if (amendment === 'false' && ((po.amendments_count || 0) > 0 || (po.version || 1) > 1)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // Apply Sorting
+        poFilteredData.sort((a, b) => {
+            if (sort === '-created_at') return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+            if (sort === 'created_at') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+            if (sort === '-total_amount') return Number(b.total_amount || 0) - Number(a.total_amount || 0);
+            if (sort === 'total_amount') return Number(a.total_amount || 0) - Number(b.total_amount || 0);
+            if (sort === 'po_number') return (a.po_number || '').localeCompare(b.po_number || '');
+            if (sort === '-version') return Number(b.version || 1) - Number(a.version || 1);
+            return 0;
+        });
+
+        poCurrentPage = 1;
+        renderPOTable();
+    }
+
+    function renderPOTable() {
+        const tableBody = document.getElementById('poTableBody');
+        const countBadge = document.getElementById('poCountBadge');
+        const totalItems = poFilteredData.length;
+
+        if (countBadge) countBadge.textContent = totalItems + ' Orders';
+
+        if (totalItems === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-5">
+                        <i class="fa-solid fa-cart-shopping text-muted fs-2 mb-2 d-block"></i>
+                        <div class="fw-bold text-dark">No Purchase Orders Found</div>
+                        <div class="text-muted small">No order records match the selected filters or search criteria.</div>
+                        <button onclick="clearAllPOFilters()" class="btn btn-outline-secondary btn-sm rounded-pill px-3 mt-3">Clear Filters</button>
+                    </td>
+                </tr>
+            `;
+            renderPOPagination(0, 1);
+            return;
+        }
+
+        const startIndex = (poCurrentPage - 1) * PO_PAGE_SIZE;
+        const endIndex = Math.min(startIndex + PO_PAGE_SIZE, totalItems);
+        const pageItems = poFilteredData.slice(startIndex, endIndex);
+
+        tableBody.innerHTML = pageItems.map(po => {
+            let statusBadge = 'bg-secondary text-white';
+            if (po.status === 'ISSUED') statusBadge = 'bg-primary text-white';
+            else if (po.status === 'ACKNOWLEDGED') statusBadge = 'bg-info text-dark';
+            else if (po.status === 'PARTIAL_RECEIPT') statusBadge = 'bg-warning text-dark';
+            else if (po.status === 'COMPLETED') statusBadge = 'bg-success text-white';
+            else if (po.status === 'CANCELLED') statusBadge = 'bg-danger text-white';
+            else if (po.status === 'APPROVAL') statusBadge = 'bg-amber text-dark';
+
+            let riskBadge = 'bg-success-subtle text-success';
+            if (po.vendor_risk_level === 'HIGH') riskBadge = 'bg-danger-subtle text-danger';
+            else if (po.vendor_risk_level === 'MEDIUM') riskBadge = 'bg-warning-subtle text-warning-emphasis';
+
+            const fulfillmentPct = po.fulfillment_percentage || 0;
+            const issuedDate = po.created_at ? new Date(po.created_at).toLocaleDateString() : 'Draft';
+            const isAck = po.is_acknowledged;
+
+            const isCancellable = ['ISSUED', 'ACKNOWLEDGED', 'PARTIAL_RECEIPT', 'APPROVAL', 'DRAFT'].includes(po.status);
+
+            return `
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-bold text-dark font-monospace">${po.po_number}</span>
+                            <span class="badge ${po.version > 1 ? 'bg-indigo text-white' : 'bg-slate-100 text-dark border'} rounded-pill" style="font-size: 0.65rem;">
+                                V${po.version || 1}
+                            </span>
+                            ${po.amendments_count > 0 ? `<span class="badge bg-warning-subtle text-warning-emphasis rounded-pill" style="font-size: 0.65rem;" title="${po.amendments_count} Amendment(s)"><i class="fa-solid fa-code-compare"></i></span>` : ''}
+                        </div>
+                        <div class="small text-muted" style="font-size: 0.72rem;">${po.requisition_number ? 'PR: ' + po.requisition_number : 'Direct PO'}</div>
+                    </td>
+                    <td>
+                        <div class="fw-semibold text-dark small">${po.vendor_name || 'Vendor'}</div>
+                        <div class="d-flex align-items-center gap-1 mt-1">
+                            <span class="badge ${riskBadge} rounded-pill" style="font-size: 0.65rem;">${po.vendor_risk_level || 'LOW'} RISK</span>
+                            ${po.vendor_number ? `<span class="text-muted font-monospace" style="font-size: 0.68rem;">${po.vendor_number}</span>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="badge bg-slate-100 text-dark border small">${po.cost_center_code || 'General'}</div>
+                        <div class="small text-muted" style="font-size: 0.7rem;">${po.department_name || 'Procurement'}</div>
+                    </td>
+                    <td>
+                        <span class="badge ${statusBadge} rounded-pill px-2 py-1">${po.status_display || po.status}</span>
+                    </td>
+                    <td style="min-width: 140px;">
+                        <div class="d-flex justify-content-between small text-muted mb-1" style="font-size: 0.7rem;">
+                            <span>${fulfillmentPct}%</span>
+                            <span>${po.total_quantity_received || 0} / ${po.total_quantity_ordered || 0}</span>
+                        </div>
+                        <div class="progress" style="height: 5px;">
+                            <div class="progress-bar ${fulfillmentPct >= 100 ? 'bg-success' : 'bg-emerald'}" role="progressbar" style="width: ${fulfillmentPct}%"></div>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">$${Number(po.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                        <div class="small text-muted" style="font-size: 0.7rem;">Tax: $${Number(po.tax_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</div>
+                    </td>
+                    <td>
+                        <div class="small text-dark">${issuedDate}</div>
+                        <div class="small" style="font-size: 0.7rem;">
+                            ${isAck ? '<span class="text-success"><i class="fa-solid fa-check-circle me-1"></i>Acknowledged</span>' : '<span class="text-muted"><i class="fa-regular fa-clock me-1"></i>Pending Ack</span>'}
+                        </div>
+                    </td>
+                    <td class="pe-4 text-end">
+                        <div class="d-inline-flex gap-1">
+                            <button onclick="openPODetailModal('${po.id}')" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" title="Inspect Order Details">
+                                <i class="fa-solid fa-eye me-1"></i> Inspect
+                            </button>
+                            ${isCancellable ? `
+                                <button onclick="openPOCancelModal('${po.id}', '${po.po_number}', '${po.vendor_name || 'Vendor'}', '${po.total_amount}')" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Cancel PO Governance Action">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        renderPOPagination(totalItems, poCurrentPage);
+    }
+
+    function renderPOPagination(totalItems, currentPage) {
+        const summary = document.getElementById('poPaginationSummary');
+        const list = document.getElementById('poPaginationList');
+
+        if (totalItems === 0) {
+            summary.textContent = 'Showing 0 of 0 orders';
+            list.innerHTML = '';
+            return;
+        }
+
+        const totalPages = Math.ceil(totalItems / PO_PAGE_SIZE);
+        const startIndex = (currentPage - 1) * PO_PAGE_SIZE + 1;
+        const endIndex = Math.min(currentPage * PO_PAGE_SIZE, totalItems);
+
+        summary.textContent = `Showing ${startIndex}-${endIndex} of ${totalItems} orders`;
+
+        let pagesHtml = `
+            <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                <button class="page-link" onclick="changePOPage(${currentPage - 1})" aria-label="Previous">&laquo;</button>
+            </li>
+        `;
+
+        for (let p = 1; p <= totalPages; p++) {
+            if (p === 1 || p === totalPages || (p >= currentPage - 2 && p <= currentPage + 2)) {
+                pagesHtml += `
+                    <li class="page-item ${p === currentPage ? 'active' : ''}">
+                        <button class="page-link" onclick="changePOPage(${p})">${p}</button>
+                    </li>
+                `;
+            } else if (p === currentPage - 3 || p === currentPage + 3) {
+                pagesHtml += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            }
+        }
+
+        pagesHtml += `
+            <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                <button class="page-link" onclick="changePOPage(${currentPage + 1})" aria-label="Next">&raquo;</button>
+            </li>
+        `;
+
+        list.innerHTML = pagesHtml;
+    }
+
+    function changePOPage(page) {
+        const totalPages = Math.ceil(poFilteredData.length / PO_PAGE_SIZE);
+        if (page < 1 || page > totalPages) return;
+        poCurrentPage = page;
+        renderPOTable();
+    }
+
+    function openPODetailModal(poId) {
+        const po = poDataCache.find(item => item.id === poId);
+        if (!po) return;
+
+        document.getElementById('modalPoNumber').textContent = po.po_number;
+        document.getElementById('modalPoVersion').textContent = `Version ${po.version || 1}`;
+        document.getElementById('modalPoVendor').textContent = po.vendor_name || 'Vendor';
+        document.getElementById('modalPoVendorRisk').textContent = `${po.vendor_risk_level || 'LOW'} RISK`;
+        document.getElementById('modalPoCostCenter').textContent = po.cost_center_code || 'General';
+        document.getElementById('modalPoDepartment').textContent = po.department_name || 'Procurement';
+        document.getElementById('modalPoTotalAmount').textContent = '$' + Number(po.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('modalPoTaxAmount').textContent = 'Tax: $' + Number(po.tax_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('modalPoStatus').textContent = po.status_display || po.status;
+        document.getElementById('modalPoAckStatus').textContent = po.is_acknowledged ? 'Ack: Confirmed' : 'Ack: Pending';
+
+        // Line items
+        const lines = po.lines || [];
+        document.getElementById('modalLineCount').textContent = lines.length;
+        const linesBody = document.getElementById('modalLinesTableBody');
+        if (lines.length === 0) {
+            linesBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No line items.</td></tr>`;
+        } else {
+            linesBody.innerHTML = lines.map(line => `
+                <tr>
+                    <td class="ps-3 fw-semibold text-dark">${line.item_description}</td>
+                    <td class="text-center">${line.quantity} ${line.unit_of_measure || 'EA'}</td>
+                    <td class="text-center text-success fw-bold">${line.quantity_received || '0.00'}</td>
+                    <td class="text-center text-muted">${line.remaining_quantity || '0.00'}</td>
+                    <td class="text-end">$${Number(line.unit_price || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                    <td class="pe-3 text-end fw-bold text-dark">$${Number(line.line_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Schedules
+        const schedules = po.delivery_schedules || [];
+        document.getElementById('modalScheduleCount').textContent = schedules.length;
+        const schedulesBody = document.getElementById('modalSchedulesTableBody');
+        if (schedules.length === 0) {
+            schedulesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No delivery schedules recorded.</td></tr>`;
+        } else {
+            schedulesBody.innerHTML = schedules.map(sch => `
+                <tr>
+                    <td class="ps-3 fw-semibold text-dark">${sch.line_description || 'Line Item'}</td>
+                    <td>${sch.expected_delivery_date || 'TBD'}</td>
+                    <td class="text-center">${sch.quantity_expected || '0.00'}</td>
+                    <td class="small text-muted">${sch.destination_address || 'Main Warehouse'}</td>
+                    <td class="pe-3 text-end"><span class="badge bg-info text-dark rounded-pill">${sch.status || 'SCHEDULED'}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // Amendments
+        const amendments = po.amendments || [];
+        document.getElementById('modalAmendmentCount').textContent = amendments.length;
+        const amendmentsContainer = document.getElementById('modalAmendmentsContainer');
+        if (amendments.length === 0) {
+            amendmentsContainer.innerHTML = `<div class="text-center py-4 text-muted">No change orders or amendments recorded for this purchase order.</div>`;
+        } else {
+            amendmentsContainer.innerHTML = amendments.map(amd => `
+                <div class="card border rounded-3 mb-3">
+                    <div class="card-header bg-slate-50 py-2 px-3 d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-dark">Amendment #${amd.amendment_number}</span>
+                        <span class="text-muted small">${amd.created_at ? new Date(amd.created_at).toLocaleString() : ''} by ${amd.requested_by_email || 'Manager'}</span>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="small fw-semibold text-dark mb-1">Justification Reason:</div>
+                        <div class="small text-muted mb-3">${amd.reason || 'No reason specified.'}</div>
+                        ${amd.previous_version_snapshot ? `
+                            <div class="p-2 bg-slate-100 rounded border small font-monospace" style="font-size: 0.75rem;">
+                                <strong>Prior Version Snapshot:</strong> Subtotal: $${amd.previous_version_snapshot.subtotal || '0.00'} | Total: $${amd.previous_version_snapshot.total_amount || '0.00'}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Invoices
+        const invoices = po.invoices || [];
+        document.getElementById('modalInvoiceCount').textContent = invoices.length;
+        const invoicesBody = document.getElementById('modalInvoicesTableBody');
+        if (invoices.length === 0) {
+            invoicesBody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">No supplier invoices submitted against this purchase order.</td></tr>`;
+        } else {
+            invoicesBody.innerHTML = invoices.map(inv => `
+                <tr>
+                    <td class="ps-3 fw-bold text-dark font-monospace">${inv.invoice_number}</td>
+                    <td>${inv.invoice_date || 'N/A'}</td>
+                    <td>${inv.due_date || 'N/A'}</td>
+                    <td><span class="badge bg-secondary rounded-pill">${inv.status_display || inv.status}</span></td>
+                    <td class="pe-3 text-end fw-bold text-dark">$${Number(inv.total_amount || 0).toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Terms & Notes
+        document.getElementById('modalTermsText').textContent = po.terms_and_conditions || 'Standard HPE Enterprise Procurement Terms & Conditions';
+        document.getElementById('modalAckNotesText').textContent = po.acknowledgement_notes || (po.is_acknowledged ? 'Acknowledged without additional notes.' : 'Pending supplier acknowledgement.');
+
+        // Show Bootstrap Modal
+        const modalEl = document.getElementById('poDetailModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    function openPOCancelModal(poId, poNumber, vendorName, totalAmount) {
+        document.getElementById('cancelPoId').value = poId;
+        document.getElementById('cancelPoNumber').textContent = poNumber;
+        document.getElementById('cancelPoVendor').textContent = vendorName;
+        document.getElementById('cancelPoAmount').textContent = '$' + Number(totalAmount || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('cancelPoReason').value = '';
+
+        const modalEl = document.getElementById('poCancelModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    async function submitPOCancellation() {
+        const poId = document.getElementById('cancelPoId').value;
+        const reason = (document.getElementById('cancelPoReason').value || '').trim();
+
+        if (!reason) {
+            showManagerToast('Please provide a mandatory justification reason for cancelling this PO.', 'warning');
+            return;
+        }
+
+        const submitBtn = document.getElementById('cancelPoSubmitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Processing...';
+
+        try {
+            const res = await fetchManagerAPI(`/api/v1/purchase-orders/${poId}/governance-cancel/`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: reason })
+            });
+
+            showManagerToast(res.message || 'Purchase Order successfully cancelled and budget commitments released.', 'success');
+
+            const modalEl = document.getElementById('poCancelModal');
+            if (modalEl && window.bootstrap) {
+                const modalInst = bootstrap.Modal.getInstance(modalEl);
+                if (modalInst) modalInst.hide();
+            }
+
+            loadPurchaseOrders();
+        } catch (err) {
+            showManagerToast(err.message || 'Failed to cancel purchase order.', 'danger');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-ban me-1"></i> Confirm Cancellation';
+        }
+    }
+</script>
+{% endblock manager_content %}

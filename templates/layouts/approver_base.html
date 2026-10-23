@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block navbar %}
+<!-- Top Navigation Bar for Department Approver -->
+<nav class="navbar navbar-dark bg-dark shadow-sm py-2 sticky-top border-bottom border-secondary border-opacity-25">
+    <div class="container-fluid px-3 px-lg-4">
+        <div class="d-flex align-items-center">
+            <!-- Mobile / Tablet Hamburger Button -->
+            <button class="btn btn-outline-light btn-sm d-lg-none me-2 rounded-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#approverSidebar" aria-controls="approverSidebar" aria-label="Toggle navigation">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <a href="/" class="navbar-brand d-flex align-items-center text-white me-2 mb-0">
+                <i class="fa-solid fa-layer-group text-primary fa-xl me-2"></i>
+                <span class="fs-5 fw-bold">ProcureSphere <span class="text-primary fw-light">360</span></span>
+            </a>
+            <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-50 px-2.5 py-1 rounded-pill d-none d-sm-inline-flex align-items-center ms-2" style="font-size: 0.75rem;">
+                <i class="fa-solid fa-user-check text-info me-1"></i> Department Approver
+            </span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+            {% if user.is_authenticated %}
+            <div class="d-flex align-items-center px-2 px-sm-3 py-1 bg-secondary bg-opacity-25 rounded-pill border border-secondary border-opacity-50 text-white">
+                <i class="fa-solid fa-circle-user text-info me-2 fs-5"></i>
+                <div class="text-start leading-tight me-2 d-none d-sm-block">
+                    <div class="fw-semibold text-white small text-truncate" style="max-width: 160px;" title="{{ user.email }}">
+                        {{ user.email }}
+                    </div>
+                    <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">
+                        {{ user.role_code|default:"DEPT_APPROVER" }}
+                    </div>
+                </div>
+            </div>
+            <a href="/approvals/inbox/" class="btn btn-outline-warning btn-sm rounded-pill px-3 position-relative d-inline-flex align-items-center" title="Approvals Inbox">
+                <i class="fa-solid fa-bell me-1"></i> <span class="d-none d-sm-inline">Inbox</span>
+                {% if pending_approvals_count > 0 %}
+                <span class="badge bg-danger rounded-pill ms-1">{{ pending_approvals_count }}</span>
+                {% endif %}
+            </a>
+            <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Sign Out">
+                <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> <span class="d-none d-sm-inline">Sign Out</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+{% endblock navbar %}
+
+{% block layout %}
+<div class="d-flex min-vh-100 position-relative">
+    <!-- Responsive Offcanvas Dark Sidebar for Department Approver -->
+    <aside class="offcanvas-lg offcanvas-start bg-dark text-white border-end border-secondary border-opacity-25" tabindex="-1" id="approverSidebar" aria-labelledby="approverSidebarLabel" style="width: 260px; flex-shrink: 0; min-height: calc(100vh - 56px);">
+        <div class="d-flex flex-column h-100 w-100 p-3">
+            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary border-opacity-25 d-lg-none">
+                <div class="d-flex align-items-center" id="approverSidebarLabel">
+                    <i class="fa-solid fa-layer-group text-primary me-2"></i>
+                    <span class="fw-bold text-white">Approver Menu</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#approverSidebar" aria-label="Close navigation"></button>
+            </div>
+
+            <h6 class="text-uppercase text-light text-opacity-75 fw-bold mb-3 small d-none d-lg-block">
+                <i class="fa-solid fa-compass me-2 text-primary"></i>Approver Menu
+            </h6>
+
+            <ul class="nav nav-pills flex-column gap-1 w-100">
+                <li class="nav-item">
+                    <a href="/"
+                        class="nav-link rounded-3 sidebar-link {% if request.path == '/' %}active bg-primary fw-bold text-white shadow-sm{% else %}text-light text-opacity-75 hover-link{% endif %}">
+                        <i class="fa-solid fa-chart-pie me-2 text-center" style="width: 20px;"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item mt-2">
+                    <div class="text-uppercase text-secondary text-opacity-75 fw-bold mb-2 small px-2" style="font-size: 0.68rem; letter-spacing: 0.08em;">Approvals</div>
+                    <a href="/approvals/inbox/"
+                        class="nav-link rounded-3 sidebar-link {% if '/approvals/' in request.path and request.GET.tab != 'history' %}active bg-primary fw-bold text-white shadow-sm{% else %}text-light text-opacity-75 hover-link{% endif %}">
+                        <i class="fa-solid fa-square-check me-2 text-center" style="width: 20px;"></i> Pending Approvals
+                    </a>
+                </li>
+                <li class="nav-item mt-2">
+                    <div class="text-uppercase text-secondary text-opacity-75 fw-bold mb-2 small px-2" style="font-size: 0.68rem; letter-spacing: 0.08em;">Requisitions</div>
+                    <a href="/requisitions/"
+                        class="nav-link rounded-3 sidebar-link {% if '/requisitions/' in request.path %}active bg-primary fw-bold text-white shadow-sm{% else %}text-light text-opacity-75 hover-link{% endif %}">
+                        <i class="fa-solid fa-list me-2 text-center" style="width: 20px;"></i> Department PRs
+                    </a>
+                </li>
+                <li class="nav-item mt-2">
+                    <div class="text-uppercase text-secondary text-opacity-75 fw-bold mb-2 small px-2" style="font-size: 0.68rem; letter-spacing: 0.08em;">Tracking</div>
+                    <a href="/approvals/inbox/?tab=history"
+                        class="nav-link rounded-3 sidebar-link {% if request.GET.tab == 'history' %}active bg-primary fw-bold text-white shadow-sm{% else %}text-light text-opacity-75 hover-link{% endif %}">
+                        <i class="fa-solid fa-timeline me-2 text-center" style="width: 20px;"></i> My Approvals
+                    </a>
+                </li>
+            </ul>
+
+            <div class="mt-auto pt-4 border-top border-secondary border-opacity-25 d-lg-none">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="text-start leading-tight" style="min-width: 0;">
+                        <div class="fw-semibold text-white small text-truncate" style="max-width: 140px;" title="{{ user.email }}">{{ user.email }}</div>
+                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">DEPT_APPROVER</div>
+                    </div>
+                    <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill px-3" title="Sign Out">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow-1 p-3 p-md-4 p-xl-4 bg-light overflow-auto" style="min-width: 0;">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+{% endblock layout %}

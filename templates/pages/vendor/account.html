@@ -1,0 +1,179 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Account & Security{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Account & Security</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Account & Security Management</h3>
+            <p class="text-muted mb-0 small">
+                Manage user credentials, review session security parameters, and monitor access audit history.
+            </p>
+        </div>
+        <div>
+            <a href="/logout/" class="btn btn-outline-danger btn-sm rounded-pill px-3 shadow-sm">
+                <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Sign Out
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <!-- User Profile Card -->
+        <div class="col-lg-6">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="fa-solid fa-user-shield text-cyan me-2"></i> Authorized Representative
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+                        <div class="rounded-circle bg-dark text-cyan p-3 d-flex align-items-center justify-content-center" style="width: 56px; height: 56px;">
+                            <i class="fa-solid fa-user-tie fs-3"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold text-dark mb-0">{{ user.get_full_name|default:user.email }}</h5>
+                            <span class="badge bg-secondary rounded-pill font-monospace">{{ user.role }}</span>
+                            <span class="badge bg-success rounded-pill ms-1">Active Session</span>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 small">
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block">Email Address</span>
+                            <span class="fw-semibold text-dark font-monospace">{{ user.email }}</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block">Represented Vendor</span>
+                            <span class="fw-semibold text-dark">{{ vendor.legal_name }}</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block">Vendor Code</span>
+                            <span class="font-monospace text-primary fw-bold">{{ vendor.vendor_number }}</span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="text-muted d-block">Account Created</span>
+                            <span class="text-dark">{{ user.date_joined|date:"M d, Y" }}</span>
+                        </div>
+                        <div class="col-12 mt-3 pt-3 border-top">
+                            <span class="text-muted d-block">Security Baseline</span>
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                <span class="badge bg-light text-dark border"><i class="fa-solid fa-cookie-bite text-warning me-1"></i> HttpOnly Cookie</span>
+                                <span class="badge bg-light text-dark border"><i class="fa-solid fa-shield text-success me-1"></i> CSRF Protected</span>
+                                <span class="badge bg-light text-dark border"><i class="fa-solid fa-lock text-cyan me-1"></i> Argon2 / PBKDF2 Password Hash</span>
+                                <span class="badge bg-light text-dark border"><i class="fa-solid fa-clock text-info me-1"></i> Session Expiration Active</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Form -->
+        <div class="col-lg-6">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-4 pb-0">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="fa-solid fa-key text-warning me-2"></i> Update Password
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'vendor_account_security' %}">
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger py-2 small mb-3">
+                            {% for error in form.non_field_errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark">Current Password</label>
+                            <input type="password" name="old_password" class="form-control form-control-sm" required autocomplete="current-password">
+                            {% if form.old_password.errors %}
+                            <small class="text-danger">{{ form.old_password.errors.0 }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark">New Password</label>
+                            <input type="password" name="new_password1" class="form-control form-control-sm" required autocomplete="new-password">
+                            {% if form.new_password1.errors %}
+                            <small class="text-danger">{{ form.new_password1.errors.0 }}</small>
+                            {% endif %}
+                            <small class="text-muted d-block" style="font-size: 0.72rem;">
+                                Must be at least 8 characters, containing uppercase, lowercase, digits, and special characters.
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold text-dark">Confirm New Password</label>
+                            <input type="password" name="new_password2" class="form-control form-control-sm" required autocomplete="new-password">
+                            {% if form.new_password2.errors %}
+                            <small class="text-danger">{{ form.new_password2.errors.0 }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-semibold">
+                                <i class="fa-solid fa-floppy-disk me-1"></i> Update Password
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Security Audit Trail -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Recent User Security Events</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if user_audit_logs %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Timestamp</th>
+                            <th>Action Type</th>
+                            <th>Target Entity</th>
+                            <th class="pe-4">Metadata</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in user_audit_logs %}
+                        <tr>
+                            <td class="ps-4 small text-muted font-monospace">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td><span class="badge bg-secondary font-monospace">{{ log.action }}</span></td>
+                            <td class="small text-dark font-monospace">{{ log.target_model }} #{{ log.target_object_id|slice:":8" }}</td>
+                            <td class="small text-muted pe-4">
+                                {% if log.new_state %}
+                                    <span class="font-monospace" style="font-size: 0.75rem;">{{ log.new_state|truncatechars:50 }}</span>
+                                {% else %}
+                                    Success
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No security events logged for this session.</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

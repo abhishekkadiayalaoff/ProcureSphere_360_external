@@ -1,0 +1,281 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Rejections & Returns Queue — ProcureSphere 360{% endblock %}
+{% block page_heading %}Rejections & Vendor Returns Queue{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-3 py-2 text-uppercase mb-2">
+            <i class="fa-solid fa-ban text-danger me-1"></i> Defect & Vendor Return Gate
+        </span>
+        <h2 class="fw-bold text-dark mb-1">Rejections & Vendor Returns Queue</h2>
+        <p class="text-muted mb-0">Trace rejected shipment line items, inspection defect documentation, and return-to-vendor dispositions.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="{% url 'receipts_list' %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+            <i class="fa-solid fa-boxes-stacked me-1"></i> GRN History
+        </a>
+        <a href="{% url 'receipts_inspection_queue' %}" class="btn btn-outline-warning text-dark rounded-pill px-3 fw-semibold">
+            <i class="fa-solid fa-microscope me-1"></i> Quality Queue
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Rejections Metrics Cards -->
+<div class="row g-3 g-md-4 mb-4">
+    <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-danger h-100">
+            <div class="card-body p-3">
+                <div class="text-muted small fw-bold text-uppercase">Total Rejected Lines</div>
+                <h3 class="fw-bold mb-0 text-danger mt-1">{{ total_rejected_lines }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-warning h-100">
+            <div class="card-body p-3">
+                <div class="text-muted small fw-bold text-uppercase">Pending Return to Vendor</div>
+                <h3 class="fw-bold mb-0 text-warning mt-1">{{ pending_return_count }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm rounded-4 bg-white border-start border-4 border-success h-100">
+            <div class="card-body p-3">
+                <div class="text-muted small fw-bold text-uppercase">Returned to Vendor</div>
+                <h3 class="fw-bold mb-0 text-success mt-1">{{ returned_count }}</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search & Status Filter Controls -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3 p-md-4">
+        <form method="GET" action="{% url 'receipts_rejections_queue' %}" class="row g-3 align-items-end">
+            <div class="col-lg-6 col-md-8">
+                <label for="search_q" class="form-label small fw-semibold text-dark mb-1">Search Rejections</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" class="form-control bg-light border-start-0" id="search_q" name="q"
+                           placeholder="Search GRN #, PO #, Vendor, Item, Reason..." value="{{ search_query }}">
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-4">
+                <label for="filter_status" class="form-label small fw-semibold text-dark mb-1">Return Disposition</label>
+                <select class="form-select bg-light" id="filter_status" name="status">
+                    <option value="" {% if not status_filter %}selected{% endif %}>All Rejections ({{ total_rejected_lines }})</option>
+                    <option value="NOT_RETURNED" {% if status_filter == 'NOT_RETURNED' %}selected{% endif %}>Pending Return ({{ pending_return_count }})</option>
+                    <option value="RETURNED" {% if status_filter == 'RETURNED' %}selected{% endif %}>Returned to Vendor ({{ returned_count }})</option>
+                </select>
+            </div>
+
+            <div class="col-lg-3 col-md-12 d-flex gap-2">
+                <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold flex-grow-1">
+                    <i class="fa-solid fa-filter me-1"></i> Filter
+                </button>
+                {% if search_query or status_filter %}
+                <a href="{% url 'receipts_rejections_queue' %}" class="btn btn-outline-secondary rounded-pill px-3" title="Clear Filters">
+                    <i class="fa-solid fa-rotate-left"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Rejections Table Card -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light text-uppercase small text-muted border-bottom">
+                <tr>
+                    <th class="ps-4 py-3">GRN & PO Reference</th>
+                    <th class="py-3">Vendor & Date</th>
+                    <th class="py-3">Rejected Item & Quantity</th>
+                    <th class="py-3">Rejection Reason & Inspection Notes</th>
+                    <th class="py-3 text-center">Return Status</th>
+                    <th class="pe-4 py-3 text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y">
+                {% for line in rejected_lines %}
+                <tr>
+                    <td class="ps-4 py-3">
+                        <a href="{% url 'receipt_detail' grn_id=line.receipt.id %}" class="fw-bold font-monospace text-primary text-decoration-none d-block">
+                            {{ line.receipt.grn_number }}
+                        </a>
+                        <span class="text-muted small font-monospace">
+                            PO: <a href="{% url 'order_detail' pk=line.receipt.po.id %}" class="text-decoration-none">{{ line.receipt.po.po_number }}</a>
+                        </span>
+                    </td>
+                    <td class="py-3">
+                        <div class="fw-semibold text-dark text-truncate" style="max-width: 180px;">
+                            <i class="fa-regular fa-building me-1 text-muted"></i>{{ line.receipt.po.vendor.legal_name }}
+                        </div>
+                        <span class="text-muted small">
+                            <i class="fa-regular fa-calendar me-1"></i>{{ line.receipt.received_date|date:"M d, Y" }}
+                        </span>
+                    </td>
+                    <td class="py-3">
+                        <div class="fw-medium text-dark text-truncate" style="max-width: 200px;">
+                            {{ line.po_line.item_description }}
+                        </div>
+                        <div class="d-flex align-items-center gap-1 mt-1 font-monospace small">
+                            <span class="badge bg-secondary-subtle text-secondary">Recv: {{ line.quantity_received }}</span>
+                            <span class="badge bg-danger text-white">Rejected: {{ line.quantity_rejected }}</span>
+                        </div>
+                    </td>
+                    <td class="py-3">
+                        {% if line.latest_rejection %}
+                        <div class="small text-danger fw-semibold">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i>{{ line.latest_rejection.rejection_reason }}
+                        </div>
+                        {% elif line.notes %}
+                        <div class="small text-danger fw-semibold">
+                            {{ line.notes }}
+                        </div>
+                        {% else %}
+                        <div class="small text-muted fst-italic">No specific defect reason recorded</div>
+                        {% endif %}
+
+                        {% if line.inspection and line.inspection.inspection_notes %}
+                        <div class="small text-muted mt-1">
+                            <span class="fw-medium">Notes:</span> {{ line.inspection.inspection_notes }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 text-center">
+                        {% if line.latest_rejection and line.latest_rejection.returned_to_vendor %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                                <i class="fa-solid fa-truck-arrow-right me-1"></i> Returned to Vendor
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-3 py-1">
+                                <i class="fa-solid fa-clock me-1"></i> Pending Return
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="pe-4 py-3 text-end">
+                        <div class="d-flex justify-content-end align-items-center gap-2">
+                            {% if line.latest_rejection and not line.latest_rejection.returned_to_vendor %}
+                            <button type="button" class="btn btn-sm btn-danger rounded-pill px-3 fw-semibold text-white shadow-xs" data-bs-toggle="modal" data-bs-target="#returnModal{{ line.latest_rejection.id }}">
+                                <i class="fa-solid fa-truck-arrow-right me-1"></i> Return
+                            </button>
+                            {% endif %}
+                            <a href="{% url 'receipt_detail' grn_id=line.receipt.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                                View GRN
+                            </a>
+                        </div>
+
+                        {% if line.latest_rejection and not line.latest_rejection.returned_to_vendor %}
+                        <!-- Vendor Return Modal -->
+                        <div class="modal fade" id="returnModal{{ line.latest_rejection.id }}" tabindex="-1" aria-labelledby="returnModalLabel{{ line.latest_rejection.id }}" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <form method="POST" action="{% url 'record_vendor_return' rejection_id=line.latest_rejection.id %}" class="modal-content border-0 shadow rounded-4 text-start">
+                                    {% csrf_token %}
+                                    <div class="modal-header border-bottom bg-danger bg-opacity-10">
+                                        <h5 class="modal-title fw-bold text-danger" id="returnModalLabel{{ line.latest_rejection.id }}">
+                                            <i class="fa-solid fa-truck-arrow-right me-2"></i> Process Return to Vendor
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body p-4">
+                                        <div class="mb-3">
+                                            <div class="small text-muted fw-semibold text-uppercase">Shipment &amp; Item Reference</div>
+                                            <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                                            <div class="small font-monospace text-primary">GRN: {{ line.receipt.grn_number }} &bull; PO: {{ line.receipt.po.po_number }}</div>
+                                            <div class="small text-muted">Vendor: {{ line.receipt.po.vendor.legal_name }}</div>
+                                        </div>
+
+                                        <div class="alert alert-danger py-2 px-3 small rounded-3 mb-3">
+                                            <span class="fw-bold">Defect / Rejection Reason:</span> {{ line.latest_rejection.rejection_reason }}
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold text-dark">Return Quantity (Max: {{ line.latest_rejection.rejected_quantity }})</label>
+                                            <input type="number" step="0.01" min="0.01" max="{{ line.latest_rejection.rejected_quantity }}"
+                                                   name="return_quantity" value="{{ line.latest_rejection.rejected_quantity }}" class="form-control" required>
+                                            <div class="form-text small">Accepted warehouse stock is guaranteed unchanged by returns.</div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold text-dark">Carrier / Tracking Reference <span class="text-danger">*</span></label>
+                                            <input type="text" name="tracking_reference" class="form-control" placeholder="e.g. DHL-WAYBILL-998811 or RMA-HPE-4421" required>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label class="form-label small fw-bold text-dark">Return / Dispatch Notes</label>
+                                            <textarea name="return_notes" class="form-control" rows="2" placeholder="e.g. Dispatched via courier; vendor credit note requested..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer border-top bg-light">
+                                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">
+                                            <i class="fa-solid fa-check me-1"></i> Confirm Dispatch
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="py-4">
+                            <i class="fa-solid fa-circle-check text-success fa-3x mb-3"></i>
+                            <h5 class="fw-bold text-dark">No Rejections or Returns Found</h5>
+                            <p class="text-muted small mb-3">All received shipments have passed quality inspection without rejected items.</p>
+                            {% if search_query or status_filter %}
+                            <a href="{% url 'receipts_rejections_queue' %}" class="btn btn-outline-primary rounded-pill px-4 btn-sm">Clear Active Filters</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="card-footer bg-white border-top py-3 px-4 d-flex justify-content-between align-items-center">
+        <div class="small text-muted">
+            Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} records
+        </div>
+        <ul class="pagination pagination-sm mb-0">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
+            </li>
+            {% endif %}
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Supplier Performance{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-award text-success me-2"></i>Supplier Performance</h2>
+        <p class="text-muted small mb-0">Latest scorecard per supplier. Composite = Delivery 30%, Quality 30%, Price 20%, Compliance 20% over indicators with data; Responsiveness and SLA are reported alongside.</p>
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+{% if can_calculate %}
+<form method="post" action="{% url 'scorecard_calculate' %}" class="glass-card p-3 shadow-sm mb-3">
+    {% csrf_token %}
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label small fw-semibold text-muted mb-1" for="calc-vendor">Vendor</label>
+            <select name="vendor_id" id="calc-vendor" class="form-select form-select-sm" required>
+                <option value="">Select vendor…</option>
+                {% for v in vendors %}<option value="{{ v.id }}">{{ v.legal_name }} ({{ v.vendor_number }})</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small fw-semibold text-muted mb-1" for="calc-period">Evaluation period</label>
+            <input name="period" id="calc-period" class="form-control form-control-sm" placeholder="e.g. Q4-2026" required>
+        </div>
+        <div class="col-md-auto">
+            <button class="btn btn-success btn-sm px-3"><i class="fa-solid fa-calculator me-1"></i>Calculate from transactions</button>
+        </div>
+    </div>
+</form>
+{% endif %}
+
+<form method="get" class="d-flex flex-wrap gap-2 mb-3">
+    <input type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="max-width:280px" placeholder="Vendor name or number" aria-label="Search vendor">
+    <select name="band" class="form-select form-select-sm" style="max-width:220px" aria-label="Performance band">
+        <option value="" {% if not band %}selected{% endif %}>All bands</option>
+        <option value="good" {% if band == 'good' %}selected{% endif %}>Good (≥ 85)</option>
+        <option value="watch" {% if band == 'watch' %}selected{% endif %}>Watch (70–84.99)</option>
+        <option value="issue" {% if band == 'issue' %}selected{% endif %}>Performance issue (&lt; 70)</option>
+    </select>
+    <select name="sort" class="form-select form-select-sm" style="max-width:200px" aria-label="Sort">
+        <option value="score_desc" {% if sort == 'score_desc' %}selected{% endif %}>Highest score</option>
+        <option value="score_asc" {% if sort == 'score_asc' %}selected{% endif %}>Lowest score</option>
+        <option value="vendor" {% if sort == 'vendor' %}selected{% endif %}>Vendor A–Z</option>
+        <option value="recent" {% if sort == 'recent' %}selected{% endif %}>Most recent</option>
+    </select>
+    <button class="btn btn-primary btn-sm px-3">Apply</button>
+</form>
+
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-3">Supplier</th>
+                    <th>Period</th>
+                    <th>Delivery</th>
+                    <th>Quality</th>
+                    <th>Price</th>
+                    <th>Responsiveness</th>
+                    <th>Compliance</th>
+                    <th>SLA</th>
+                    <th>Composite</th>
+                    <th class="text-end pe-3">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for card in scorecards %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="fw-semibold">{{ card.vendor.legal_name }}</div>
+                        <code class="small">{{ card.vendor.vendor_number }}</code>
+                    </td>
+                    <td class="small">{{ card.evaluation_period }}<div class="text-muted">{{ card.created_at|date:"Y-m-d" }}</div></td>
+                    {% for label, score in card.indicator_rows %}
+                        <td class="small">{% if score is None %}<span class="text-muted">No data</span>{% else %}{{ score|floatformat:1 }}{% endif %}</td>
+                    {% endfor %}
+                    <td>
+                        {% if card.composite_score is None %}<span class="text-muted small">No data</span>
+                        {% elif card.composite_score >= 85 %}<span class="badge bg-success">{{ card.composite_score|floatformat:1 }}</span>
+                        {% elif card.composite_score >= 70 %}<span class="badge bg-warning text-dark">{{ card.composite_score|floatformat:1 }}</span>
+                        {% else %}<span class="badge bg-danger">{{ card.composite_score|floatformat:1 }}</span>{% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{% url 'vendor_detail' card.vendor.id %}#performance" class="btn btn-outline-success btn-sm rounded-pill px-3">Governance <i class="fa-solid fa-arrow-right ms-1"></i></a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="10" class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-award fa-2x mb-2 d-block"></i>
+                        No performance data available.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include 'partials/pagination.html' %}
+</div>
+{% endblock %}

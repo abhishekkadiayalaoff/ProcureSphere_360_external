@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Vendor{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-8">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-id-card text-primary me-2"></i>Register Vendor</h2>
+                <p class="text-muted small mb-0">Creates the vendor in DRAFT. KYC documents are uploaded by the vendor through the portal, then reviewed here.</p>
+            </div>
+            <a href="{% url 'vendor_onboarding' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back</a>
+        </div>
+
+        {% include 'partials/messages.html' %}
+        {% if form.non_field_errors %}<div class="alert alert-danger small">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+        <form method="post" class="glass-card p-4 shadow-sm" novalidate>
+            {% csrf_token %}
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Legal identity</h6>
+            <div class="row g-3 mb-3">
+                {% for field in form %}
+                    {% if field.name in 'legal_name trade_name tax_identification_number pan_number gstin registration_number category' %}
+                    <div class="col-md-6">
+                        <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                        {% if field.name == 'category' %}
+                            <select name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-select {% if field.errors %}is-invalid{% endif %}" required>
+                                <option value="">Select category…</option>
+                                {% for value, label in field.field.choices %}{% if value %}<option value="{{ value }}" {% if field.value|stringformat:'s' == value|stringformat:'s' %}selected{% endif %}>{{ label }}</option>{% endif %}{% endfor %}
+                            </select>
+                        {% else %}
+                            <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                        {% endif %}
+                        {% for e in field.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Contact &amp; address</h6>
+            <div class="row g-3 mb-3">
+                {% for field in form %}
+                    {% if field.name in 'email phone address' %}
+                    <div class="{% if field.name == 'address' %}col-12{% else %}col-md-6{% endif %}">
+                        <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                        {% if field.name == 'address' %}
+                            <textarea name="address" id="{{ field.id_for_label }}" rows="2" class="form-control {% if field.errors %}is-invalid{% endif %}" required>{{ field.value|default:'' }}</textarea>
+                        {% else %}
+                            <input type="{% if field.name == 'email' %}email{% else %}text{% endif %}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                        {% endif %}
+                        {% for e in field.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <h6 class="fw-bold text-uppercase text-muted small mb-3">Banking (optional)</h6>
+            <div class="row g-3 mb-4">
+                {% for field in form %}
+                    {% if field.name in 'bank_name bank_account_number bank_routing_code' %}
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
+                        {% for e in field.errors %}<div class="invalid-feedback">{{ e }}</div>{% endfor %}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="text-end">
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="fa-solid fa-floppy-disk me-1"></i>Register as Draft</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

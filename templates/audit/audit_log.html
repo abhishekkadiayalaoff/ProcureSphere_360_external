@@ -1,0 +1,131 @@
+{% extends 'audit/base_auditor.html' %}
+
+{% block title %}Append-Only Audit Trail — ProcureSphere 360 ERP{% endblock %}
+
+{% block auditor_content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-shield-halved text-info me-2"></i> Append-Only Immutable Audit Log Trail</h2>
+        <p class="text-muted small mb-0">Traceability register capturing actor identity, action type, IP address, request ID & timestamp.</p>
+    </div>
+</div>
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Search & Action Filter -->
+<div class="glass-card shadow-sm p-3 mb-4">
+    <form method="GET" action="/audit/logs/" class="row g-2 align-items-center">
+        <div class="col-md-5">
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" name="q" class="form-control" placeholder="Search by Target ID, Request ID, IP..." value="{{ search_query }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select name="action" class="form-select">
+                <option value="">All Actions</option>
+                <option value="CREATE" {% if action_filter == 'CREATE' %}selected{% endif %}>CREATE</option>
+                <option value="UPDATE" {% if action_filter == 'UPDATE' %}selected{% endif %}>UPDATE</option>
+                <option value="DELETE" {% if action_filter == 'DELETE' %}selected{% endif %}>DELETE</option>
+                <option value="APPROVE" {% if action_filter == 'APPROVE' %}selected{% endif %}>APPROVE</option>
+                <option value="REJECT" {% if action_filter == 'REJECT' %}selected{% endif %}>REJECT</option>
+                <option value="LOGIN" {% if action_filter == 'LOGIN' %}selected{% endif %}>LOGIN</option>
+                <option value="LOGOUT" {% if action_filter == 'LOGOUT' %}selected{% endif %}>LOGOUT</option>
+                <option value="EXPORT" {% if action_filter == 'EXPORT' %}selected{% endif %}>EXPORT</option>
+                <option value="AMEND" {% if action_filter == 'AMEND' %}selected{% endif %}>AMEND</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="model" class="form-select">
+                <option value="">All Models</option>
+                <option value="PurchaseRequisition" {% if model_filter == 'PurchaseRequisition' %}selected{% endif %}>PurchaseRequisition</option>
+                <option value="PurchaseOrder" {% if model_filter == 'PurchaseOrder' %}selected{% endif %}>PurchaseOrder</option>
+                <option value="SupplierInvoice" {% if model_filter == 'SupplierInvoice' %}selected{% endif %}>SupplierInvoice</option>
+                <option value="Vendor" {% if model_filter == 'Vendor' %}selected{% endif %}>Vendor</option>
+                <option value="Contract" {% if model_filter == 'Contract' %}selected{% endif %}>Contract</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100 fw-semibold rounded-pill">Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Audit Trail Table -->
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+        <span class="fw-semibold text-dark small">Total Records: {{ total_count }}</span>
+        <span class="badge bg-secondary-subtle text-secondary border">Page {{ current_page }} of {{ total_pages }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light small text-uppercase text-muted">
+                <tr>
+                    <th class="ps-4">Timestamp & Request ID</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Target Model & Object ID</th>
+                    <th>IP Address</th>
+                    <th class="text-end pe-4">Payload Diff</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in audit_logs %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-semibold text-dark">{{ log.timestamp|date:"M d, Y — H:i:s" }}</div>
+                            <div class="text-muted small"><code>{{ log.request_id|default:"REQ-GLOBAL" }}</code></div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">
+                                {% if log.actor %}
+                                    {{ log.actor.email }}
+                                {% else %}
+                                    <span class="text-muted fst-italic">SYSTEM</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-muted small">Role: {% if log.actor %}{{ log.actor.role }}{% else %}SYSTEM{% endif %}</div>
+                        </td>
+                        <td>
+                            {% if log.action == 'APPROVE' or log.action == 'CREATE' or log.action == 'VERIFY' %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fw-semibold">{{ log.action }}</span>
+                            {% elif log.action == 'DELETE' or log.action == 'REJECT' or log.action == 'CANCEL' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fw-semibold">{{ log.action }}</span>
+                            {% elif log.action == 'EXPORT' or log.action == 'OVERRIDE' %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle fw-semibold">{{ log.action }}</span>
+                            {% else %}
+                                <span class="badge bg-info-subtle text-info border border-info-subtle fw-semibold">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ log.target_model }}</div>
+                            <div class="text-muted small"><code>{{ log.target_object_id }}</code></div>
+                        </td>
+                        <td><span class="badge bg-light text-dark border"><code>{{ log.ip_address|default:"127.0.0.1" }}</code></span></td>
+                        <td class="text-end pe-4">
+                            <a href="/audit/lifecycle/?identifier={{ log.target_object_id }}" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1 small">
+                                <i class="fa-solid fa-route me-1"></i> Lifecycle
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-shield-halved fa-3x mb-3 text-secondary"></i>
+                            <div>No Audit Log entries found matching the filter criteria.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock auditor_content %}

@@ -9,6 +9,14 @@ from apps.organization.models import CostCenter, FiscalPeriod
 from .models import Budget, BudgetReservation, SpendLedger
 
 
+class BudgetOverrunException(Exception):
+    def __init__(self, message, budget=None, requested_amount=None):
+        self.message = message
+        self.budget = budget
+        self.requested_amount = requested_amount
+        super().__init__(self.message)
+
+
 @transaction.atomic
 def allocate_budget_service(
     *,
@@ -32,11 +40,45 @@ def allocate_budget_service(
     return budget
 
 
+def validate_budget_availability_service(*, cost_center: CostCenter, amount: Decimal, today=None):
+    """
+    Validates if a cost center has sufficient available budget for an amount.
+    Raises ValidationError if insufficient budget.
+    """
+    if not today:
+        from django.utils import timezone
+
+        today = timezone.now().date()
+
+    budget = Budget.objects.filter(
+        cost_center=cost_center,
+        fiscal_period__start_date__lte=today,
+        fiscal_period__end_date__gte=today,
+        fiscal_period__is_closed=False,
+    ).first()
+
+    if not budget:
+        raise ValidationError(
+            f"No active fiscal period budget allocation found for Cost Center '{cost_center.code}'."
+        )
+
+    if amount > budget.available_amount and not budget.allow_overspend:
+        raise ValidationError(
+            f"Insufficient budget in Cost Center '{cost_center.code}'. "
+            f"Requested: ${amount:,.2f}, Available: ${budget.available_amount:,.2f}."
+        )
+
+    return budget
+
+
 @transaction.atomic
-def check_and_reserve_budget_service(*, requisition, requested_by_user) -> BudgetReservation:
+def check_and_reserve_budget_service(
+    *, requisition, requested_by_user, force_overrun=False
+) -> BudgetReservation:
     """
     Checks available budget for a PurchaseRequisition's cost center.
-    If available, locks a BudgetReservation in RESERVED status and writes a SpendLedger entry.
+    If available (or forced), locks a BudgetReservation in RESERVED status and writes a SpendLedger entry.
+    Raises BudgetOverrunException if insufficient funds.
     """
     cost_center = requisition.cost_center
     today = (
@@ -62,10 +104,12 @@ def check_and_reserve_budget_service(*, requisition, requested_by_user) -> Budge
         )
 
     amount = requisition.total_amount
-    if amount > budget.available_amount and not budget.allow_overspend:
-        raise ValidationError(
+    if amount > budget.available_amount and not budget.allow_overspend and not force_overrun:
+        raise BudgetOverrunException(
             f"Insufficient budget in Cost Center '{cost_center.code}'. "
-            f"Requested: ${amount:,.2f}, Available: ${budget.available_amount:,.2f}."
+            f"Requested: ${amount:,.2f}, Available: ${budget.available_amount:,.2f}.",
+            budget=budget,
+            requested_amount=amount,
         )
 
     # Update reserved amount on budget
@@ -143,3 +187,35 @@ def convert_commitment_to_actual_service(*, po, invoice, user) -> SpendLedger:
     )
 
     return ledger_entry
+
+
+@transaction.atomic
+def release_budget_reservation_service(
+    *, requisition, user, reason: str = "Requisition Rejected/Cancelled"
+) -> None:
+    """
+    Releases active budget reservations for a rejected or cancelled PurchaseRequisition.
+    Deducts reserved_amount from Budget, updates BudgetReservation status to RELEASED,
+    and logs AuditLog event.
+    """
+    reservations = BudgetReservation.objects.select_for_update().filter(
+        requisition=requisition, status=BudgetReservation.STATUS_RESERVED
+    )
+    for res in reservations:
+        budget = res.budget
+        if budget.reserved_amount >= res.amount:
+            budget.reserved_amount -= res.amount
+        else:
+            budget.reserved_amount = Decimal("0.00")
+        budget.save(update_fields=["reserved_amount", "updated_at"])
+
+        res.status = BudgetReservation.STATUS_RELEASED
+        res.save(update_fields=["status", "updated_at"])
+
+        AuditLog.objects.create(
+            actor=user,
+            action=AuditLog.ACTION_UPDATE,
+            target_model="BudgetReservation",
+            target_object_id=str(res.id),
+            new_state={"status": res.status, "reason": reason},
+        )
