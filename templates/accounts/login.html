@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign In — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center my-4">
+    <div class="col-xl-6 col-lg-8 col-md-10">
+        <div class="glass-card shadow-lg p-4 p-md-5">
+            <!-- Header Brand Title -->
+            <div class="text-center mb-4">
+                <div class="brand-icon-box mx-auto mb-3" style="width: 54px; height: 54px; border-radius: 14px;">
+                    <i class="fa-solid fa-cube text-cyan fs-3"></i>
+                </div>
+                <h3 class="fw-bold text-dark mb-1">ProcureSphere 360 ERP</h3>
+                <p class="text-muted small">Hewlett Packard Enterprise | Source-to-Pay & AP Workflow System</p>
+            </div>
+
+            <!-- Messages & Alerts -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+                        <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Login Form -->
+            <form method="POST" action="/login/" class="mb-4">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="emailInput" class="form-label text-dark fw-semibold small">User Email Address</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-envelope text-muted"></i></span>
+                        <input type="email" class="form-control border-start-0" id="emailInput" name="email" placeholder="e.g. admin@hpe.com" required>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label for="passwordInput" class="form-label text-dark fw-semibold small mb-0">Password</label>
+                        <span class="text-muted small">Default: <code>Password123!</code></span>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-lock text-muted"></i></span>
+                        <input type="password" class="form-control border-start-0" id="passwordInput" name="password" placeholder="••••••••••••" required>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-cyan btn-lg w-100 rounded-3 fw-bold py-2 shadow-sm">
+                    <i class="fa-solid fa-right-to-bracket me-2"></i> Sign In to ProcureSphere 360
+                </button>
+            </form>
+
+            <hr class="my-4 text-muted">
+
+            <!-- Demo Role Quick-Select Buttons -->
+            <div>
+                <h6 class="fw-bold text-dark mb-2 text-center small text-uppercase" style="letter-spacing: 0.05em;">
+                    <i class="fa-solid fa-user-gear text-primary me-1"></i> Quick Test Credentials (1-Click Fill)
+                </h6>
+                <p class="text-muted small text-center mb-3">Click any PRD role below to auto-fill test credentials:</p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    {% for account in demo_accounts %}
+                        <button type="button" class="btn btn-outline-{{ account.color }} btn-sm rounded-pill px-3 py-1 shadow-sm" onclick="fillCredentials('{{ account.email }}', 'Password123!')">
+                            <i class="fa-solid fa-user-tag me-1"></i> {{ account.role }}
+                        </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillCredentials(email, password) {
+    document.getElementById('emailInput').value = email;
+    document.getElementById('passwordInput').value = password;
+}
+</script>
+{% endblock %}

@@ -1,76 +1,103 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In — ProcureSphere 360 ERP</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <!-- Custom Design System Styles -->
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-light d-flex align-items-center justify-content-center min-vh-100 py-5">
 
-{% block title %}Sign In — ProcureSphere 360 ERP{% endblock %}
-
-{% block content %}
-<div class="row justify-content-center align-items-center min-vh-75 py-5">
-    <div class="col-md-6 col-lg-5">
-        <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
-            <div class="card-header bg-primary text-white text-center p-4">
-                <div class="mb-2">
-                    <i class="fa-solid fa-cubes-stacked fa-3x"></i>
-                </div>
-                <h3 class="fw-bold mb-1">ProcureSphere 360</h3>
-                <p class="mb-0 opacity-75 small text-uppercase tracking-wider fw-semibold">Enterprise Procurement ERP Portal</p>
-            </div>
-            
-            <div class="card-body p-4 p-md-5 bg-white">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show text-center mb-4" role="alert">
-                            <i class="fa-solid fa-circle-exclamation me-2"></i> {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
+                    <!-- Header -->
+                    <div class="card-header bg-primary text-white text-center p-4">
+                        <div class="mb-2">
+                            <i class="fa-solid fa-cubes-stacked fa-3x"></i>
                         </div>
-                    {% endfor %}
-                {% endif %}
-
-                <form method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
-                    {% csrf_token %}
+                        <h3 class="fw-bold mb-1">ProcureSphere 360</h3>
+                        <p class="mb-0 opacity-75 small text-uppercase tracking-wider fw-semibold">Enterprise Procurement ERP</p>
+                    </div>
                     
-                    <div class="mb-3">
-                        <label for="email" class="form-label fw-semibold text-secondary">Work Email Address</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-envelope"></i></span>
-                            <input type="email" class="form-control form-control-lg fs-6" id="email" name="email" value="{{ email|default:'' }}" placeholder="e.g. admin@hpe.com" required autofocus>
+                    <!-- Form Body -->
+                    <div class="card-body p-4 p-md-4 bg-white">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show text-center mb-3 small" role="alert">
+                                    <i class="fa-solid fa-circle-exclamation me-1"></i> {{ message }}
+                                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <form id="loginForm" method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="email" class="form-label fw-semibold text-secondary small">Work Email Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-envelope"></i></span>
+                                    <input type="email" class="form-control fs-6" id="email" name="email" value="{{ email|default:'' }}" placeholder="name@company.com" required autofocus>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="password" class="form-label fw-semibold text-secondary small">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
+                                    <input type="password" class="form-control fs-6" id="password" name="password" placeholder="••••••••••••" required>
+                                </div>
+                            </div>
+
+                            <div class="d-grid mb-4">
+                                <button type="submit" class="btn btn-primary btn-lg fw-bold py-3 text-uppercase shadow-sm fs-6">
+                                    <i class="fa-solid fa-right-to-bracket me-2"></i> Sign In to Dashboard
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Quick Demo Accounts Helper -->
+                        <div class="border-top pt-3 text-center">
+                            <p class="small text-muted fw-semibold mb-2"><i class="fa-solid fa-bolt text-warning me-1"></i> Quick 1-Click Role Logins (Password: <code>Password123!</code>)</p>
+                            <div class="d-flex flex-wrap justify-content-center gap-1">
+                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('admin@hpe.com')">Super Admin</button>
+                                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('requester@hpe.com')">Requester</button>
+                                <button type="button" class="btn btn-outline-warning btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('approver@hpe.com')">Dept Approver</button>
+                                <button type="button" class="btn btn-outline-info btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('procexec@hpe.com')">Proc Exec</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('procmgr@hpe.com')">Proc Mgr</button>
+                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('receiver@hpe.com')">Stores Receiver</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('finance@hpe.com')">Finance AP</button>
+                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('legal@hpe.com')">Legal Mgr</button>
+                                <button type="button" class="btn btn-outline-info btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('auditor@hpe.com')">Auditor</button>
+                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('vendoruser@cisco.com')">Vendor User</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <label for="password" class="form-label fw-semibold text-secondary">Password</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
-                            <input type="password" class="form-control form-control-lg fs-6" id="password" name="password" placeholder="••••••••••••" required>
-                        </div>
-                    </div>
-
-                    <div class="d-grid mb-4">
-                        <button type="submit" class="btn btn-primary btn-lg fw-bold py-3 text-uppercase shadow-sm">
-                            <i class="fa-solid fa-right-to-bracket me-2"></i> Sign In to Dashboard
-                        </button>
-                    </div>
-                </form>
-
-                <!-- Demo Credentials Helper -->
-                <div class="border-top pt-4 mt-2 text-center">
-                    <p class="text-muted small fw-semibold mb-2"><i class="fa-solid fa-key me-1 text-warning"></i> Quick Demo Accounts (Password: <code>Password123!</code>)</p>
-                    <div class="d-flex flex-wrap justify-content-center gap-1">
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('admin@hpe.com')">Super Admin</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('requester@hpe.com')">Requester</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('approver@hpe.com')">Approver</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('procexec@hpe.com')">Proc Exec</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('finance@hpe.com')">Finance</button>
-                        <button class="btn btn-sm btn-outline-secondary py-0 px-2 small" onclick="fillCreds('vendoruser@cisco.com')">Vendor</button>
+                    <div class="card-footer bg-light text-center py-3 border-0">
+                        <small class="text-muted">ProcureSphere 360 ERP &copy; 2026</small>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-function fillCreds(email) {
-    document.getElementById('email').value = email;
-    document.getElementById('password').value = 'Password123!';
-}
-</script>
-{% endblock %}
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function quickLogin(email) {
+            document.getElementById('email').value = email;
+            document.getElementById('password').value = 'Password123!';
+            document.getElementById('loginForm').submit();
+        }
+    </script>
+</body>
+</html>
