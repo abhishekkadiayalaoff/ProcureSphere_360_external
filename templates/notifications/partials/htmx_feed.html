@@ -1,0 +1,47 @@
+{# HTMX fragment: recent-activity feed (top-10 unread). Polled every 60s. #}
+{# Out-of-band badge refresh for the dashboard shell. #}
+<span id="notif-unread-badge" hx-swap-oob="true">{{ unread_count }}</span>
+{% if notifications %}
+<ul class="list-group list-group-flush" id="notif-feed-list">
+    {% for n in notifications %}
+    <li class="list-group-item notif-item d-flex justify-content-between align-items-start gap-2 py-2 px-1 border-bottom"
+        id="notif-{{ n.id }}">
+        <div class="me-1" style="min-width:0;">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge rounded-pill
+                    {% if n.notification_type == 'BID_DEADLINE' %}bg-danger
+                    {% elif n.notification_type == 'APPROVAL_REQUIRED' %}bg-warning text-dark
+                    {% elif n.notification_type == 'EXCEPTION_RAISED' %}bg-danger-subtle text-danger border border-danger-subtle
+                    {% else %}bg-info text-dark{% endif %}">
+                    {{ n.get_notification_type_display }}
+                </span>
+                <small class="text-muted">{{ n.created_at|timesince }} ago</small>
+            </div>
+            <div class="fw-semibold small mt-1 text-truncate" title="{{ n.title }}">{{ n.title }}</div>
+            <div class="text-muted small text-truncate" title="{{ n.message }}">{{ n.message|truncatechars:120 }}</div>
+            {% if n.target_url %}
+            <a href="{{ n.target_url }}" class="small link-primary text-decoration-none">Open linked record →</a>
+            {% endif %}
+        </div>
+        <button class="btn btn-sm btn-outline-success rounded-circle notif-read-btn flex-shrink-0"
+                title="Mark as read"
+                aria-label="Mark notification {{ n.title }} as read"
+                hx-post="{% url 'notification_mark_read_htmx' n.id %}"
+                hx-target="#notif-{{ n.id }}"
+                hx-swap="outerHTML swap:400ms">
+            <i class="fa-solid fa-check"></i>
+        </button>
+    </li>
+    {% endfor %}
+</ul>
+<div class="d-flex justify-content-between align-items-center mt-2">
+    <small class="text-muted">{{ unread_count }} unread</small>
+    <a href="{% url 'notification_list' %}" class="small link-secondary text-decoration-none">View all →</a>
+</div>
+{% else %}
+<div class="text-center py-4 text-muted" id="notif-feed-empty">
+    <i class="fa-solid fa-circle-check fa-2x mb-2 text-success"></i>
+    <div class="fw-semibold small">You're all caught up.</div>
+    <div class="small">New approvals, bid deadlines and exceptions appear here.</div>
+</div>
+{% endif %}

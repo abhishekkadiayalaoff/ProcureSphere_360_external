@@ -1,0 +1,204 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Record Goods Receipt — PO {{ po.po_number }}{% endblock %}
+{% block page_heading %}Record Goods Receipt (PO {{ po.po_number }}){% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <a href="{% url 'order_detail' po.id %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Purchase Order {{ po.po_number }}
+        </a>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-secondary px-3 py-2 text-uppercase">
+                <i class="fa-solid fa-box-open me-1"></i> Receiving Entry
+            </span>
+            <h2 class="fw-bold text-dark mb-0">Record Goods Receipt Note (GRN)</h2>
+        </div>
+        <p class="text-muted small mb-0 mt-1">
+            Purchase Order: <span class="fw-semibold font-monospace text-dark">{{ po.po_number }}</span> &bull; 
+            Vendor: <span class="fw-semibold text-dark">{{ po.vendor.legal_name }}</span> &bull; 
+            Cost Center: <span class="fw-semibold text-dark">{{ po.cost_center.code }}</span>
+        </p>
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="POST" action="{% url 'receipt_create' po_id=po.id %}" id="grnForm">
+    {% csrf_token %}
+
+    <!-- Card 1: Receipt Header Information -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="fa-solid fa-truck-ramp-box text-primary me-2"></i> Receipt & Delivery Information
+            </h5>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="delivery_note_number" class="form-label fw-semibold text-dark small">
+                        Delivery Note / Waybill Number
+                    </label>
+                    <input type="text" class="form-control rounded-3" id="delivery_note_number" name="delivery_note_number" 
+                           placeholder="e.g. DN-2026-00481 / Carrier Tracking #" value="{{ delivery_note_number }}">
+                    <div class="form-text small text-muted">Supplier-provided delivery note, packing slip, or waybill number.</div>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold text-dark small">Received By</label>
+                    <input type="text" class="form-control rounded-3 bg-light" 
+                           value="{{ request.user.get_full_name|default:request.user.email }} ({{ request.user.role_code|default:'STORES_RECEIVER' }})" disabled>
+                    <div class="form-text small text-muted">Current authenticated receiver logged into the system.</div>
+                </div>
+
+                <div class="col-12">
+                    <label for="remarks" class="form-label fw-semibold text-dark small">
+                        Receiving Remarks / Package Condition Notes
+                    </label>
+                    <textarea class="form-control rounded-3" id="remarks" name="remarks" rows="2" 
+                              placeholder="General shipment observations, carrier details, packaging integrity, or warehouse storage notes...">{{ remarks }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Card 2: PO Line Receiving Items Table -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="fw-bold text-dark mb-1">
+                    <i class="fa-solid fa-list-check text-success me-2"></i> PO Line Items Receiving
+                </h5>
+                <p class="text-muted small mb-0">
+                    Enter the physical quantity received and quantity accepted for each line item. Leave blank or 0 for items not included in this shipment.
+                </p>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-3" style="width: 30px;">#</th>
+                            <th style="min-width: 200px;">Item Description</th>
+                            <th class="text-end" style="min-width: 100px;">Ordered</th>
+                            <th class="text-end" style="min-width: 100px;">Already Recv</th>
+                            <th class="text-end" style="min-width: 100px;">Remaining</th>
+                            <th class="text-center" style="min-width: 70px;">UOM</th>
+                            <th style="min-width: 150px;">Qty Received</th>
+                            <th style="min-width: 150px;">Qty Accepted</th>
+                            <th style="min-width: 200px;" class="pe-3">Notes / Quality</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td class="ps-3 text-muted small">{{ forloop.counter }}</td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ line.item_description }}</div>
+                                <small class="text-muted">Unit Price: ${{ line.unit_price|floatformat:2 }}</small>
+                            </td>
+                            <td class="text-end fw-semibold text-dark">{{ line.quantity|floatformat:2 }}</td>
+                            <td class="text-end text-muted">{{ line.quantity_received|floatformat:2 }}</td>
+                            <td class="text-end">
+                                <span class="badge {% if line.remaining_quantity > 0 %}bg-primary-subtle text-primary border border-primary-subtle{% else %}bg-secondary-subtle text-secondary border{% endif %} px-2 py-1 font-monospace">
+                                    {{ line.remaining_quantity|floatformat:2 }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">{{ line.unit_of_measure }}</span>
+                            </td>
+                            <td>
+                                {% if line.remaining_quantity > 0 %}
+                                <div class="input-group input-group-sm">
+                                    <input type="number" 
+                                           step="0.01" 
+                                           min="0" 
+                                           max="{{ line.remaining_quantity }}"
+                                           class="form-control form-control-sm font-monospace fw-semibold receiving-qty" 
+                                           id="qty_recv_{{ line.id }}"
+                                           name="quantity_received_{{ line.id }}" 
+                                           placeholder="0.00"
+                                           data-line-id="{{ line.id }}"
+                                           oninput="autoPopulateAccepted('{{ line.id }}')">
+                                </div>
+                                {% else %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small">
+                                    <i class="fa-solid fa-check me-1"></i>Fully Received
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if line.remaining_quantity > 0 %}
+                                <div class="input-group input-group-sm">
+                                    <input type="number" 
+                                           step="0.01" 
+                                           min="0" 
+                                           max="{{ line.remaining_quantity }}"
+                                           class="form-control form-control-sm font-monospace fw-semibold accepted-qty" 
+                                           id="qty_acc_{{ line.id }}"
+                                           name="quantity_accepted_{{ line.id }}" 
+                                           placeholder="0.00">
+                                </div>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-3">
+                                {% if line.remaining_quantity > 0 %}
+                                <input type="text" 
+                                       class="form-control form-control-sm" 
+                                       name="notes_{{ line.id }}" 
+                                       placeholder="Inspection / condition note...">
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-4 text-muted">No line items on this Purchase Order.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-light border-0 py-3 px-4 d-flex justify-content-between align-items-center rounded-bottom-4">
+            <a href="{% url 'order_detail' po.id %}" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                <i class="fa-solid fa-circle-check me-2"></i>Create Goods Receipt
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+function autoPopulateAccepted(lineId) {
+    const recvInput = document.getElementById('qty_recv_' + lineId);
+    const accInput = document.getElementById('qty_acc_' + lineId);
+    if (recvInput && accInput && !accInput.dataset.manuallyEdited) {
+        accInput.value = recvInput.value;
+    }
+}
+
+document.querySelectorAll('.accepted-qty').forEach(input => {
+    input.addEventListener('change', () => {
+        input.dataset.manuallyEdited = "true";
+    });
+});
+</script>
+{% endblock %}

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'layouts/finance_base.html' %}
 
 {% block title %}Supplier Invoices — ProcureSphere 360{% endblock %}
 
@@ -9,6 +9,7 @@
             <h2 class="fw-bold text-dark mb-1">Supplier Invoices</h2>
             <p class="text-muted mb-0">Live backend data from SupplierInvoice module.</p>
         </div>
+        <a href="{% url 'create_invoice' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm"><i class="fa-solid fa-plus me-2"></i> Submit Invoice</a>
     </div>
 </div>
 
@@ -30,7 +31,7 @@
                     <td class="fw-bold">Active Record</td>
                     <td><span class="badge bg-primary">{{ item.status }}</span></td>
                     <td class="pe-4 text-end">
-                        <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></button>
+                        <a href="{% url 'invoice_detail' item.id %}" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></a>
                     </td>
                 </tr>
                 {% empty %}

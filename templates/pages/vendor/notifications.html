@@ -1,0 +1,109 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Notifications{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Notifications</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Vendor Notifications</h3>
+            <p class="text-muted mb-0 small">
+                Critical procurement alerts, invitation notices, bid lifecycle confirmations, and order updates.
+            </p>
+        </div>
+        {% if unread_count > 0 %}
+        <div>
+            <form method="post" action="{% url 'vendor_notifications_mark_all_read' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm">
+                    <i class="fa-solid fa-check-double me-1 text-success"></i> Mark All as Read
+                </button>
+            </form>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Notification Feed Card -->
+    <div class="card glass-card border-0 shadow-sm">
+        <div class="card-header bg-transparent border-0 pt-3 pb-2 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0">Alert Feed</h5>
+            <div>
+                {% if unread_count > 0 %}
+                <span class="badge bg-danger rounded-pill">{{ unread_count }} Unread</span>
+                {% else %}
+                <span class="badge bg-success rounded-pill">All Caught Up</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body p-0">
+            {% if notifications %}
+            <div class="list-group list-group-flush">
+                {% for notif in notifications %}
+                <div class="list-group-item p-3 d-flex align-items-start gap-3 {% if not notif.is_read %}bg-light bg-opacity-75 border-start border-primary border-4{% endif %}">
+                    <!-- Icon based on type -->
+                    <div class="rounded-circle p-2 mt-1 d-flex align-items-center justify-content-center text-white flex-shrink-0" style="width: 38px; height: 38px;
+                        {% if notif.notification_type == 'RFQ_INVITATION' %}background: #2563eb;
+                        {% elif notif.notification_type == 'BID_SUBMITTED' or notif.notification_type == 'BID_AMENDED' %}background: #059669;
+                        {% elif notif.notification_type == 'PO_ISSUED' or notif.notification_type == 'PO_AMENDMENT' %}background: #d97706;
+                        {% elif notif.notification_type == 'CLARIFICATION_RESPONSE' %}background: #0891b2;
+                        {% else %}background: #64748b;{% endif %}">
+                        <i class="fa-solid
+                            {% if notif.notification_type == 'RFQ_INVITATION' %}fa-envelope-open-text
+                            {% elif notif.notification_type == 'BID_SUBMITTED' or notif.notification_type == 'BID_AMENDED' %}fa-file-invoice-dollar
+                            {% elif notif.notification_type == 'PO_ISSUED' or notif.notification_type == 'PO_AMENDMENT' %}fa-cart-shopping
+                            {% elif notif.notification_type == 'CLARIFICATION_RESPONSE' %}fa-comments
+                            {% else %}fa-bell{% endif %} small"></i>
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-1">
+                            <h6 class="fw-bold text-dark mb-0 {% if not notif.is_read %}fw-bolder{% endif %}">
+                                {{ notif.title }}
+                            </h6>
+                            <span class="small text-muted" style="font-size: 0.75rem;">
+                                <i class="fa-regular fa-clock me-1"></i> {{ notif.created_at|timesince }} ago
+                            </span>
+                        </div>
+                        <p class="text-secondary small mb-2">{{ notif.message }}</p>
+
+                        <div class="d-flex align-items-center gap-2">
+                            {% if notif.target_url %}
+                            <a href="{{ notif.target_url }}" class="btn btn-outline-primary btn-sm py-0 px-2 rounded-pill" style="font-size: 0.75rem;">
+                                View Details &rarr;
+                            </a>
+                            {% endif %}
+
+                            {% if not notif.is_read %}
+                            <form method="post" action="{% url 'vendor_notification_mark_read' notif_id=notif.id %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-link btn-sm text-muted p-0 text-decoration-none" style="font-size: 0.75rem;">
+                                    Mark as read
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-solid fa-bell-slash text-muted opacity-25 fa-4x mb-3"></i>
+                <h5 class="fw-semibold text-secondary">No Notifications Yet</h5>
+                <p class="text-muted small mb-0">
+                    When you receive RFQ invitations, clarification responses, or purchase orders, notifications will appear here.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,427 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}PO {{ po.po_number }} — ProcureSphere 360{% endblock %}
+{% block page_heading %}Purchase Order {{ po.po_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        {% if user.role_code == 'PROC_MGR' %}
+        <a href="/manager/purchase-orders/" class="text-decoration-none text-muted mb-2 d-inline-block">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Purchase Orders
+        </a>
+        {% else %}
+        <a href="{% url 'orders_list' %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Purchase Orders
+        </a>
+        {% endif %}
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="fw-bold text-dark mb-0 font-monospace">{{ po.po_number }}</h2>
+            <span class="badge bg-secondary rounded-pill">Version V{{ po.version|default:1 }}</span>
+            {% if po.status == 'ISSUED' %}
+                <span class="badge bg-primary rounded-pill px-3">Issued</span>
+            {% elif po.status == 'ACKNOWLEDGED' %}
+                <span class="badge bg-info text-dark rounded-pill px-3"><i class="fa-solid fa-check me-1"></i>Acknowledged</span>
+            {% elif po.status == 'PARTIAL_RECEIPT' %}
+                <span class="badge bg-warning text-dark rounded-pill px-3"><i class="fa-solid fa-truck-ramp-box me-1"></i>Partial Receipt</span>
+            {% elif po.status == 'COMPLETED' %}
+                <span class="badge bg-success rounded-pill px-3">Completed</span>
+            {% elif po.status == 'CANCELLED' %}
+                <span class="badge bg-danger rounded-pill px-3">Cancelled</span>
+            {% else %}
+                <span class="badge bg-secondary rounded-pill px-3">{{ po.get_status_display }}</span>
+            {% endif %}
+        </div>
+        <p class="text-muted small mb-0 mt-1">
+            Vendor: <span class="fw-semibold text-dark">{{ po.vendor.legal_name }}</span> &bull; 
+            Created: <span class="fw-semibold text-dark">{{ po.created_at|date:"F d, Y" }}</span> &bull; 
+            Cost Center: <span class="fw-semibold text-dark">{{ po.cost_center.code }} ({{ po.cost_center.name }})</span>
+        </p>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        {% if po.status == 'DRAFT' and can_amend %}
+        <form method="POST" action="{% url 'order_submit_approval' po.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                <i class="fa-solid fa-paper-plane me-2"></i>Submit for Approval
+            </button>
+        </form>
+        {% elif po.status == 'APPROVAL' and role_code in 'SUPER_ADMIN,PROC_MGR' %}
+        <form method="POST" action="{% url 'order_approve' po.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
+                <i class="fa-solid fa-check-double me-2"></i>Approve & Issue PO
+            </button>
+        </form>
+        {% endif %}
+        {% if can_amend and po.status != 'CANCELLED' %}
+        <button class="btn btn-warning text-dark rounded-pill px-4 fw-semibold shadow-sm"
+                hx-get="{% url 'orders_amend_modal' po.id %}" hx-target="#modal-content-body"
+                data-bs-toggle="modal" data-bs-target="#modal-container">
+            <i class="fa-solid fa-pen-to-square me-2"></i>Amend PO (Change Order)
+        </button>
+        {% endif %}
+        {% if is_receivable and is_stores_receiver %}
+        <a href="{% url 'receipt_create' po_id=po.id %}" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+            <i class="fa-solid fa-box-open me-2"></i>Start Goods Receipt
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- Left Column: Line Items & Commercials -->
+    <div class="col-lg-8">
+        <!-- PO Line Items Table -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-list-check text-primary me-2"></i> PO Line Items & Receiving Status</h5>
+                <span class="badge bg-light text-secondary border small">{{ lines|length }} item{{ lines|length|pluralize }}</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase text-secondary">
+                            <tr>
+                                <th class="ps-3" style="width: 40px;">#</th>
+                                <th>Item Description</th>
+                                <th class="text-end">Ordered Qty</th>
+                                <th class="text-end">Already Received</th>
+                                <th class="text-end">Remaining Qty</th>
+                                <th class="text-center">UOM</th>
+                                <th class="text-end">Unit Price</th>
+                                <th class="text-end pe-3">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for line in lines %}
+                            <tr>
+                                <td class="ps-3 text-muted small">{{ forloop.counter }}</td>
+                                <td>
+                                    <div class="fw-semibold text-dark">{{ line.item_description }}</div>
+                                </td>
+                                <td class="text-end fw-semibold text-dark">{{ line.quantity|floatformat:2 }}</td>
+                                <td class="text-end">
+                                    <span class="{% if line.quantity_received > 0 %}text-success fw-semibold{% else %}text-muted{% endif %}">
+                                        {{ line.quantity_received|floatformat:2 }}
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge {% if line.remaining_quantity > 0 %}bg-primary-subtle text-primary border border-primary-subtle{% else %}bg-success-subtle text-success border border-success-subtle{% endif %} px-2 py-1 font-monospace">
+                                        {{ line.remaining_quantity|floatformat:2 }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge bg-light text-dark border">{{ line.unit_of_measure }}</span>
+                                </td>
+                                <td class="text-end text-muted">${{ line.unit_price|floatformat:2 }}</td>
+                                <td class="text-end fw-bold text-dark pe-3">${{ line.line_total|floatformat:2 }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center py-4 text-muted">No line items found for this Purchase Order.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="7" class="text-end text-muted">Subtotal:</td>
+                                <td class="text-end fw-semibold text-dark pe-3">${{ po.subtotal|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="7" class="text-end text-muted">Tax Amount:</td>
+                                <td class="text-end fw-semibold text-dark pe-3">${{ po.tax_amount|floatformat:2 }}</td>
+                            </tr>
+                            <tr class="table-primary border-top border-2 border-primary-subtle">
+                                <td colspan="7" class="text-end fw-bold text-dark fs-6">Total Amount:</td>
+                                <td class="text-end fw-bold text-primary fs-5 pe-3">${{ po.total_amount|floatformat:2 }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terms and Conditions Card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-file-shield text-secondary me-2"></i> Terms & Conditions</h5>
+            </div>
+            <div class="card-body p-4">
+                {% if po.terms_and_conditions %}
+                <div class="bg-light p-3 rounded-3 small text-dark border" style="white-space: pre-wrap;">{{ po.terms_and_conditions }}</div>
+                {% else %}
+                <p class="text-muted small mb-0 fst-italic">Standard enterprise procurement terms and conditions apply to this purchase order.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Delivery Schedules if present -->
+        {% if delivery_schedules %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-truck text-info me-2"></i> Delivery Schedules</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase text-secondary">
+                            <tr>
+                                <th class="ps-3">Line Item</th>
+                                <th>Expected Date</th>
+                                <th class="text-end">Expected Quantity</th>
+                                <th>Destination</th>
+                                <th class="text-end pe-3">Schedule Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sched in delivery_schedules %}
+                            <tr>
+                                <td class="ps-3 fw-semibold text-dark">{{ sched.po_line.item_description }}</td>
+                                <td>{{ sched.expected_delivery_date|date:"M d, Y" }}</td>
+                                <td class="text-end fw-semibold text-dark">{{ sched.quantity_expected|floatformat:2 }}</td>
+                                <td class="small text-muted">{{ sched.destination_address|default:"Standard Warehouse / Receiving Facility" }}</td>
+                                <td class="text-end pe-3">
+                                    <span class="badge bg-secondary rounded-pill">{{ sched.status }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Associated Goods Receipts & Deliveries Card -->
+        {% if po.receipts.exists %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-boxes-packing text-primary me-2"></i> Goods Receipts & Deliveries</h5>
+                <span class="badge bg-light text-secondary border small">{{ po.receipts.count }} GRN{{ po.receipts.count|pluralize }}</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase text-secondary">
+                            <tr>
+                                <th class="ps-3">GRN Number</th>
+                                <th>Received Date</th>
+                                <th>Delivery Note</th>
+                                <th>Received By</th>
+                                <th class="text-center">Inspection</th>
+                                <th class="text-center">Stock Handoff</th>
+                                <th class="text-end pe-3">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grn in po.receipts.all %}
+                            <tr>
+                                <td class="ps-3 fw-bold font-monospace text-primary">
+                                    <a href="{% url 'receipt_detail' grn_id=grn.id %}" class="text-decoration-none">{{ grn.grn_number }}</a>
+                                </td>
+                                <td>{{ grn.received_date|date:"M d, Y H:i" }}</td>
+                                <td>{{ grn.delivery_note_number|default:"—" }}</td>
+                                <td class="small">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</td>
+                                <td class="text-center">
+                                    <span class="badge {% if grn.overall_inspection_status == 'PASSED' %}bg-success-subtle text-success border border-success-subtle{% elif grn.overall_inspection_status == 'FAILED' %}bg-danger-subtle text-danger border border-danger-subtle{% else %}bg-warning-subtle text-warning border border-warning-subtle{% endif %}">
+                                        {{ grn.overall_inspection_status }}
+                                    </span>
+                                </td>
+                                <td class="text-center">
+                                    <span class="badge {% if grn.stock_handoff_status == 'HANDED_OFF' %}bg-info-subtle text-info border border-info-subtle{% else %}bg-secondary-subtle text-secondary border border-secondary-subtle{% endif %}">
+                                        {{ grn.stock_handoff_status_display }}
+                                    </span>
+                                </td>
+                                <td class="text-end pe-3">
+                                    <a href="{% url 'receipt_detail' grn_id=grn.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                        View GRN
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right Column: Metadata, Vendor & Receiving Overview -->
+    <div class="col-lg-4">
+        <!-- Status & Receiving Overview Card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h6 class="text-uppercase text-muted fw-bold mb-3 small">Receiving Status</h6>
+                
+                <div class="d-flex align-items-center mb-3">
+                    {% if po.status == 'ISSUED' %}
+                        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                            <i class="fa-solid fa-paper-plane fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-primary">Issued</h5>
+                            <span class="text-muted small">Awaiting delivery / acknowledgement</span>
+                        </div>
+                    {% elif po.status == 'ACKNOWLEDGED' %}
+                        <div class="bg-info bg-opacity-10 text-info rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                            <i class="fa-solid fa-check fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-dark">Acknowledged</h5>
+                            <span class="text-muted small">Vendor confirmed delivery scope</span>
+                        </div>
+                    {% elif po.status == 'PARTIAL_RECEIPT' %}
+                        <div class="bg-warning bg-opacity-10 text-warning rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                            <i class="fa-solid fa-truck-ramp-box fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-dark">Partial Receipt</h5>
+                            <span class="text-muted small">Shipments in progress</span>
+                        </div>
+                    {% elif po.status == 'COMPLETED' %}
+                        <div class="bg-success bg-opacity-10 text-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                            <i class="fa-solid fa-circle-check fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-success">Completed</h5>
+                            <span class="text-muted small">All line items fully received</span>
+                        </div>
+                    {% else %}
+                        <div class="bg-secondary bg-opacity-10 text-secondary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                            <i class="fa-solid fa-info fs-5"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0 fw-bold text-dark">{{ po.get_status_display }}</h5>
+                            <span class="text-muted small">Purchase order status</span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <hr class="my-3">
+                <div class="mb-2">
+                    <span class="text-muted small d-block">PO Number</span>
+                    <span class="fw-semibold font-monospace">{{ po.po_number }}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Creation Date</span>
+                    <span class="fw-semibold">{{ po.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Cost Center</span>
+                    <span class="fw-semibold">{{ po.cost_center.code }} — {{ po.cost_center.name }}</span>
+                </div>
+
+                {% if po.acknowledged_at %}
+                <div class="mt-3 p-3 bg-light rounded-3 border border-success-subtle">
+                    <div class="text-muted small fw-bold text-uppercase text-success mb-1">
+                        <i class="fa-solid fa-signature me-1"></i> Vendor Acknowledged
+                    </div>
+                    <div class="small text-muted">
+                        {{ po.acknowledged_at|date:"M d, Y H:i" }}
+                        {% if po.acknowledged_by %}by {{ po.acknowledged_by.get_full_name|default:po.acknowledged_by.email }}{% endif %}
+                    </div>
+                    {% if po.acknowledgement_notes %}
+                    <div class="small text-dark mt-1 fst-italic">"{{ po.acknowledgement_notes }}"</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Vendor Information Card -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-building text-success me-2"></i> Vendor Details</h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="mb-3">
+                    <span class="text-muted small d-block">Legal Name</span>
+                    <span class="fw-bold text-dark fs-6">{{ po.vendor.legal_name }}</span>
+                </div>
+                {% if po.vendor.vendor_code %}
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Vendor Code</span>
+                    <span class="font-monospace fw-semibold">{{ po.vendor.vendor_code }}</span>
+                </div>
+                {% endif %}
+                {% if po.vendor.tax_identification_number %}
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Tax ID / TIN</span>
+                    <span class="font-monospace text-dark">{{ po.vendor.tax_identification_number }}</span>
+                </div>
+                {% endif %}
+                {% if po.vendor.email %}
+                <div class="mb-2">
+                    <span class="text-muted small d-block">Contact Email</span>
+                    <span class="text-dark">{{ po.vendor.email }}</span>
+                </div>
+                {% endif %}
+                {% if po.vendor.address %}
+                <div class="mb-0">
+                    <span class="text-muted small d-block">Registered Address</span>
+                    <span class="text-secondary small">{{ po.vendor.address }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Amendment / version history (immutable) -->
+        {% if can_amend or amendments %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-clock-rotate-left text-warning me-2"></i>Amendment History</h5>
+                {% if can_amend and po.status != 'CANCELLED' %}
+                <button class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3"
+                        hx-get="{% url 'orders_amend_modal' po.id %}" hx-target="#modal-content-body"
+                        data-bs-toggle="modal" data-bs-target="#modal-container">
+                    <i class="fa-solid fa-plus me-1"></i>New amendment
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body p-4" id="amendments-history"
+                 {% if can_amend %}hx-get="{% url 'orders_amendments_partial' po.id %}" hx-trigger="po-amended from:body" hx-swap="innerHTML"{% endif %}>
+                {% include 'orders/partials/htmx_amendments.html' %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Associated Procurement Records -->
+        {% if po.requisition or po.sourcing_event %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-link text-primary me-2"></i> Associated References</h5>
+            </div>
+            <div class="card-body p-4 small">
+                {% if po.requisition %}
+                <div class="mb-2">
+                    <span class="text-muted d-block">Purchase Requisition</span>
+                    <span class="font-monospace fw-semibold text-dark">{{ po.requisition.pr_number }}</span>
+                    <span class="text-muted d-block small">{{ po.requisition.title }}</span>
+                </div>
+                {% endif %}
+                {% if po.sourcing_event %}
+                <div class="mb-0">
+                    <span class="text-muted d-block">Sourcing Event</span>
+                    <span class="font-monospace fw-semibold text-dark">{{ po.sourcing_event.event_number }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

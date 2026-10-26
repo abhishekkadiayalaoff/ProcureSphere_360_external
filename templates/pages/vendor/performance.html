@@ -1,0 +1,173 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Supplier Performance{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Supplier Performance</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Supplier Performance & Scorecards</h3>
+            <p class="text-muted mb-0 small">
+                Transparent view into your organization's delivery timeliness, quality assurance, pricing adherence, and compliance scores.
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-dark px-3 py-2 rounded-pill font-monospace small">
+                <i class="fa-solid fa-building me-1 text-cyan"></i> {{ vendor.legal_name }}
+            </span>
+        </div>
+    </div>
+
+    {% if latest_scorecard %}
+    <!-- Overall Composite Score Highlight Banner -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <div class="row align-items-center g-4">
+                <div class="col-md-3 text-center border-end-md">
+                    <div class="text-uppercase small text-muted fw-bold mb-2">Latest Period ({{ latest_scorecard.evaluation_period }})</div>
+                    <div class="display-4 fw-bold {% if latest_scorecard.composite_score >= 85 %}text-success{% elif latest_scorecard.composite_score >= 70 %}text-primary{% elif latest_scorecard.composite_score >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ latest_scorecard.composite_score|floatformat:1 }}<span class="fs-4 text-muted">/100</span>
+                    </div>
+                    <div class="badge mt-2 {% if latest_scorecard.composite_score >= 85 %}bg-success{% elif latest_scorecard.composite_score >= 70 %}bg-primary{% elif latest_scorecard.composite_score >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %} px-3 py-1 rounded-pill">
+                        {% if latest_scorecard.composite_score >= 85 %}Tier 1 / Preferred
+                        {% elif latest_scorecard.composite_score >= 70 %}Approved / Good
+                        {% elif latest_scorecard.composite_score >= 50 %}Under Observation
+                        {% else %}High Risk / Deficient{% endif %}
+                    </div>
+                </div>
+
+                <div class="col-md-9">
+                    <div class="row g-3">
+                        <!-- Delivery Score (30%) -->
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted fw-semibold">Delivery Timeliness</span>
+                                    <span class="fw-bold text-dark">{{ latest_scorecard.delivery_score|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: {{ latest_scorecard.delivery_score }}%;"></div>
+                                </div>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">GRN timeliness & SLA (30% wt)</small>
+                            </div>
+                        </div>
+
+                        <!-- Quality Score (30%) -->
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted fw-semibold">Quality & Acceptance</span>
+                                    <span class="fw-bold text-dark">{{ latest_scorecard.quality_score|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-info" style="width: {{ latest_scorecard.quality_score }}%;"></div>
+                                </div>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">Inspection rejection rate (30% wt)</small>
+                            </div>
+                        </div>
+
+                        <!-- Price Score (20%) -->
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted fw-semibold">Pricing Adherence</span>
+                                    <span class="fw-bold text-dark">{{ latest_scorecard.price_score|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary" style="width: {{ latest_scorecard.price_score }}%;"></div>
+                                </div>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">PO to invoice match (20% wt)</small>
+                            </div>
+                        </div>
+
+                        <!-- Compliance Score (20%) -->
+                        <div class="col-sm-6 col-lg-3">
+                            <div class="p-3 bg-light rounded-3 h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="small text-muted fw-semibold">Compliance / KYC</span>
+                                    <span class="fw-bold text-dark">{{ latest_scorecard.compliance_score|floatformat:1 }}%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-warning" style="width: {{ latest_scorecard.compliance_score }}%;"></div>
+                                </div>
+                                <small class="text-muted d-block mt-2" style="font-size: 0.7rem;">Document currency & SLA (20% wt)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if latest_scorecard.evaluator_comments %}
+                    <div class="mt-3 p-3 bg-white border rounded-3 small">
+                        <span class="fw-bold text-dark me-2"><i class="fa-solid fa-comment-dots text-primary me-1"></i> Evaluator Feedback:</span>
+                        <span class="text-secondary">{{ latest_scorecard.evaluator_comments }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Scorecards History Table -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Evaluation History & Performance Tracking</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if scorecards %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Period</th>
+                            <th class="text-center">Composite Score</th>
+                            <th class="text-center">Delivery (30%)</th>
+                            <th class="text-center">Quality (30%)</th>
+                            <th class="text-center">Price (20%)</th>
+                            <th class="text-center">Compliance (20%)</th>
+                            <th>Evaluated Date</th>
+                            <th class="pe-4">Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in scorecards %}
+                        <tr>
+                            <td class="ps-4 fw-bold font-monospace text-primary">{{ sc.evaluation_period }}</td>
+                            <td class="text-center">
+                                <span class="badge {% if sc.composite_score >= 85 %}bg-success{% elif sc.composite_score >= 70 %}bg-primary{% elif sc.composite_score >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %} rounded-pill px-3 py-1 fw-bold fs-6">
+                                    {{ sc.composite_score|floatformat:1 }}
+                                </span>
+                            </td>
+                            <td class="text-center fw-semibold text-dark">{{ sc.delivery_score|floatformat:1 }}%</td>
+                            <td class="text-center fw-semibold text-dark">{{ sc.quality_score|floatformat:1 }}%</td>
+                            <td class="text-center fw-semibold text-dark">{{ sc.price_score|floatformat:1 }}%</td>
+                            <td class="text-center fw-semibold text-dark">{{ sc.compliance_score|floatformat:1 }}%</td>
+                            <td class="small text-muted">{{ sc.created_at|date:"M d, Y" }}</td>
+                            <td class="small text-muted pe-4 text-truncate" style="max-width: 250px;">
+                                {{ sc.evaluator_comments|default:"Periodic assessment" }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-solid fa-chart-line text-muted opacity-25 fa-4x mb-3"></i>
+                <h5 class="fw-semibold text-secondary">No Scorecards Available Yet</h5>
+                <p class="text-muted small mb-0">
+                    Performance evaluations are generated periodically after purchase order deliveries and goods receipts are processed.
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

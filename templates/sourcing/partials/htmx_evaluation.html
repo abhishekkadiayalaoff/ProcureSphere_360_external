@@ -1,0 +1,112 @@
+{% if sealed %}
+<div class="p-4 text-center bg-light rounded border">
+    <i class="fa-solid fa-lock fa-2x text-warning mb-2"></i>
+    <div class="fw-semibold">Bids are sealed</div>
+    <div class="small text-muted">Comparison unlocks after the bid window closes ({{ event.bid_end_date|date:"Y-m-d H:i" }}).</div>
+</div>
+{% else %}
+<div class="table-responsive mb-3">
+    <table class="table table-sm table-bordered align-middle small mb-0">
+        <thead class="table-light"><tr><th>#</th><th>Vendor / bid</th><th class="text-end">Technical</th><th class="text-end">Commercial</th><th class="text-end">Weighted</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+            <tr>
+                <td>{{ forloop.counter }}</td>
+                <td class="fw-semibold">{{ row.vendor.legal_name }}<div class="text-muted fw-normal">{{ row.bid.bid_number }} v{{ row.bid.version }} · {{ row.bid.get_status_display }}</div></td>
+                <td class="text-end">{% if row.technical_avg is None %}—{% else %}{{ row.technical_avg|floatformat:1 }}{% endif %}</td>
+                <td class="text-end">{% if row.commercial_avg is None %}—{% else %}{{ row.commercial_avg|floatformat:1 }}{% endif %}</td>
+                <td class="text-end fw-bold">{% if row.weighted_avg is None %}—{% else %}{{ row.weighted_avg|floatformat:1 }}{% endif %}</td>
+                <td class="text-end">{% if row.amount is None %}<span class="text-muted">sealed</span>{% else %}{{ row.amount|floatformat:2 }}{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="6" class="text-muted text-center py-3">No submitted bids to evaluate.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if show_commercial and comparison.totals %}
+<div class="small fw-semibold mb-1">Commercial totals</div>
+<div class="table-responsive mb-3"><table class="table table-sm table-bordered small mb-0">
+    <thead class="table-light"><tr><th>Line item</th>{% for v in comparison.vendors %}<th class="text-end">{{ v.legal_name|truncatechars:24 }}</th>{% endfor %}</tr></thead>
+    <tbody>
+        {% for line in comparison.lines %}
+        <tr><td>{{ line.label }}</td>{% for cell in line.cells %}<td class="text-end {% if cell.is_lowest %}table-success fw-semibold{% endif %}">{% if cell.line %}{{ cell.line.quoted_total_price|floatformat:2 }}{% else %}<span class="text-muted">—</span>{% endif %}</td>{% endfor %}</tr>
+        {% endfor %}
+        <tr class="table-light fw-bold"><td>Total bid</td>{% for t in comparison.totals %}<td class="text-end {% if t.is_lowest %}table-success{% endif %}">{{ t.amount|floatformat:2 }}</td>{% endfor %}</tr>
+    </tbody>
+</table></div>
+{% endif %}
+{% if caps.can_manage %}
+<div class="row g-3 small">
+    {% if event.status == 'TECHNICAL_REVIEW' %}
+    <div class="col-md-6">
+        <div class="fw-semibold mb-1">Record technical score (0–100)</div>
+        {% for row in rows %}
+        <form method="post" action="{% url 'evaluation_score_htmx' event.id %}"
+              hx-post="{% url 'evaluation_score_htmx' event.id %}" hx-target="#eval-action-result" hx-swap="innerHTML"
+              class="d-flex gap-2 mb-2">
+            {% csrf_token %}
+            <input type="hidden" name="stage" value="technical">
+            <input type="hidden" name="bid_id" value="{{ row.bid.id }}">
+            <input type="number" name="score" min="0" max="100" step="0.01" class="form-control form-control-sm" style="max-width:110px" placeholder="0–100" required aria-label="Technical score for {{ row.vendor.legal_name }}">
+            <input name="comments" class="form-control form-control-sm" placeholder="Comments" aria-label="Comments">
+            <button class="btn btn-sm btn-outline-primary text-nowrap">{{ row.vendor.legal_name|truncatechars:18 }} ✓</button>
+        </form>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if event.status == 'COMMERCIAL_REVIEW' %}
+    <div class="col-md-6">
+        <div class="fw-semibold mb-1">Record commercial score (0–100)</div>
+        {% for row in rows %}
+        <form method="post" action="{% url 'evaluation_score_htmx' event.id %}"
+              hx-post="{% url 'evaluation_score_htmx' event.id %}" hx-target="#eval-action-result" hx-swap="innerHTML"
+              class="d-flex gap-2 mb-2">
+            {% csrf_token %}
+            <input type="hidden" name="stage" value="commercial">
+            <input type="hidden" name="bid_id" value="{{ row.bid.id }}">
+            <input type="number" name="score" min="0" max="100" step="0.01" class="form-control form-control-sm" style="max-width:110px" placeholder="0–100" required aria-label="Commercial score for {{ row.vendor.legal_name }}">
+            <input name="comments" class="form-control form-control-sm" placeholder="Comments" aria-label="Comments">
+            <button class="btn btn-sm btn-outline-success text-nowrap">{{ row.vendor.legal_name|truncatechars:18 }} ✓</button>
+        </form>
+        {% endfor %}
+    </div>
+    <div class="col-md-6">
+        <div class="fw-semibold mb-1">Negotiation note (append-only, audited)</div>
+        <form method="post" action="{% url 'negotiation_note_htmx' event.id %}"
+              hx-post="{% url 'negotiation_note_htmx' event.id %}" hx-target="#eval-action-result" hx-swap="innerHTML"
+              class="d-flex gap-2 mb-2">
+            {% csrf_token %}
+            <select name="bid_id" class="form-select form-select-sm" style="max-width:200px" required>
+                {% for row in rows %}<option value="{{ row.bid.id }}">{{ row.vendor.legal_name|truncatechars:24 }}</option>{% endfor %}
+            </select>
+            <input name="note" class="form-control form-control-sm" placeholder="Negotiation note" required>
+            <button class="btn btn-sm btn-outline-secondary text-nowrap">Add</button>
+        </form>
+        <div class="fw-semibold mb-1 mt-2">Recommend award</div>
+        <form method="post" action="{% url 'award_recommend_htmx' event.id %}"
+              hx-post="{% url 'award_recommend_htmx' event.id %}" hx-target="#eval-action-result" hx-swap="innerHTML">
+            {% csrf_token %}
+            <select name="bid_id" class="form-select form-select-sm mb-2" required>
+                {% for row in rows %}<option value="{{ row.bid.id }}">{{ row.vendor.legal_name }} — {% if row.amount %}{{ row.amount|floatformat:2 }}{% else %}sealed{% endif %}{% if row.weighted_avg is not None %} · {{ row.weighted_avg|floatformat:1 }}{% endif %}</option>{% endfor %}
+            </select>
+            <textarea name="award_reason" rows="2" class="form-control form-control-sm mb-2" placeholder="Award justification (required)" required></textarea>
+            <button class="btn btn-sm btn-success">Submit for award approval</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% if negotiation_notes %}
+<div class="small fw-semibold mt-3 mb-1">Negotiation trail</div>
+<ul class="list-unstyled small mb-0">
+    {% for n in negotiation_notes %}
+    <li class="border-bottom py-1"><span class="fw-semibold">{{ n.bid.vendor.legal_name }}</span> <span class="text-muted">· {{ n.author.email }} · {{ n.created_at|date:"Y-m-d H:i" }}</span><div>{{ n.note }}</div></li>
+    {% endfor %}
+</ul>
+{% endif %}
+{% if current_decision %}
+<div class="alert alert-info small mt-3 mb-0">Recommendation: {{ current_decision.winning_bid.vendor.legal_name }} — {{ current_decision.get_status_display }}. {{ current_decision.award_reason|truncatechars:200 }}</div>
+{% endif %}
+<div id="eval-action-result" class="mt-2" aria-live="polite"></div>
+{% endif %}
+{% endif %}

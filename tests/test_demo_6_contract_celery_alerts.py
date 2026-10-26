@@ -8,9 +8,11 @@ from apps.contracts.models import Contract, ContractAlert
 from apps.contracts.services import (
     activate_contract_service,
     add_contract_milestone_service,
+    add_contract_obligation_service,
     create_contract_service,
 )
 from apps.contracts.tasks import scan_contract_expirations_and_milestones_task
+from apps.notifications.models import Notification
 from apps.vendors.models import VendorCategory
 from apps.vendors.services import register_vendor_service
 
@@ -18,8 +20,8 @@ from apps.vendors.services import register_vendor_service
 @pytest.mark.django_db
 def test_demo_6_contract_milestone_and_celery_alerts():
     """
-    Day-90 Acceptance Demonstration #6:
-    Create a contract with milestone/renewal dates -> show scheduled Celery Beat notification execution evidence.
+    Day-90 Acceptance Demonstration #6 & Day 11 Task:
+    Create a contract with milestone/renewal/obligation dates -> show scheduled Celery Beat notification execution evidence.
     """
     legal_role, _ = Role.objects.get_or_create(code=Role.LEGAL_MGR, defaults={"name": "Legal"})
     contract_owner = User.objects.create_user(
@@ -55,6 +57,14 @@ def test_demo_6_contract_milestone_and_celery_alerts():
         amount=Decimal("25000.00"),
     )
 
+    # Add legal obligation due in 4 days
+    add_contract_obligation_service(
+        contract=contract,
+        title="ISO 27001 Security Certification Filing",
+        responsible_party="VENDOR",
+        due_date=today + timezone.timedelta(days=4),
+    )
+
     # Activate Contract
     contract = activate_contract_service(contract=contract, user=contract_owner)
     assert contract.status == Contract.STATUS_ACTIVE
@@ -68,7 +78,16 @@ def test_demo_6_contract_milestone_and_celery_alerts():
     assert contract.status == Contract.STATUS_RENEWAL_DUE
 
     alerts = ContractAlert.objects.filter(contract=contract)
-    assert alerts.count() == 2
+    assert alerts.count() == 3
     alert_types = [a.alert_type for a in alerts]
     assert ContractAlert.ALERT_RENEWAL in alert_types
     assert ContractAlert.ALERT_MILESTONE in alert_types
+    assert ContractAlert.ALERT_OBLIGATION in alert_types
+
+    # Verify in-app notifications generated
+    notifications = Notification.objects.filter(recipient=contract_owner)
+    assert notifications.count() >= 3
+    notif_types = [n.notification_type for n in notifications]
+    assert Notification.TYPE_CONTRACT_EXPIRATION in notif_types
+    assert Notification.TYPE_CONTRACT_MILESTONE in notif_types
+    assert Notification.TYPE_CONTRACT_OBLIGATION in notif_types

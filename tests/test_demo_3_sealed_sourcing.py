@@ -90,13 +90,12 @@ def test_demo_3_sealed_sourcing_event_and_award_workflow(db_roles):
     assert event.is_sealed is True
 
     # 3. Publish Event & Invite Vendors -> Status BID_WINDOW
-    event = publish_sourcing_event_service(event=event, user=proc_exec)
-    assert event.status == SourcingEvent.STATUS_BID_WINDOW
-
     invites = invite_vendors_to_event_service(
         event=event, vendor_ids=[vendor1.id, vendor2.id, vendor3.id], invited_by=proc_exec
     )
     assert len(invites) == 3
+    event = publish_sourcing_event_service(event=event, user=proc_exec)
+    assert event.status == SourcingEvent.STATUS_BID_WINDOW
 
     # 4. Submit Sealed Bids from 3 Vendors
     bid1 = submit_vendor_bid_service(

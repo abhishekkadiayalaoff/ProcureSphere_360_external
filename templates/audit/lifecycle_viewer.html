@@ -1,0 +1,283 @@
+{% extends 'audit/base_auditor.html' %}
+
+{% block title %}Lifecycle Traceability Explorer — ProcureSphere 360{% endblock %}
+
+{% block auditor_content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-route text-primary me-2"></i> Source-to-Pay Transaction Lifecycle Explorer</h2>
+        <p class="text-muted small mb-0">Complete end-to-end multi-entity traceability: Requisition &rarr; Sourcing &rarr; PO &rarr; Receipt &rarr; Invoice &rarr; Contract &rarr; Immutable Audit Trail.</p>
+    </div>
+    <div>
+        <a href="/audit/logs/" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+            <i class="fa-solid fa-list-ul me-1"></i> View All Audit Logs
+        </a>
+    </div>
+</div>
+
+<!-- Search Box Card -->
+<div class="glass-card shadow-sm p-4 mb-4">
+    <form method="GET" action="/audit/lifecycle/" class="row g-3 align-items-center">
+        <div class="col-md-7">
+            <label class="form-label fw-semibold small text-muted">Document Number or Entity Identifier</label>
+            <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" name="identifier" class="form-control" placeholder="e.g. PR-2026-0001, PO-2026-0001, INV-2026-0001, RFQ-2026-0001, CON-2026-0001" value="{{ identifier }}" required>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold small text-muted">Domain Type</label>
+            <select name="entity_type" class="form-select">
+                <option value="AUTO" {% if entity_type == 'AUTO' %}selected{% endif %}>Auto Detect</option>
+                <option value="PR" {% if entity_type == 'PR' %}selected{% endif %}>Purchase Requisition (PR)</option>
+                <option value="PO" {% if entity_type == 'PO' %}selected{% endif %}>Purchase Order (PO)</option>
+                <option value="SOURCING" {% if entity_type == 'SOURCING' %}selected{% endif %}>Sourcing Event (RFQ/RFP)</option>
+                <option value="INVOICE" {% if entity_type == 'INVOICE' %}selected{% endif %}>Supplier Invoice</option>
+                <option value="RECEIPT" {% if entity_type == 'RECEIPT' %}selected{% endif %}>Goods Receipt (GRN)</option>
+                <option value="CONTRACT" {% if entity_type == 'CONTRACT' %}selected{% endif %}>Contract</option>
+                <option value="VENDOR" {% if entity_type == 'VENDOR' %}selected{% endif %}>Vendor Master</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100 fw-semibold rounded-pill">
+                <i class="fa-solid fa-diagram-project me-1"></i> Trace Graph
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if identifier %}
+    {% if lifecycle and lifecycle.is_found %}
+        <!-- Lifecycle Header Summary -->
+        <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 rounded-pill fw-semibold mb-2">
+                        Root Entity: {{ lifecycle.root_entity }}
+                    </span>
+                    <h3 class="fw-bold text-dark mb-1">{{ lifecycle.query_identifier }}</h3>
+                    <p class="text-muted small mb-0">Trace graph generated at {{ lifecycle.generated_at }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    {% for flag in lifecycle.flags %}
+                        <div class="alert alert-{% if flag.level == 'CRITICAL' %}danger{% else %}warning{% endif %} py-1 px-3 mb-0 rounded-pill small fw-semibold">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ flag.message }}
+                        </div>
+                    {% empty %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                            <i class="fa-solid fa-circle-check me-1"></i> No Compliance Anomalies Detected
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Visual Stage Pipeline Tracker -->
+            <hr class="my-4">
+            <div class="row text-center g-2">
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.requisition == 'APPROVED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.requisition != 'NOT_STARTED' %}bg-info-subtle border-info{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">1. Requisition</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.requisition }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.approval == 'APPROVED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.approval == 'REJECTED' %}bg-danger-subtle border-danger{% elif lifecycle.stage_status.approval != 'NOT_STARTED' %}bg-warning-subtle border-warning{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">2. Approvals</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.approval }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.sourcing == 'AWARDED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.sourcing != 'NOT_STARTED' %}bg-info-subtle border-info{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">3. Sourcing / Award</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.sourcing }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.po_issued == 'ISSUED' or lifecycle.stage_status.po_issued == 'ACKNOWLEDGED' or lifecycle.stage_status.po_issued == 'COMPLETED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.po_issued != 'NOT_STARTED' %}bg-info-subtle border-info{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">4. Purchase Order</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.po_issued }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.receipt == 'COMPLETED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.receipt == 'EXCEPTION' %}bg-danger-subtle border-danger{% elif lifecycle.stage_status.receipt != 'NOT_STARTED' %}bg-warning-subtle border-warning{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">5. Receipts / GRN</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.receipt }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.matching == 'RESOLVED' or lifecycle.stage_status.matching == 'PASSED' %}bg-success-subtle border-success{% elif lifecycle.stage_status.matching == 'EXCEPTION' %}bg-danger-subtle border-danger{% elif lifecycle.stage_status.matching != 'NOT_STARTED' %}bg-warning-subtle border-warning{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">6. 3-Way Match</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.matching }}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="p-2 border rounded-3 {% if lifecycle.stage_status.payment == 'PAID' %}bg-success-subtle border-success{% elif lifecycle.stage_status.payment == 'READY' %}bg-info-subtle border-info{% else %}bg-light text-muted{% endif %}">
+                        <div class="small fw-bold">7. Payment</div>
+                        <div class="small badge bg-secondary">{{ lifecycle.stage_status.payment }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detailed Domain Cards -->
+        <div class="row g-4 mb-4">
+            <!-- PR Details Card -->
+            {% if lifecycle.requisition %}
+            <div class="col-md-6">
+                <div class="glass-card p-3 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i> Purchase Requisition</h5>
+                    <div class="small text-muted mb-2"><strong>Number:</strong> {{ lifecycle.requisition.pr_number }} &bull; <strong>Status:</strong> <span class="badge bg-secondary">{{ lifecycle.requisition.status }}</span></div>
+                    <div class="small text-muted mb-2"><strong>Requester:</strong> {{ lifecycle.requisition.requester }} &bull; <strong>Dept:</strong> {{ lifecycle.requisition.department }}</div>
+                    <div class="small text-muted mb-2"><strong>Total Amount:</strong> <span class="fw-bold text-dark">${{ lifecycle.requisition.total_amount|floatformat:2 }}</span></div>
+                    <div class="table-responsive mt-2">
+                        <table class="table table-sm table-bordered small">
+                            <thead class="table-light"><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                            <tbody>
+                                {% for line in lifecycle.requisition.lines %}
+                                <tr>
+                                    <td>{{ line.item_description }}</td>
+                                    <td>{{ line.quantity }} {{ line.unit_of_measure }}</td>
+                                    <td>${{ line.estimated_unit_price|floatformat:2 }}</td>
+                                    <td>${{ line.estimated_total|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Approvals History Card -->
+            {% if lifecycle.approvals %}
+            <div class="col-md-6">
+                <div class="glass-card p-3 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-stamp text-warning me-2"></i> Approval Action Chain</h5>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover small">
+                            <thead class="table-light"><tr><th>Actor</th><th>Action</th><th>Comments</th><th>Timestamp</th></tr></thead>
+                            <tbody>
+                                {% for act in lifecycle.approvals %}
+                                <tr>
+                                    <td>{{ act.actor }}</td>
+                                    <td>
+                                        {% if act.action == 'APPROVED' %}
+                                            <span class="badge bg-success">{{ act.action }}</span>
+                                        {% elif act.action == 'REJECTED' %}
+                                            <span class="badge bg-danger">{{ act.action }}</span>
+                                        {% else %}
+                                            <span class="badge bg-info">{{ act.action }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ act.comments|default:"—" }}</td>
+                                    <td>{{ act.timestamp|slice:":19" }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- POs and Receipts Row -->
+        <div class="row g-4 mb-4">
+            {% if lifecycle.purchase_orders %}
+            <div class="col-md-6">
+                <div class="glass-card p-3 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-cart-shopping text-info me-2"></i> Purchase Order(s)</h5>
+                    {% for po in lifecycle.purchase_orders %}
+                        <div class="border rounded-3 p-3 mb-2 bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-dark">{{ po.po_number }} V{{ po.version }}</span>
+                                <span class="badge bg-secondary">{{ po.status }}</span>
+                            </div>
+                            <div class="small text-muted">Vendor: <strong>{{ po.vendor }}</strong> &bull; Total: <strong>${{ po.total_amount|floatformat:2 }}</strong></div>
+                            <div class="small text-muted">Vendor Acknowledged: {% if po.is_acknowledged %}<span class="text-success fw-semibold">Yes ({{ po.acknowledged_at|slice:":10" }})</span>{% else %}<span class="text-warning fw-semibold">Pending</span>{% endif %}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if lifecycle.invoices %}
+            <div class="col-md-6">
+                <div class="glass-card p-3 shadow-sm h-100">
+                    <h5 class="fw-bold text-dark mb-2"><i class="fa-solid fa-receipt text-danger me-2"></i> Supplier Invoice(s) & 3-Way Match</h5>
+                    {% for inv in lifecycle.invoices %}
+                        <div class="border rounded-3 p-3 mb-2 bg-white">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold text-dark">{{ inv.invoice_number }}</span>
+                                <span class="badge {% if inv.status == 'PAID' %}bg-success{% elif inv.status == 'EXCEPTION' %}bg-danger{% else %}bg-info{% endif %}">{{ inv.status }}</span>
+                            </div>
+                            <div class="small text-muted">Total: <strong>${{ inv.total_amount|floatformat:2 }}</strong> &bull; Match Status: <strong>{{ inv.match_status }}</strong></div>
+                            {% if inv.exceptions %}
+                                <div class="mt-2 p-2 bg-danger-subtle rounded border border-danger-subtle small text-danger">
+                                    <strong>Match Exceptions:</strong>
+                                    <ul class="mb-0 ps-3">
+                                        {% for exc in inv.exceptions %}
+                                            <li>{{ exc.type }} (Variance: ${{ exc.variance_amount|floatformat:2 }}) &mdash; {{ exc.status }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Chronological Audit Trail for Linked Graph -->
+        <div class="glass-card shadow-sm p-4">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-shield-halved text-primary me-2"></i> Linked Immutable Audit Trail ({{ lifecycle.audit_logs|length }} Events)</h5>
+            <div class="table-responsive">
+                <table class="table table-hover table-sm align-middle mb-0 small">
+                    <thead class="table-light text-uppercase text-muted">
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                            <th>Entity Model</th>
+                            <th>Target ID</th>
+                            <th>IP & Request ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in lifecycle.audit_logs %}
+                        <tr>
+                            <td>{{ log.timestamp|slice:":19" }}</td>
+                            <td class="fw-semibold">{{ log.actor }}</td>
+                            <td>
+                                {% if log.action == 'APPROVE' or log.action == 'CREATE' %}
+                                    <span class="badge bg-success-subtle text-success border">{{ log.action }}</span>
+                                {% elif log.action == 'REJECT' or log.action == 'DELETE' %}
+                                    <span class="badge bg-danger-subtle text-danger border">{{ log.action }}</span>
+                                {% else %}
+                                    <span class="badge bg-info-subtle text-info border">{{ log.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td><code>{{ log.target_model }}</code></td>
+                            <td><code>{{ log.target_object_id|truncatechars:16 }}</code></td>
+                            <td><code>{{ log.ip_address|default:"127.0.0.1" }}</code></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">No linked audit log events found for this entity graph.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    {% else %}
+        <div class="alert alert-warning rounded-4 shadow-sm p-4 text-center">
+            <i class="fa-solid fa-circle-question fa-3x text-warning mb-3"></i>
+            <h4 class="fw-bold">No Transaction Graph Found</h4>
+            <p class="text-muted mb-0">No Purchase Requisition, Purchase Order, Sourcing Event, Invoice, or Contract matched identifier <code>{{ identifier }}</code>.</p>
+        </div>
+    {% endif %}
+{% endif %}
+{% endblock auditor_content %}

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Supplier Invoices & 3-Way Match — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-receipt text-danger me-2"></i> Supplier Invoices & 3-Way Match AP Desk</h2>
+        <p class="text-muted small mb-0">Automated PO, GRN, and Invoice matching with tolerance exception handling & payment readiness.</p>
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-danger fw-bold rounded-pill px-4 shadow-sm" hx-get="/invoices/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">
+            <i class="fa-solid fa-plus me-1"></i> Submit Invoice
+        </button>
+        <a href="/invoices/exceptions/" class="btn btn-outline-danger rounded-pill px-4 fw-semibold shadow-sm">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i> Exception Desk
+        </a>
+    </div>
+</div>
+
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Status Filter Pills -->
+<div class="mb-4">
+    <div class="btn-group border rounded-pill p-1 bg-white shadow-sm" role="group">
+        <a href="/invoices/" class="btn btn-sm rounded-pill px-3 {% if not status_filter %}btn-danger{% else %}btn-light{% endif %}">All Invoices</a>
+        <a href="/invoices/?status=MATCHED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'MATCHED' %}btn-danger{% else %}btn-light{% endif %}">Matched</a>
+        <a href="/invoices/?status=EXCEPTION" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'EXCEPTION' %}btn-danger{% else %}btn-light{% endif %}">Exceptions</a>
+        <a href="/invoices/?status=READY_FOR_PAYMENT" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'READY_FOR_PAYMENT' %}btn-danger{% else %}btn-light{% endif %}">Ready for Payment</a>
+        <a href="/invoices/?status=PAID" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'PAID' %}btn-danger{% else %}btn-light{% endif %}">Paid</a>
+    </div>
+</div>
+
+<!-- Invoice Register Table -->
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-4">Invoice Number</th>
+                    <th>Vendor</th>
+                    <th>Purchase Order</th>
+                    <th>Total Billed</th>
+                    <th>3-Way Match Result</th>
+                    <th>Status</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in invoices %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark"><code>{{ invoice.invoice_number }}</code></div>
+                            <div class="text-muted small">Date: {{ invoice.invoice_date|date:"M d, Y" }}</div>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ invoice.vendor.legal_name }}</div>
+                            <div class="text-muted small"><code>{{ invoice.vendor.vendor_code }}</code></div>
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border"><code>{{ invoice.purchase_order.po_number }}</code></span>
+                        </td>
+                        <td class="fw-bold text-navy">${{ invoice.total_amount|floatformat:2 }} {{ invoice.currency }}</td>
+                        <td>
+                            {% if invoice.match_status == 'MATCHED' %}
+                                <span class="badge bg-success text-white rounded-pill px-3 py-1"><i class="fa-solid fa-check me-1"></i> MATCHED</span>
+                            {% elif invoice.match_status == 'EXCEPTION' %}
+                                <span class="badge bg-danger text-white rounded-pill px-3 py-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> EXCEPTION</span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1"><i class="fa-solid fa-clock me-1"></i> {{ invoice.match_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if invoice.status == 'PAID' %}
+                                <span class="badge badge-status badge-status-approved">PAID</span>
+                            {% elif invoice.status == 'READY_FOR_PAYMENT' %}
+                                <span class="badge badge-status badge-status-active">READY FOR PAYMENT</span>
+                            {% else %}
+                                <span class="badge badge-status badge-status-pending">{{ invoice.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <a href="/api/v1/invoices/invoices/{{ invoice.id }}/" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                                Inspect AP <i class="fa-solid fa-arrow-right ms-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-receipt fa-3x mb-3 text-secondary"></i>
+                            <div>No Supplier Invoices found matching the criteria.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

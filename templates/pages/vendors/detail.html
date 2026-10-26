@@ -1,0 +1,379 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}{{ vendor.legal_name }} — Vendor Governance{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-start justify-content-between mb-4">
+    <div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <code class="h5 mb-0">{{ vendor.vendor_number }}</code>
+            {% include 'partials/vendor_status_badge.html' with status=vendor.status label=vendor.get_status_display %}
+            {% if latest_risk %}
+                <span class="badge {% if latest_risk.risk_level == 'HIGH' %}bg-danger{% elif latest_risk.risk_level == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ latest_risk.get_risk_level_display }}</span>
+            {% endif %}
+        </div>
+        <h2 class="fw-bold text-dark mb-0">{{ vendor.legal_name }}</h2>
+        {% if vendor.trade_name %}<div class="text-muted small">Trading as {{ vendor.trade_name }}</div>{% endif %}
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if user.role_code == 'PROC_MGR' %}
+        <a href="/manager/vendor-risk/" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back to Vendor Risk</a>
+        {% else %}
+        <a href="{% url 'vendor_governance' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Governance</a>
+        {% endif %}
+
+        {% if caps.can_operate %}
+            {# ── Edit vendor info button (HTMX modal) ── #}
+            <div id="vendor-edit-slot">
+                <button class="btn btn-outline-primary rounded-pill px-3"
+                        hx-get="{% url 'vendor_edit' vendor.id %}"
+                        hx-target="#vendor-edit-slot"
+                        hx-swap="beforeend">
+                    <i class="fa-solid fa-pen-to-square me-1"></i>Edit info
+                </button>
+            </div>
+
+            {# ── Credentials button ── #}
+            {% if vendor.status != 'SUSPENDED' and vendor.status != 'REJECTED' %}
+                <form method="post" action="{% url 'vendor_issue_credentials' vendor.id %}" onsubmit="return confirm('Create or reset the vendor login and email credentials to {{ vendor.email|escapejs }}?');">
+                    {% csrf_token %}
+                    <button class="btn btn-primary rounded-pill px-3" type="submit"{% if last_dispatch %} title="Last: {{ last_dispatch.get_status_display }} {{ last_dispatch.created_at|date:'d M Y H:i' }}"{% endif %}><i class="fa-solid fa-envelope me-1"></i>{% if last_dispatch %}Resend credentials{% else %}Generate &amp; email credentials{% endif %}</button>
+                </form>
+            {% endif %}
+
+            {# ── New RFQ/RFP ── #}
+            {% if vendor.status == 'ACTIVE' %}
+                <a href="{% url 'sourcing_create' %}" class="btn btn-warning rounded-pill px-3 text-dark fw-semibold"><i class="fa-solid fa-gavel me-1"></i>New RFQ/RFP</a>
+            {% endif %}
+
+            {# ── Delete vendor (DRAFT / REJECTED only) ── #}
+            {% if vendor.status == 'DRAFT' or vendor.status == 'REJECTED' %}
+                <form method="post" action="{% url 'vendor_delete' vendor.id %}"
+                      onsubmit="return confirm('PERMANENTLY DELETE {{ vendor.vendor_number }} — {{ vendor.legal_name|escapejs }}?
+
+This cannot be undone. Only DRAFT and REJECTED vendors with no linked transactions can be deleted.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger rounded-pill px-3">
+                        <i class="fa-solid fa-trash-can me-1"></i>Delete vendor
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<ul class="nav nav-pills small mb-3 gap-1 flex-wrap" aria-label="Sections">
+    <li class="nav-item"><a class="nav-link py-1" href="#overview">Overview</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#governance">Status</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#risk">Risk</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#performance">Performance</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#documents">Documents</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#contacts">Contacts</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#transactions">Sourcing &amp; POs</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#history">Change history</a></li>
+</ul>
+
+<div class="row g-4">
+    <!-- Overview -->
+    <div class="col-lg-7" id="overview">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-building me-2 text-primary"></i>Vendor information</h5>
+            <dl class="row small mb-0">
+                <dt class="col-sm-4 text-muted">Category</dt><dd class="col-sm-8">{{ vendor.category.name }} <code>{{ vendor.category.code }}</code></dd>
+                <dt class="col-sm-4 text-muted">Tax ID</dt><dd class="col-sm-8">{{ vendor.tax_identification_number }}</dd>
+                <dt class="col-sm-4 text-muted">PAN</dt><dd class="col-sm-8">{% if vendor.pan_number %}<code class="text-dark fw-bold">{{ vendor.pan_number }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                <dt class="col-sm-4 text-muted">GSTIN</dt><dd class="col-sm-8">{% if vendor.gstin %}<code class="text-dark fw-bold">{{ vendor.gstin }}</code>{% else %}<span class="text-muted">—</span>{% endif %}</dd>
+                <dt class="col-sm-4 text-muted">Registration no.</dt><dd class="col-sm-8">{{ vendor.registration_number|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">Email / phone</dt><dd class="col-sm-8">{{ vendor.email }}{% if vendor.phone %} · {{ vendor.phone }}{% endif %}</dd>
+                <dt class="col-sm-4 text-muted">Address</dt><dd class="col-sm-8">{{ vendor.address|linebreaksbr }}</dd>
+                <dt class="col-sm-4 text-muted">Bank</dt><dd class="col-sm-8">{{ vendor.bank_name|default:"—" }}</dd>
+                <dt class="col-sm-4 text-muted">Registered</dt><dd class="col-sm-8">{{ vendor.created_at|date:"Y-m-d" }} · updated {{ vendor.updated_at|date:"Y-m-d H:i" }}</dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Status / governance actions -->
+    <div class="col-lg-5" id="governance">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-scale-balanced me-2 text-success"></i>Approval &amp; operational status</h5>
+            <div class="mb-2 small"><span class="text-muted">Current status:</span>
+                {% include 'partials/vendor_status_badge.html' with status=vendor.status label=vendor.get_status_display %}
+            </div>
+            {% if vendor.status_notes %}<div class="small bg-light border rounded p-2 mb-3"><span class="text-muted">Latest governance note:</span> {{ vendor.status_notes }}</div>{% endif %}
+
+            <div class="small mb-3">
+                <div class="fw-semibold mb-1">Open exposure</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="badge bg-light text-dark border">Open invitations: {{ exposure.summary.open_invitations }}</span>
+                    <span class="badge bg-light text-dark border">Open bids: {{ exposure.summary.open_bids }}</span>
+                    <span class="badge bg-light text-dark border">Pending awards: {{ exposure.summary.pending_awards }}</span>
+                    <span class="badge bg-light text-dark border">Open POs: {{ exposure.summary.open_pos }}</span>
+                </div>
+            </div>
+
+            <div class="border rounded p-2 mb-3 small" id="kyc-status">
+                <div class="fw-semibold mb-2"><i class="fa-solid fa-shield-halved text-primary me-1"></i>KYC &amp; activation status</div>
+                <dl class="row mb-2 gx-2">
+                    <dt class="col-6 text-muted fw-normal">KYC submission</dt><dd class="col-6 mb-1">{{ kyc.submission }}</dd>
+                    <dt class="col-6 text-muted fw-normal">Legal review</dt><dd class="col-6 mb-1">{{ kyc.legal_review }} <span class="text-muted">({{ kyc.documents_verified }}/{{ kyc.documents_total }} verified{% if kyc.documents_rejected %}, {{ kyc.documents_rejected }} rejected{% endif %})</span></dd>
+                    <dt class="col-6 text-muted fw-normal">Other compliance checks</dt><dd class="col-6 mb-1">{{ kyc.other_checks }}</dd>
+                    <dt class="col-6 text-muted fw-normal">Activation</dt><dd class="col-6 mb-1">{{ kyc.activation }}</dd>
+                    <dt class="col-6 text-muted fw-normal">Next action</dt><dd class="col-6 mb-1 fw-semibold">{{ kyc.next_action }}</dd>
+                </dl>
+                {% if kyc.blockers and vendor.status != 'ACTIVE' %}
+                    <ul class="mb-2 ps-3 text-muted">{% for b in kyc.blockers %}<li>{{ b }}</li>{% endfor %}</ul>
+                {% endif %}
+
+                {% if can_start_kyc_review or can_activate_vendor or can_request_changes %}
+                <div class="d-flex flex-wrap gap-2 border-top pt-2">
+                    {% if can_start_kyc_review %}
+                    <form method="post" action="{% url 'vendor_kyc_action' vendor.id 'start-review' %}">{% csrf_token %}
+                        <button class="btn btn-sm btn-outline-primary">Start KYC review</button>
+                    </form>
+                    {% endif %}
+                    {% if can_activate_vendor %}
+                    <form method="post" action="{% url 'vendor_kyc_action' vendor.id 'approve' %}" class="d-flex gap-2">{% csrf_token %}
+                        <input name="notes" class="form-control form-control-sm" placeholder="Approval note" aria-label="Approval note">
+                        <button class="btn btn-sm btn-success text-nowrap">Approve &amp; activate</button>
+                    </form>
+                    {% endif %}
+                    {% if can_request_changes %}
+                    <form method="post" action="{% url 'vendor_kyc_action' vendor.id 'request-changes' %}" class="d-flex gap-2 w-100">{% csrf_token %}
+                        <input name="notes" class="form-control form-control-sm" placeholder="Specify corrections / changes required..." required aria-label="Change request instructions">
+                        <button class="btn btn-sm btn-warning text-nowrap"><i class="fa-solid fa-rotate-left me-1"></i>Request Changes</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if transitions %}
+                <form method="post" action="{% url 'vendor_status_change' vendor.id %}" class="small">
+                    {% csrf_token %}
+                    <label class="form-label fw-semibold" for="gov-status">Governance action</label>
+                    <select name="status" id="gov-status" class="form-select form-select-sm mb-2" required>
+                        {% for t in transitions %}<option value="{{ t.status }}">{{ t.label }}</option>{% endfor %}
+                    </select>
+                    <label class="form-label fw-semibold" for="gov-notes">Reason (recorded in audit trail)</label>
+                    <textarea name="notes" id="gov-notes" rows="2" class="form-control form-control-sm mb-2" required></textarea>
+                    {% if exposure.summary.open_bids or exposure.summary.open_pos or exposure.summary.pending_awards %}
+                        <div class="alert alert-warning py-2 small mb-2">
+                            This vendor has open sourcing/PO transactions. They are not cancelled automatically; a suspended vendor is blocked from new invitations, bids, awards and POs.
+                        </div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-sm btn-dark">Apply</button>
+                </form>
+            {% elif caps.can_operate %}
+                <p class="small text-muted mb-0">No governance transitions are available to your role from {{ vendor.get_status_display }}.</p>
+            {% else %}
+                <p class="small text-muted mb-0">Read-only access.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Risk -->
+    <div class="col-lg-6" id="risk">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-triangle-exclamation me-2 text-danger"></i>Risk</h5>
+            {% if latest_risk %}
+                <div class="mb-2">
+                    <span class="badge {% if latest_risk.risk_level == 'HIGH' %}bg-danger{% elif latest_risk.risk_level == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ latest_risk.get_risk_level_display }}</span>
+                    <span class="small text-muted">assessed by {{ latest_risk.assessed_by.email }} on {{ latest_risk.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="mb-2">
+                    {% for label in latest_risk.risk_flag_labels %}<span class="badge bg-danger-subtle text-danger border border-danger-subtle me-1">{{ label }}</span>{% empty %}<span class="small text-muted">No risk flags raised.</span>{% endfor %}
+                </div>
+                <p class="small mb-3">{{ latest_risk.assessment_notes }}</p>
+            {% else %}
+                <p class="small text-muted">No risk assessment recorded yet.</p>
+            {% endif %}
+
+            {% if caps.can_operate %}
+            <details class="mb-3">
+                <summary class="small fw-semibold">Record new risk assessment</summary>
+                <form method="post" action="{% url 'vendor_risk_assess' vendor.id %}" class="small mt-2">
+                    {% csrf_token %}
+                    <label class="form-label" for="risk-level">Risk level</label>
+                    <select name="risk_level" id="risk-level" class="form-select form-select-sm mb-2">
+                        {% for value, label in risk_level_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+                    </select>
+                    <fieldset class="mb-2"><legend class="form-label fs-6 small">Risk flags</legend>
+                        <div class="row">
+                        {% for value, label in risk_flag_choices %}
+                            <div class="col-sm-6"><div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="risk_flags" value="{{ value }}" id="flag-{{ value }}">
+                                <label class="form-check-label" for="flag-{{ value }}">{{ label }}</label>
+                            </div></div>
+                        {% endfor %}
+                        </div>
+                    </fieldset>
+                    <label class="form-label" for="risk-notes">Assessment notes</label>
+                    <textarea name="notes" id="risk-notes" rows="2" class="form-control form-control-sm mb-2" required></textarea>
+                    <button class="btn btn-sm btn-danger">Save assessment</button>
+                </form>
+            </details>
+            {% endif %}
+
+            {% if risk_records|length > 1 %}
+            <div class="small fw-semibold mb-1">Risk history</div>
+            <div class="table-responsive"><table class="table table-sm small mb-0">
+                <thead><tr><th>Date</th><th>Level</th><th>Flags</th><th>Assessor</th></tr></thead>
+                <tbody>
+                {% for r in risk_records %}
+                    <tr><td class="text-nowrap">{{ r.created_at|date:"Y-m-d" }}</td><td>{{ r.get_risk_level_display }}</td><td>{{ r.risk_flag_labels|join:", "|default:"—" }}</td><td>{{ r.assessed_by.email }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Performance -->
+    <div class="col-lg-6" id="performance">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold mb-0"><i class="fa-solid fa-award me-2 text-success"></i>Performance</h5>
+                {% if latest_scorecard and latest_scorecard.composite_score is not None %}
+                    <span class="badge bg-dark fs-6">{{ latest_scorecard.composite_score|floatformat:1 }}/100</span>
+                {% endif %}
+            </div>
+            {% if latest_scorecard %}
+                <div class="small text-muted mb-2">Period {{ latest_scorecard.evaluation_period }} · {{ latest_scorecard.created_at|date:"Y-m-d" }}</div>
+                {% for label, score in latest_scorecard.indicator_rows %}
+                    <div class="d-flex justify-content-between small"><span>{{ label }}</span><span class="fw-semibold">{% if score is None %}<span class="text-muted fw-normal">No data</span>{% else %}{{ score|floatformat:1 }}{% endif %}</span></div>
+                    <div class="progress mb-2" style="height:6px" role="progressbar" aria-label="{{ label }}" aria-valuenow="{{ score|default:0|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar bg-success" style="width: {{ score|default:0|floatformat:0 }}%"></div>
+                    </div>
+                {% endfor %}
+                {% if scorecards|length > 1 %}
+                <div class="small fw-semibold mt-3 mb-1">Trend</div>
+                <div class="table-responsive"><table class="table table-sm small mb-0">
+                    <thead><tr><th>Period</th><th>Composite</th><th>Calculated</th></tr></thead>
+                    <tbody>{% for sc in scorecards %}<tr><td>{{ sc.evaluation_period }}</td><td>{{ sc.composite_score|floatformat:1|default:"No data" }}</td><td>{{ sc.created_at|date:"Y-m-d" }}</td></tr>{% endfor %}</tbody>
+                </table></div>
+                {% endif %}
+            {% else %}
+                <p class="small text-muted">No performance data available.</p>
+            {% endif %}
+            {% if can_calculate_scorecard %}
+                <form method="post" action="{% url 'scorecard_calculate' %}" class="d-flex gap-2 mt-3 small">
+                    {% csrf_token %}
+                    <input type="hidden" name="vendor_id" value="{{ vendor.id }}">
+                    <input type="hidden" name="next" value="{% url 'vendor_detail' vendor.id %}#performance">
+                    <input name="period" class="form-control form-control-sm" placeholder="Period e.g. Q4-2026" aria-label="Evaluation period" required>
+                    <button class="btn btn-sm btn-outline-success text-nowrap">Calculate scorecard</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="col-lg-7" id="documents">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-folder-open me-2 text-primary"></i>Documents</h5>
+            <div class="table-responsive"><table class="table table-sm align-middle small mb-0">
+                <thead><tr><th>Type</th><th>Title</th><th>Expiry</th><th>Review</th><th class="text-end">Actions</th></tr></thead>
+                <tbody>
+                {% for doc in documents %}
+                    <tr>
+                        <td>{{ doc.get_document_type_display }}</td>
+                        <td>{{ doc.title }}</td>
+                        <td>{{ doc.expiry_date|date:"Y-m-d"|default:"—" }}</td>
+                        <td>{% if doc.review_status == 'VERIFIED' %}<span class="badge bg-success">Verified</span>{% if doc.verified_by %}<div class="text-muted">{{ doc.verified_by.email }}</div>{% endif %}{% elif doc.review_status == 'REJECTED' %}<span class="badge bg-danger">Rejected</span>{% if doc.review_notes %}<div class="text-muted">{{ doc.review_notes }}</div>{% endif %}{% else %}<span class="badge bg-secondary">Pending</span>{% endif %}</td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-sm btn-outline-secondary" href="{% url 'vendor_document_download' vendor.id doc.id %}">Download</a>
+                            {% if can_review_docs and doc.review_status == 'PENDING' %}
+                            <form method="post" action="{% url 'vendor_kyc_action' vendor.id 'verify-document' %}" class="d-inline">{% csrf_token %}
+                                <input type="hidden" name="document_id" value="{{ doc.id }}">
+                                <button class="btn btn-sm btn-outline-success">Verify</button>
+                            </form>
+                            <form method="post" action="{% url 'vendor_kyc_action' vendor.id 'reject-document' %}" class="d-inline-flex gap-1">{% csrf_token %}
+                                <input type="hidden" name="document_id" value="{{ doc.id }}">
+                                <input name="notes" class="form-control form-control-sm" style="width:9rem" placeholder="Reason" required aria-label="Rejection reason">
+                                <button class="btn btn-sm btn-outline-danger">Reject</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-muted text-center py-3">No documents uploaded.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+
+    <!-- Contacts -->
+    <div class="col-lg-5" id="contacts">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-address-book me-2 text-info"></i>Contacts</h5>
+            {% for c in contacts %}
+                <div class="border-bottom py-2 small">
+                    <div class="fw-semibold">{{ c.first_name }} {{ c.last_name }}{% if c.is_primary %} <span class="badge bg-primary">Primary</span>{% endif %}</div>
+                    <div class="text-muted">{{ c.designation|default:"—" }}</div>
+                    <div>{{ c.email }}{% if c.phone %} · {{ c.phone }}{% endif %}</div>
+                </div>
+            {% empty %}
+                <p class="small text-muted mb-0">No contacts on file.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Sourcing & PO relationship -->
+    <div class="col-12" id="transactions">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-link me-2 text-warning"></i>Sourcing &amp; purchase orders</h5>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="small fw-semibold mb-1">Recent RFQ/RFP invitations</div>
+                    <div class="table-responsive"><table class="table table-sm small mb-0">
+                        <thead><tr><th>Event</th><th>Status</th><th>Responded</th></tr></thead>
+                        <tbody>
+                        {% for inv in sourcing_history %}
+                            <tr><td><a href="{% url 'sourcing_detail' inv.event.id %}">{{ inv.event.event_number }}</a> <span class="text-muted">{{ inv.event.title|truncatechars:40 }}</span></td><td>{{ inv.event.get_status_display }}</td><td>{{ inv.is_responded|yesno:"Yes,No" }}</td></tr>
+                        {% empty %}<tr><td colspan="3" class="text-muted">No invitations.</td></tr>{% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="small fw-semibold mb-1">Recent purchase orders</div>
+                    <div class="table-responsive"><table class="table table-sm small mb-0">
+                        <thead><tr><th>PO</th><th>Status</th><th class="text-end">Total</th></tr></thead>
+                        <tbody>
+                        {% for po in purchase_orders %}
+                            <tr><td><a href="{% url 'order_detail' po.id %}">{{ po.po_number }}</a> v{{ po.version }}</td><td>{{ po.get_status_display }}</td><td class="text-end">{{ po.total_amount|floatformat:2 }}</td></tr>
+                        {% empty %}<tr><td colspan="3" class="text-muted">No purchase orders.</td></tr>{% endfor %}
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change history -->
+    <div class="col-12" id="history">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-clock-rotate-left me-2"></i>Change history <span class="small text-muted fw-normal">(immutable audit log)</span></h5>
+            <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+                <thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Object</th><th>Previous state</th><th>Updated state</th></tr></thead>
+                <tbody>
+                {% for log in history %}
+                    <tr>
+                        <td class="text-nowrap">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ log.actor_email }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ log.get_action_display }}</span></td>
+                        <td>{{ log.target_model }}</td>
+                        <td><code class="small text-wrap">{{ log.previous_state|default:"—" }}</code></td>
+                        <td><code class="small text-wrap">{{ log.new_state|default:"—" }}</code></td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="text-muted text-center py-3">No history recorded.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

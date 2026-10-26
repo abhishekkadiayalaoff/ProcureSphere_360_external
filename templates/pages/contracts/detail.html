@@ -1,0 +1,736 @@
+{% extends 'layouts/legal_base.html' %}
+
+{% block title %}{{ contract.contract_number }} - Contract SLA Workspace{% endblock %}
+
+{% block content %}
+<!-- Back link & Top Bar -->
+<div class="row mb-3">
+    <div class="col-12 d-flex align-items-center justify-content-between">
+        <a href="{% url 'contracts_list' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Contract Register
+        </a>
+        <div class="d-flex gap-2">
+            {% if contract.status == 'DRAFT' %}
+                <button type="button" class="btn btn-warning rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#submitLegalModal">
+                    <i class="fa-solid fa-gavel me-1"></i> Submit for Legal Review
+                </button>
+            {% endif %}
+
+            {% if contract.status == 'LEGAL_REVIEW' and is_legal_mgr %}
+                <button type="button" class="btn btn-success rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#legalApproveModal">
+                    <i class="fa-solid fa-circle-check me-1"></i> Legal Approve
+                </button>
+                <button type="button" class="btn btn-outline-danger rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#legalRejectModal">
+                    <i class="fa-solid fa-circle-xmark me-1"></i> Legal Reject
+                </button>
+            {% endif %}
+
+            {% if contract.status == 'BUSINESS_APPROVAL' and is_proc_mgr %}
+                <button type="button" class="btn btn-success rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#businessApproveModal">
+                    <i class="fa-solid fa-signature me-1"></i> Business Approve & Activate
+                </button>
+            {% endif %}
+
+            {% if contract.status == 'ACTIVE' or contract.status == 'RENEWAL_DUE' or contract.status == 'RENEWED' %}
+                <button type="button" class="btn btn-outline-primary rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#amendmentModal">
+                    <i class="fa-solid fa-code-branch me-1"></i> Amend Contract (New Version)
+                </button>
+                <button type="button" class="btn btn-primary rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#renewModal">
+                    <i class="fa-solid fa-arrows-rotate me-1"></i> Renew Contract
+                </button>
+            {% endif %}
+
+            {% if contract.status != 'TERMINATED' %}
+                <button type="button" class="btn btn-outline-danger rounded-pill btn-sm fw-bold px-3" data-bs-toggle="modal" data-bs-target="#terminateModal">
+                    <i class="fa-solid fa-ban me-1"></i> Terminate
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Header Card -->
+<div class="glass-card-dark p-4 mb-4 shadow-sm">
+    <div class="row align-items-center">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-secondary text-white rounded-pill px-3 py-1 fw-bold"><code>{{ contract.contract_number }}</code></span>
+                <span class="badge bg-light text-dark rounded-pill px-3 py-1 fw-bold">Version {{ contract.version }}</span>
+                {% if contract.status == 'ACTIVE' %}
+                    <span class="badge bg-success text-white rounded-pill px-3 py-1">ACTIVE</span>
+                {% elif contract.status == 'LEGAL_REVIEW' %}
+                    <span class="badge bg-warning text-dark rounded-pill px-3 py-1">LEGAL REVIEW</span>
+                {% elif contract.status == 'BUSINESS_APPROVAL' %}
+                    <span class="badge bg-info text-white rounded-pill px-3 py-1">BUSINESS APPROVAL</span>
+                {% elif contract.status == 'RENEWAL_DUE' %}
+                    <span class="badge bg-danger text-white rounded-pill px-3 py-1">RENEWAL DUE</span>
+                {% elif contract.status == 'TERMINATED' %}
+                    <span class="badge bg-dark text-white rounded-pill px-3 py-1">TERMINATED</span>
+                {% else %}
+                    <span class="badge bg-secondary text-white rounded-pill px-3 py-1">{{ contract.status }}</span>
+                {% endif %}
+            </div>
+            <h2 class="fw-bold text-white mb-2">{{ contract.title }}</h2>
+            <div class="text-white-50 small">
+                <span class="me-3"><i class="fa-solid fa-building me-1"></i> Supplier: <strong class="text-white">{{ contract.vendor.legal_name }}</strong></span>
+                <span class="me-3"><i class="fa-solid fa-user me-1"></i> Owner: <strong class="text-white">{{ contract.contract_owner.email }}</strong></span>
+                <span><i class="fa-solid fa-calendar me-1"></i> Created: <strong class="text-white">{{ contract.created_at|date:"M d, Y" }}</strong></span>
+            </div>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+            <div class="text-white-50 small text-uppercase fw-semibold mb-1">Contract Value</div>
+            <div class="display-6 fw-bold text-success">${{ contract.contract_value|floatformat:2 }}</div>
+            <div class="text-white-50 small mt-1">
+                Term: {{ contract.start_date|date:"M d, Y" }} &ndash; {{ contract.end_date|date:"M d, Y" }}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabs Navigation -->
+<ul class="nav nav-tabs border-bottom mb-4 gap-1" id="contractTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active fw-bold" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview-pane" type="button" role="tab">
+            <i class="fa-solid fa-circle-info me-1"></i> Overview
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="versions-tab" data-bs-toggle="tab" data-bs-target="#versions-pane" type="button" role="tab">
+            <i class="fa-solid fa-code-branch me-1"></i> Version History ({{ versions.count }})
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="milestones-tab" data-bs-toggle="tab" data-bs-target="#milestones-pane" type="button" role="tab">
+            <i class="fa-solid fa-flag me-1"></i> SLA Milestones ({{ milestones.count }})
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="obligations-tab" data-bs-toggle="tab" data-bs-target="#obligations-pane" type="button" role="tab">
+            <i class="fa-solid fa-scale-balanced me-1"></i> Legal Obligations ({{ obligations.count }})
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents-pane" type="button" role="tab">
+            <i class="fa-solid fa-file-pdf me-1"></i> Documents ({{ documents.count }})
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="alerts-tab" data-bs-toggle="tab" data-bs-target="#alerts-pane" type="button" role="tab">
+            <i class="fa-solid fa-bell me-1"></i> Celery Alerts ({{ alerts.count }})
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link fw-bold" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit-pane" type="button" role="tab">
+            <i class="fa-solid fa-shield-halved me-1"></i> Audit Trail
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="contractTabsContent">
+    <!-- 1. OVERVIEW PANE -->
+    <div class="tab-pane fade show active" id="overview-pane" role="tabpanel">
+        <div class="row g-4">
+            <div class="col-md-7">
+                <div class="glass-card p-4 shadow-sm mb-4">
+                    <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-circle-info text-primary me-2"></i> Agreement Summary Details</h5>
+                    <table class="table table-sm table-borderless align-middle mb-0">
+                        <tbody>
+                            <tr>
+                                <th class="text-muted w-35 py-2">Contract Number</th>
+                                <td class="fw-bold text-navy py-2"><code>{{ contract.contract_number }}</code></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted py-2">Vendor Name</th>
+                                <td class="fw-bold py-2">{{ contract.vendor.legal_name }} ({{ contract.vendor.vendor_code }})</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted py-2">Contract Value</th>
+                                <td class="fw-bold text-success py-2">${{ contract.contract_value|floatformat:2 }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted py-2">Current Version</th>
+                                <td class="py-2"><span class="badge bg-secondary">Version {{ contract.version }}</span></td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted py-2">Execution Period</th>
+                                <td class="py-2">{{ contract.start_date|date:"F d, Y" }} &ndash; {{ contract.end_date|date:"F d, Y" }}</td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted py-2">Renewal Notice Window</th>
+                                <td class="py-2">{{ contract.renewal_notice_days }} days prior to expiration</td>
+                            </tr>
+                            {% if contract.sourcing_event %}
+                            <tr>
+                                <th class="text-muted py-2">Linked RFQ/Sourcing</th>
+                                <td class="py-2"><a href="{% url 'sourcing_detail' event_id=contract.sourcing_event.id %}" class="fw-semibold"><code>{{ contract.sourcing_event.event_number }}</code> - {{ contract.sourcing_event.title }}</a></td>
+                            </tr>
+                            {% endif %}
+                            {% if contract.po %}
+                            <tr>
+                                <th class="text-muted py-2">Linked Purchase Order</th>
+                                <td class="py-2"><a href="/purchase-orders/" class="fw-semibold"><code>{{ contract.po.po_number }}</code></a></td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="col-md-5">
+                <div class="glass-card p-4 shadow-sm mb-4">
+                    <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-list-check text-success me-2"></i> Quick SLA Status</h5>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted">Total Milestones</span>
+                        <span class="fw-bold">{{ milestones.count }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted">Total Legal Obligations</span>
+                        <span class="fw-bold">{{ obligations.count }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2">
+                        <span class="text-muted">Uploaded Documents</span>
+                        <span class="fw-bold">{{ documents.count }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted">System Alerts Triggered</span>
+                        <span class="fw-bold text-warning">{{ alerts.count }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. VERSIONS PANE -->
+    <div class="tab-pane fade" id="versions-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-code-branch text-primary me-2"></i> Preserved Version & Amendment History</h5>
+                {% if contract.status == 'ACTIVE' or contract.status == 'RENEWAL_DUE' %}
+                    <button class="btn btn-outline-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#amendmentModal">
+                        <i class="fa-solid fa-plus me-1"></i> Amend Contract
+                    </button>
+                {% endif %}
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Version</th>
+                            <th>Amendment Summary</th>
+                            <th>Contract Value</th>
+                            <th>Start - End Date</th>
+                            <th>Approved By</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ver in versions %}
+                        <tr>
+                            <td class="ps-3"><span class="badge bg-dark">v{{ ver.version_number }}</span></td>
+                            <td class="fw-semibold text-dark">{{ ver.amendment_summary }}</td>
+                            <td class="fw-bold text-success">${{ ver.contract_value|floatformat:2 }}</td>
+                            <td class="small text-muted">{{ ver.start_date|date:"M d, Y" }} &rarr; {{ ver.end_date|date:"M d, Y" }}</td>
+                            <td class="small">{{ ver.approved_by.email }}</td>
+                            <td class="small text-muted">{{ ver.created_at|date:"M d, Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center py-4 text-muted">No version history records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. MILESTONES PANE -->
+    <div class="tab-pane fade" id="milestones-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-flag text-success me-2"></i> Tracked Contract SLA Milestones</h5>
+                <button class="btn btn-success btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#addMilestoneModal">
+                    <i class="fa-solid fa-plus me-1"></i> Add Milestone
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Milestone Title</th>
+                            <th>Due Date</th>
+                            <th>Associated Amount</th>
+                            <th>Status</th>
+                            <th class="text-end pe-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in milestones %}
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark">{{ m.title }}</td>
+                            <td class="small text-muted">{{ m.due_date|date:"M d, Y" }}</td>
+                            <td class="fw-bold text-navy">${{ m.amount|floatformat:2 }}</td>
+                            <td>
+                                {% if m.is_completed %}
+                                    <span class="badge bg-success text-white rounded-pill px-3 py-1"><i class="fa-solid fa-check me-1"></i> COMPLETED</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-1"><i class="fa-solid fa-clock me-1"></i> PENDING</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                {% if not m.is_completed %}
+                                    <form method="POST" action="{% url 'contract_milestone_complete' contract_id=contract.id milestone_id=m.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-success btn-sm rounded-pill px-3">Mark Complete</button>
+                                    </form>
+                                {% else %}
+                                    <span class="text-muted small">Done {{ m.completed_at|date:"M d" }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center py-4 text-muted">No SLA milestones configured for this contract.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. OBLIGATIONS PANE -->
+    <div class="tab-pane fade" id="obligations-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-scale-balanced text-warning me-2"></i> Legal & Governance Obligations</h5>
+                <button class="btn btn-warning btn-sm rounded-pill px-3 fw-bold text-dark" data-bs-toggle="modal" data-bs-target="#addObligationModal">
+                    <i class="fa-solid fa-plus me-1"></i> Add Obligation
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Obligation Title</th>
+                            <th>Responsible Party</th>
+                            <th>Due Date</th>
+                            <th>Fulfillment Status</th>
+                            <th class="text-end pe-3">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ob in obligations %}
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark">{{ ob.title }}</td>
+                            <td><span class="badge bg-light text-dark border">{{ ob.responsible_party }}</span></td>
+                            <td class="small text-muted">{{ ob.due_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if ob.is_fulfilled %}
+                                    <span class="badge bg-success text-white rounded-pill px-3 py-1"><i class="fa-solid fa-circle-check me-1"></i> FULFILLED</span>
+                                {% else %}
+                                    <span class="badge bg-danger text-white rounded-pill px-3 py-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> PENDING</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-3">
+                                {% if not ob.is_fulfilled %}
+                                    <form method="POST" action="{% url 'contract_obligation_fulfill' contract_id=contract.id obligation_id=ob.id %}" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-success btn-sm rounded-pill px-3">Mark Fulfilled</button>
+                                    </form>
+                                {% else %}
+                                    <span class="text-muted small">Fulfilled {{ ob.fulfilled_at|date:"M d" }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center py-4 text-muted">No legal obligations logged for this contract.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. DOCUMENTS PANE -->
+    <div class="tab-pane fade" id="documents-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-file-pdf text-danger me-2"></i> Executed Documents & Attachments</h5>
+                <button class="btn btn-outline-danger btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#uploadDocModal">
+                    <i class="fa-solid fa-upload me-1"></i> Upload Attachment
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Document Title</th>
+                            <th>Uploaded By</th>
+                            <th>Uploaded At</th>
+                            <th class="text-end pe-3">Download</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td class="ps-3 fw-bold text-dark"><i class="fa-solid fa-file-lines text-muted me-2"></i>{{ doc.title }}</td>
+                            <td class="small">{{ doc.uploaded_by.email }}</td>
+                            <td class="small text-muted">{{ doc.created_at|date:"M d, Y H:i" }}</td>
+                            <td class="text-end pe-3">
+                                {% if doc.file %}
+                                    <a href="{{ doc.file.url }}" target="_blank" class="btn btn-sm btn-light rounded-pill px-3"><i class="fa-solid fa-download me-1"></i> Download</a>
+                                {% else %}
+                                    <span class="text-muted small">No file attached</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center py-4 text-muted">No documents uploaded yet.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. ALERTS PANE -->
+    <div class="tab-pane fade" id="alerts-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-bell text-warning me-2"></i> Automated Celery Beat Alerts & Notifications</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Alert Type</th>
+                            <th>Message Summary</th>
+                            <th>Triggered Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for alt in alerts %}
+                        <tr>
+                            <td class="ps-3"><span class="badge bg-warning text-dark">{{ alt.get_alert_type_display }}</span></td>
+                            <td class="fw-semibold text-dark">{{ alt.message }}</td>
+                            <td class="small text-muted">{{ alt.triggered_at|date:"M d, Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center py-4 text-muted">No automated notification alerts triggered.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. AUDIT TRAIL PANE -->
+    <div class="tab-pane fade" id="audit-pane" role="tabpanel">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-shield-halved text-secondary me-2"></i> Immutable Audit Log</h5>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-muted">
+                            <th class="ps-3">Timestamp</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                            <th>State Payload Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                        <tr>
+                            <td class="ps-3 small text-muted">{{ log.timestamp|date:"M d, Y H:i:s" }}</td>
+                            <td class="fw-bold small">{{ log.actor.email|default:"System" }}</td>
+                            <td><span class="badge bg-dark">{{ log.action }}</span></td>
+                            <td class="small"><code>{{ log.new_state }}</code></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="4" class="text-center py-4 text-muted">No audit trail records found.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+
+<!-- Submit Legal Review Modal -->
+<div class="modal fade" id="submitLegalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_submit_legal' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Submit Contract for Legal Review</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Send contract draft to the Legal Desk for terms and compliance vetting.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Notes for Legal Manager</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Highlight critical clauses or indemnity requirements..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-warning rounded-pill fw-bold">Submit to Legal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Legal Approve Modal -->
+<div class="modal fade" id="legalApproveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_legal_approve' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-success"><i class="fa-solid fa-circle-check me-2"></i>Legal Manager Approval</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Confirm that all legal terms, indemnities, and compliance clauses have been verified.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Approval Notes</label>
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Legal clearance comments..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success rounded-pill fw-bold">Approve Legal Terms</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Legal Reject Modal -->
+<div class="modal fade" id="legalRejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_legal_reject' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-danger"><i class="fa-solid fa-circle-xmark me-2"></i>Reject Legal Review</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Rejection Reason <span class="text-danger">*</span></label>
+                    <textarea name="reason" class="form-control" rows="3" required placeholder="Detail legal issues requiring revision..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger rounded-pill fw-bold">Reject to Draft</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Business Approve Modal -->
+<div class="modal fade" id="businessApproveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_business_approve' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-success"><i class="fa-solid fa-signature me-2"></i>Business Owner Approval</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Final sign-off by Procurement Manager / Business Owner to activate contract.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Final execution sign-off notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success rounded-pill fw-bold">Activate Contract</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Amend Contract Modal -->
+<div class="modal fade" id="amendmentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="POST" action="{% url 'contract_amend' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-code-branch me-2 text-primary"></i>Amend Contract (Version {{ contract.version|add:1 }})</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3">Creates a new version snapshot while preserving version history in compliance with ERP audit rules.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Amendment Summary & Justification <span class="text-danger">*</span></label>
+                    {{ amendment_form.amendment_summary }}
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">New Contract Value ($)</label>
+                        {{ amendment_form.contract_value }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Start Date</label>
+                        {{ amendment_form.start_date }}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">End Date</label>
+                        {{ amendment_form.end_date }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary rounded-pill fw-bold">Save Version {{ contract.version|add:1 }} Amendment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Milestone Modal -->
+<div class="modal fade" id="addMilestoneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_milestone_create' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Add SLA Milestone</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Milestone Title <span class="text-danger">*</span></label>
+                    {{ milestone_form.title }}
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Due Date <span class="text-danger">*</span></label>
+                        {{ milestone_form.due_date }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Amount ($)</label>
+                        {{ milestone_form.amount }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-success rounded-pill fw-bold">Add Milestone</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Obligation Modal -->
+<div class="modal fade" id="addObligationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_obligation_create' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Add Legal Obligation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Obligation Title <span class="text-danger">*</span></label>
+                    {{ obligation_form.title }}
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Responsible Party <span class="text-danger">*</span></label>
+                        {{ obligation_form.responsible_party }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Due Date <span class="text-danger">*</span></label>
+                        {{ obligation_form.due_date }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-warning rounded-pill fw-bold text-dark">Add Obligation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Upload Doc Modal -->
+<div class="modal fade" id="uploadDocModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_document_upload' contract_id=contract.id %}" enctype="multipart/form-data" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Upload Executed Contract Document</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Document Title <span class="text-danger">*</span></label>
+                    {{ document_form.title }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">File Upload <span class="text-danger">*</span></label>
+                    {{ document_form.file }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger rounded-pill fw-bold">Upload Document</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Renew Modal -->
+<div class="modal fade" id="renewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_renew' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-primary"><i class="fa-solid fa-arrows-rotate me-2"></i>Renew Contract</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">New End Date <span class="text-danger">*</span></label>
+                    {{ renewal_form.new_end_date }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Updated Value ($)</label>
+                    {{ renewal_form.new_value }}
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Renewal Notes</label>
+                    {{ renewal_form.notes }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary rounded-pill fw-bold">Execute Contract Renewal</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Terminate Modal -->
+<div class="modal fade" id="terminateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{% url 'contract_terminate' contract_id=contract.id %}" class="modal-content">
+            {% csrf_token %}
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-danger"><i class="fa-solid fa-ban me-2"></i>Terminate Contract</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-danger fw-bold">Warning: Terminating a contract stops active execution status.</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Termination Reason <span class="text-danger">*</span></label>
+                    <textarea name="reason" class="form-control" rows="3" required placeholder="State legal breach or cancellation reason..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger rounded-pill fw-bold">Terminate Contract</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

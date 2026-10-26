@@ -1,0 +1,443 @@
+
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}{{ event.event_number }} — Sourcing{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/sourcing/" class="text-decoration-none text-muted">Sourcing</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">{{ event.event_number }}</li>
+{% endblock manager_breadcrumbs %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-start justify-content-between mb-3">
+    <div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <code class="h5 mb-0">{{ event.event_number }}</code>
+            <span class="badge bg-light text-dark border">{{ event.get_event_type_display }}</span>
+            {% include 'sourcing/partials/status_badge.html' with status=event.status label=event.get_status_display %}
+        </div>
+        <h2 class="fw-bold text-dark mb-0">{{ event.title }}</h2>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if user.role_code == 'PROC_MGR' %}
+        <a href="/manager/sourcing/" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back to Sourcing</a>
+        {% else %}
+        <a href="{% url 'sourcing_list' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Register</a>
+        {% endif %}
+        {% if caps.can_manage %}
+            {% if event.status == 'DRAFT' %}
+                <a href="{% url 'sourcing_edit' event.id %}" class="btn btn-outline-primary rounded-pill px-3"><i class="fa-solid fa-pen me-1"></i>Edit draft</a>
+                <form method="post" action="{% url 'sourcing_action' event.id 'publish' %}">{% csrf_token %}
+                    <button class="btn btn-warning text-dark fw-bold rounded-pill px-3" {% if publish_errors %}disabled title="Resolve publish checks first"{% endif %}><i class="fa-solid fa-bullhorn me-1"></i>Publish</button>
+                </form>
+            {% elif event.status == 'BID_WINDOW' and is_deadline_passed %}
+                <form method="post" action="{% url 'sourcing_action' event.id 'close' %}">{% csrf_token %}
+                    <button class="btn btn-dark rounded-pill px-3"><i class="fa-solid fa-lock me-1"></i>Close bidding</button>
+                </form>
+            {% endif %}
+            {% if event.bids_visible_to_evaluators and caps.can_read_bids %}
+                <a href="{% url 'evaluation_event' event.id %}" class="btn btn-primary rounded-pill px-3"><i class="fa-solid fa-scale-balanced me-1"></i>Evaluation &amp; Award</a>
+            {% elif event.status == 'PUBLISHED' or event.status == 'BID_WINDOW' %}
+                <button type="button" class="btn btn-info text-white rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#bidPortalModal"><i class="fa-solid fa-envelope-open-text me-1"></i>Bid portal</button>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<!-- Lifecycle -->
+<div class="glass-card p-3 shadow-sm mb-4">
+    {% if event.status == 'CANCELLED' %}
+        <div class="text-danger fw-semibold small"><i class="fa-solid fa-ban me-1"></i>This event was cancelled. See the audit trail for the reason.</div>
+    {% else %}
+    <ol class="d-flex flex-wrap gap-2 list-unstyled mb-0 small" aria-label="Sourcing lifecycle">
+        {% for step in steps %}
+            <li class="px-2 py-1 rounded-pill border {% if step.state == 'done' %}bg-success-subtle border-success-subtle text-success{% elif step.state == 'current' %}bg-warning text-dark fw-bold border-warning{% else %}text-muted{% endif %}" {% if step.state == 'current' %}aria-current="step"{% endif %}>
+                {% if step.state == 'done' %}<i class="fa-solid fa-check me-1"></i>{% endif %}{{ step.label }}
+            </li>
+        {% endfor %}
+    </ol>
+    {% endif %}
+</div>
+
+<div class="row g-4">
+    <!-- Specification -->
+    <div class="col-lg-8">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-file-lines text-warning me-2"></i>Requirement</h5>
+            <p class="mb-3">{{ event.description|linebreaksbr }}</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="small fw-semibold text-muted text-uppercase mb-1"><i class="fa-solid fa-microchip me-1"></i>Technical section · weight {{ event.technical_weight|floatformat:0 }}%</div>
+                    <div class="small bg-light border rounded p-2">{{ event.technical_requirements|default:"Not specified"|linebreaksbr }}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="small fw-semibold text-muted text-uppercase mb-1"><i class="fa-solid fa-sack-dollar me-1"></i>Commercial section · weight {{ event.commercial_weight|floatformat:0 }}%</div>
+                    <div class="small bg-light border rounded p-2">{{ event.commercial_requirements|default:"Not specified"|linebreaksbr }}</div>
+                </div>
+                <div class="col-12">
+                    <div class="small fw-semibold text-muted text-uppercase mb-1">Required supporting documents</div>
+                    <div class="small">{{ event.required_documents|default:"None specified"|linebreaksbr }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-clock text-primary me-2"></i>Bid window</h5>
+            <dl class="small mb-0">
+                <dt class="text-muted">Opens</dt><dd>{{ event.bid_start_date|date:"Y-m-d H:i T" }}</dd>
+                <dt class="text-muted">Deadline</dt><dd>{{ event.bid_end_date|date:"Y-m-d H:i T" }}{% if event.status == 'BID_WINDOW' and not is_deadline_passed %} <span class="text-muted">({{ event.bid_end_date|timeuntil }} left)</span>{% endif %}</dd>
+                <dt class="text-muted">Bids received</dt><dd>{{ submitted_count }}{% if event.status == 'BID_WINDOW' %} <span class="text-muted">· contents sealed until close</span>{% endif %}</dd>
+                <dt class="text-muted">Requisition</dt><dd>{% if event.requisition %}<a href="/requisitions/{{ event.requisition.id }}/">{{ event.requisition.pr_number }}</a>{% else %}—{% endif %}</dd>
+            </dl>
+            {% if event.status == 'DRAFT' %}
+                <hr>
+                <div class="small fw-semibold mb-1">Publish readiness</div>
+                {% for err in publish_errors %}<div class="small text-danger"><i class="fa-solid fa-circle-xmark me-1"></i>{{ err }}</div>
+                {% empty %}<div class="small text-success"><i class="fa-solid fa-circle-check me-1"></i>Ready to publish.</div>{% endfor %}
+            {% endif %}
+            {% if caps.can_manage and event.status != 'AWARDED' and event.status != 'CANCELLED' %}
+                <hr>
+                <details>
+                    <summary class="small text-danger">Cancel event</summary>
+                    <form method="post" action="{% url 'sourcing_action' event.id 'cancel' %}" class="mt-2">{% csrf_token %}
+                        <label class="form-label small" for="cancel-reason">Reason</label>
+                        <textarea id="cancel-reason" name="reason" rows="2" class="form-control form-control-sm mb-2" required></textarea>
+                        <button class="btn btn-sm btn-outline-danger">Cancel event</button>
+                    </form>
+                </details>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Invitations -->
+    <div class="col-12" id="invitations">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-envelope text-info me-2"></i>Vendor invitations</h5>
+            <div class="table-responsive mb-3"><table class="table table-sm align-middle small mb-0">
+                <thead><tr><th>Vendor</th><th>Category</th><th>Vendor status</th><th>Invited</th><th>Responded</th><th>Bid</th><th></th></tr></thead>
+                <tbody>
+                {% for row in invitation_rows %}
+                    <tr>
+                        <td><a href="{% url 'vendor_detail' row.vendor.id %}">{{ row.vendor.legal_name }}</a> <code>{{ row.vendor.vendor_number }}</code></td>
+                        <td>{{ row.vendor.category.name }}</td>
+                        <td>{% include 'partials/vendor_status_badge.html' with status=row.vendor.status label=row.vendor.get_status_display %}</td>
+                        <td class="text-nowrap">{{ row.invite.created_at|date:"Y-m-d H:i" }}</td>
+                        <td>{{ row.invite.is_responded|yesno:"Yes,No" }}</td>
+                        <td>{{ row.bid_status|default:"—" }}</td>
+                        <td class="text-end">
+                            {% if caps.can_manage and event.status == 'DRAFT' %}
+                            <form method="post" action="{% url 'sourcing_action' event.id 'revoke-invite' %}">{% csrf_token %}
+                                <input type="hidden" name="invite_id" value="{{ row.invite.id }}">
+                                <button class="btn btn-sm btn-outline-danger" aria-label="Remove invitation for {{ row.vendor.legal_name }}"><i class="fa-solid fa-xmark"></i></button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="text-muted text-center py-3">No vendors invited yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+
+            {% if can_invite %}
+                <div class="border rounded p-3">
+                    <div class="small fw-semibold mb-2">Invite eligible vendors <span class="text-muted fw-normal">(only ACTIVE vendors can be invited; new vendors appear below until KYC is approved)</span></div>
+                    <form method="get" class="d-flex flex-wrap gap-2 mb-2" action="#invitations">
+                        <input type="search" name="inv_q" value="{{ inv_q }}" class="form-control form-control-sm" style="max-width:240px" placeholder="Search vendor" aria-label="Search eligible vendors">
+                        <select name="inv_cat" class="form-select form-select-sm" style="max-width:220px" aria-label="Vendor category">
+                            <option value="">All categories</option>
+                            {% for c in categories %}<option value="{{ c.id }}" {% if inv_cat == c.id|stringformat:'s' %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary">Filter</button>
+                    </form>
+                    <form method="post" action="{% url 'sourcing_action' event.id 'invite' %}">{% csrf_token %}
+                        <div class="row g-1 mb-2" style="max-height:220px; overflow:auto">
+                            {% for v in eligible_vendors %}
+                                <div class="col-md-6 col-xl-4"><div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="vendor_ids" value="{{ v.id }}" id="inv-{{ v.id }}">
+                                    <label class="form-check-label small" for="inv-{{ v.id }}">{{ v.legal_name }} <span class="text-muted">· {{ v.category.name }}</span></label>
+                                </div></div>
+                            {% empty %}
+                                <div class="small text-muted">No further eligible vendors match.</div>
+                            {% endfor %}
+                        </div>
+                        {% if eligible_vendors %}<button class="btn btn-sm btn-info text-white"><i class="fa-solid fa-paper-plane me-1"></i>Invite selected</button>{% endif %}
+                    </form>
+                {% if pending_vendors %}
+                <div class="border rounded p-3 mt-3 small bg-light">
+                    <div class="fw-semibold mb-1"><i class="fa-solid fa-user-clock text-warning me-1"></i>Newly registered vendors awaiting KYC approval</div>
+                    <div class="text-muted mb-2">They can be invited once the vendor submits KYC documents and the registration is approved (status ACTIVE).</div>
+                    <ul class="list-unstyled mb-0">
+                    {% for v in pending_vendors %}
+                        <li class="d-flex justify-content-between flex-wrap gap-2 py-1 border-top">
+                            <span>{{ v.legal_name }} <span class="text-muted">· {{ v.category.name }}</span></span>
+                            <span><span class="badge bg-secondary">{{ v.get_status_display }}</span>
+                            <a class="ms-2" href="{% url 'vendor_detail' v.id %}">Review onboarding</a></span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Clarifications -->
+    <div class="col-12" id="clarifications">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-circle-question text-primary me-2"></i>Clarifications</h5>
+            {% for c in clarifications %}
+                <div class="border rounded p-3 mb-2 small">
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+                        <div><span class="fw-semibold">{{ c.vendor.legal_name }}</span> <span class="text-muted">asked {{ c.created_at|date:"Y-m-d H:i" }}</span></div>
+                        <span class="badge {% if c.status == 'ANSWERED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ c.get_status_display }}</span>
+                    </div>
+                    <div class="mt-1">{{ c.question|linebreaksbr }}</div>
+                    {% if c.answer %}
+                        <div class="mt-2 ps-2 border-start border-3 border-success"><span class="text-muted">Answer by {{ c.answered_by.email|default:"—" }} on {{ c.answered_at|date:"Y-m-d H:i" }}:</span><br>{{ c.answer|linebreaksbr }}</div>
+                    {% elif caps.can_manage and event.status != 'AWARDED' and event.status != 'CANCELLED' %}
+                        <form method="post" action="{% url 'sourcing_action' event.id 'answer-clarification' %}" class="mt-2">{% csrf_token %}
+                            <input type="hidden" name="clarification_id" value="{{ c.id }}">
+                            <label class="visually-hidden" for="ans-{{ c.id }}">Answer</label>
+                            <textarea id="ans-{{ c.id }}" name="answer" rows="2" class="form-control form-control-sm mb-2" placeholder="Response to vendor" required></textarea>
+                            <button class="btn btn-sm btn-primary">Send answer</button>
+                        </form>
+                    {% endif %}
+                </div>
+            {% empty %}
+                <p class="small text-muted mb-0">No clarification questions received.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Workspaces -->
+    <div class="col-lg-6" id="bid-portal">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-2"><i class="fa-solid fa-envelope-open-text text-info me-2"></i>Vendor Bid Portal</h5>
+            <p class="small text-muted mb-3">Restricted submission, validation, attachments and amendments before close. Sealed until the deadline.</p>
+            <div class="small mb-3">
+                <span class="badge bg-light text-dark border">Invited: {{ invitation_rows|length }}</span>
+                <span class="badge bg-light text-dark border">Bids received: {{ submitted_count }}</span>
+                {% if event.status == 'BID_WINDOW' %}<span class="badge bg-dark"><i class="fa-solid fa-lock me-1"></i>Bids are sealed</span>{% endif %}
+            </div>
+            {% if caps.can_read_bids and event.status != 'DRAFT' %}
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-info rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#bidPortalModal">
+                        <i class="fa-solid fa-desktop me-1"></i>Open bid portal monitor
+                    </button>
+                    <a href="{% url 'bid_portal_event' event.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-2" title="Open dedicated monitor page">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+            {% elif event.status == 'DRAFT' %}
+                <span class="small text-muted">Available once the event is published.</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6" id="evaluation">
+        <div class="glass-card p-4 shadow-sm h-100">
+            <h5 class="fw-bold mb-2"><i class="fa-solid fa-scale-balanced text-warning me-2"></i>Evaluation &amp; Award</h5>
+            <p class="small text-muted mb-3">Weighted technical scoring, commercial comparison, negotiation notes, award approval and decision audit.</p>
+            {% if current_decision %}
+                <div class="small mb-2"><span class="fw-semibold">{% if current_decision.status == 'APPROVED' %}Awarded to{% else %}Recommended:{% endif %}</span> {{ current_decision.winning_bid.vendor.legal_name }}</div>
+            {% endif %}
+            {% for po in purchase_orders %}<div class="small mb-1">PO <a href="{% url 'order_detail' po.id %}">{{ po.po_number }}</a> · {{ po.get_status_display }}</div>{% endfor %}
+            {% if caps.can_read_bids and event.bids_visible_to_evaluators %}
+                {% if evaluation_rows %}
+                    <div class="mt-2 mb-3 border-top pt-2">
+                        <div class="small fw-semibold text-muted mb-2">Submitted Proposals</div>
+                        {% for row in evaluation_rows %}
+                            <div class="border rounded p-2 mb-2 bg-light small">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-semibold text-dark">{{ row.vendor.legal_name }}</span>
+                                    <span class="badge bg-secondary">{{ row.bid.bid_number }}</span>
+                                </div>
+                                <div class="text-muted mb-1"><strong>Technical:</strong> {{ row.bid.technical_proposal|default:row.bid.proposal_summary|default:"—"|linebreaksbr }}</div>
+                                {% if row.commercial_proposal %}
+                                    <div class="text-muted"><strong>Commercial:</strong> {{ row.commercial_proposal|linebreaksbr }}</div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <a href="{% url 'evaluation_event' event.id %}" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 mt-2">Open evaluation workspace</a>
+            {% elif event.status != 'CANCELLED' %}
+                <span class="small text-muted">Opens after the bid window closes ({{ event.bid_end_date|date:"Y-m-d H:i" }}).</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Audit trail -->
+    <div class="col-12" id="audit">
+        <div class="glass-card p-4 shadow-sm">
+            <h5 class="fw-bold mb-3"><i class="fa-solid fa-shield-halved me-2"></i>Audit trail</h5>
+            <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+                <thead><tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Object</th><th>Previous</th><th>Updated</th></tr></thead>
+                <tbody>
+                {% for log in audit_trail %}
+                    <tr><td class="text-nowrap">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td><td>{{ log.actor_email }}</td><td>{{ log.get_action_display }}</td><td>{{ log.target_model }}</td><td><code class="text-wrap">{{ log.previous_state|default:"—" }}</code></td><td><code class="text-wrap">{{ log.new_state|default:"—" }}</code></td></tr>
+                {% empty %}<tr><td colspan="6" class="text-muted text-center py-3">No audit records.</td></tr>{% endfor %}
+                </tbody>
+            </table></div>
+        </div>
+    </div>
+</div>
+
+<!-- Bid Portal Monitor Modal (keeps user in dashboard context without leaving page) -->
+{% if caps.can_read_bids and event.status != 'DRAFT' %}
+<div class="modal fade" id="bidPortalModal" tabindex="-1" aria-labelledby="bidPortalModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content glass-card shadow-lg border-0 rounded-4">
+            <div class="modal-header border-bottom bg-slate-50 px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="avatar-circle-sm bg-info text-white fw-bold d-flex align-items-center justify-content-center rounded-circle" style="width: 36px; height: 36px;">
+                        <i class="fa-solid fa-envelope-open-text"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="bidPortalModalLabel">Vendor Bid Portal Monitor</h5>
+                        <div class="d-flex flex-wrap align-items-center gap-2 small mt-1">
+                            <code class="fw-bold">{{ event.event_number }}</code>
+                            <span class="text-muted">· {{ event.title }}</span>
+                            {% include 'sourcing/partials/status_badge.html' with status=event.status label=event.get_status_display %}
+                            {% if sealed %}<span class="badge bg-dark"><i class="fa-solid fa-lock me-1"></i>Sealed</span>{% else %}<span class="badge bg-success-subtle text-success border border-success-subtle"><i class="fa-solid fa-lock-open me-1"></i>Unsealed for evaluation</span>{% endif %}
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4">
+                <!-- Restricted submission rules (server-enforced) & KPI stats -->
+                <div class="row g-3 mb-4">
+                    <div class="col-lg-5">
+                        <div class="card bg-slate-50 border h-100 p-3 rounded-3">
+                            <h6 class="fw-bold mb-2 text-dark"><i class="fa-solid fa-user-shield text-primary me-2"></i>Submission Governance</h6>
+                            <ul class="small mb-0 ps-3 text-muted">
+                                <li>Only <strong>invited, ACTIVE</strong> vendors can access or submit bids.</li>
+                                <li>Window: <strong>{{ event.bid_start_date|date:"Y-m-d H:i" }}</strong> to <strong>{{ event.bid_end_date|date:"Y-m-d H:i T" }}</strong>.{% if event.status == 'BID_WINDOW' and not is_deadline_passed %} <span class="text-danger fw-semibold">{{ event.bid_end_date|timeuntil }} left.</span>{% endif %}</li>
+                                <li>Late submission, amendments, or uploads are rejected past deadline.</li>
+                                <li>Amendments create immutable versions; prior records preserved.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-lg-7">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6 col-sm-3">
+                                <div class="stat-card border-start border-primary border-4 p-2 text-center rounded-3 bg-white shadow-xs">
+                                    <div class="text-muted small fw-semibold" style="font-size: 0.65rem;">INVITED</div>
+                                    <div class="metric-value fs-5 fw-bold text-dark">{{ bid_portal_summary.invited|default:invitation_rows|length }}</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="stat-card border-start border-info border-4 p-2 text-center rounded-3 bg-white shadow-xs">
+                                    <div class="text-muted small fw-semibold" style="font-size: 0.65rem;">RESPONDED</div>
+                                    <div class="metric-value fs-5 fw-bold text-info">{{ bid_portal_summary.responded|default:0 }}</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="stat-card border-start border-success border-4 p-2 text-center rounded-3 bg-white shadow-xs">
+                                    <div class="text-muted small fw-semibold" style="font-size: 0.65rem;">SUBMITTED</div>
+                                    <div class="metric-value fs-5 fw-bold text-success">{{ bid_portal_summary.submitted|default:submitted_count }}</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-sm-3">
+                                <div class="stat-card border-start border-danger border-4 p-2 text-center rounded-3 bg-white shadow-xs">
+                                    <div class="text-muted small fw-semibold" style="font-size: 0.65rem;">FAILING VALIDATION</div>
+                                    <div class="metric-value fs-5 fw-bold text-danger">{{ bid_portal_summary.invalid|default:0 }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert {% if sealed %}alert-dark{% else %}alert-success{% endif %} small mb-0 py-2 px-3 rounded-3">
+                            {% if sealed %}
+                                <i class="fa-solid fa-lock me-1"></i><strong>Sealed visibility:</strong> Bid contents, amounts and proposal texts remain encrypted/sealed until window closes. Only submission status and validation metrics are monitored.
+                            {% else %}
+                                <i class="fa-solid fa-lock-open me-1"></i>Bid window closed. Proposals unsealed for review.
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Per-vendor submission monitor table -->
+                <div class="card border rounded-3 overflow-hidden shadow-xs">
+                    <div class="card-header bg-light py-2 px-3 border-bottom d-flex align-items-center justify-content-between">
+                        <span class="small fw-bold text-uppercase text-muted">Live Invited Vendor Status</span>
+                        <span class="badge bg-secondary-subtle text-secondary small">{{ bid_portal_rows|length }} invited</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle mb-0 small">
+                            <thead class="table-light">
+                                <tr class="text-uppercase text-muted" style="font-size: 0.72rem;">
+                                    <th class="ps-3">Vendor</th>
+                                    <th>Access</th>
+                                    <th>Bid Status</th>
+                                    <th>Validation</th>
+                                    <th>Attachments</th>
+                                    <th>Amendments / Versions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for row in bid_portal_rows %}
+                                <tr>
+                                    <td class="ps-3">
+                                        <a href="{% url 'vendor_detail' row.vendor.id %}" class="fw-semibold text-decoration-none text-dark">{{ row.vendor.legal_name }}</a>
+                                        <div class="text-muted" style="font-size: 0.72rem;">{{ row.vendor.category.name }} · {% if row.invite.is_responded %}<span class="text-success"><i class="fa-solid fa-circle-check me-1"></i>responded</span>{% else %}<span class="text-warning"><i class="fa-solid fa-clock me-1"></i>awaiting response</span>{% endif %}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if row.access.code == 'open' %}bg-success{% elif row.access.code == 'scheduled' %}bg-info text-dark{% elif row.access.code == 'blocked' %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill px-2 py-1">{{ row.access.label }}</span>
+                                    </td>
+                                    <td>
+                                        {% if row.bid %}
+                                            <code>{{ row.bid.bid_number }}</code> <span class="badge bg-light text-dark border">{{ row.bid.get_status_display }}</span>
+                                            <div class="text-muted" style="font-size: 0.7rem;">{% if row.bid.submitted_at %}submitted {{ row.bid.submitted_at|date:"Y-m-d H:i" }}{% else %}draft in progress{% endif %}</div>
+                                        {% else %}
+                                            <span class="text-muted fst-italic">No bid started</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if row.validation %}
+                                            {% if row.validation.is_valid %}<span class="badge bg-success rounded-pill"><i class="fa-solid fa-check me-1"></i>Complete</span>{% else %}<span class="badge bg-danger rounded-pill"><i class="fa-solid fa-xmark me-1"></i>Incomplete</span>{% endif %}
+                                            {% if row.validation.issue_count %}<div class="text-muted" style="font-size: 0.7rem;">{{ row.validation.issue_count }} issue{{ row.validation.issue_count|pluralize }}</div>{% endif %}
+                                        {% else %}—{% endif %}
+                                    </td>
+                                    <td>
+                                        {% for label, count in row.attachments %}<div>{{ label }}: <strong>{{ count }}</strong></div>{% empty %}<span class="text-muted">—</span>{% endfor %}
+                                    </td>
+                                    <td>
+                                        {% for v in row.versions %}
+                                            <div>v{{ v.number }} · {{ v.status }} · {{ v.at|date:"Y-m-d H:i" }}</div>
+                                        {% empty %}<span class="text-muted">—</span>{% endfor %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="6" class="text-center py-4 text-muted">No vendors invited.</td></tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer border-top bg-light px-4 py-2 d-flex justify-content-between">
+                <div>
+                    {% if caps.can_manage and event.status == 'BID_WINDOW' and is_deadline_passed %}
+                        <form method="post" action="{% url 'sourcing_action' event.id 'close' %}" class="d-inline">{% csrf_token %}
+                            <button class="btn btn-dark btn-sm rounded-pill px-3"><i class="fa-solid fa-lock me-1"></i>Close bidding</button>
+                        </form>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <a href="{% url 'bid_portal_event' event.id %}" class="btn btn-outline-info btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Open Dedicated Monitor Page
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

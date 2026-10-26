@@ -1,0 +1,38 @@
+<div class="modal-header">
+    <h5 class="modal-title"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Risk assessment — {{ vendor.legal_name }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form method="post" action="{% url 'vendors_risk_modal' vendor.id %}"
+      hx-post="{% url 'vendors_risk_modal' vendor.id %}"
+      hx-target="#modal-content-body" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body small">
+        <p class="text-muted">Appends a <code>VendorRiskRecord</code> via <code>record_vendor_risk_assessment_service()</code>. History is never overwritten.</p>
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.risk_level.id_for_label }}">Risk level</label>
+            {{ form.risk_level }}
+            {% if form.risk_level.errors %}<div class="text-danger">{{ form.risk_level.errors }}</div>{% endif %}
+        </div>
+        <fieldset class="mb-3">
+            <legend class="form-label fw-semibold fs-6">Risk flags</legend>
+            <div class="row">
+            {% for value, label in risk_flag_choices %}
+                <div class="col-sm-6"><div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="risk_flags" value="{{ value }}" id="mflag-{{ value }}">
+                    <label class="form-check-label" for="mflag-{{ value }}">{{ label }}</label>
+                </div></div>
+            {% endfor %}
+            </div>
+        </fieldset>
+        <div class="mb-1">
+            <label class="form-label fw-semibold" for="{{ form.notes.id_for_label }}">Assessment notes *</label>
+            {{ form.notes }}
+            {% if form.notes.errors %}<div class="text-danger">{{ form.notes.errors }}</div>{% endif %}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Save assessment</button>
+    </div>
+</form>

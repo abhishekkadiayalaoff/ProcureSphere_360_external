@@ -1,0 +1,264 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}{{ event.event_number }} — Evaluation &amp; Award{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-start justify-content-between mb-3">
+    <div>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+            <code class="h5 mb-0">{{ event.event_number }}</code>
+            {% include 'sourcing/partials/status_badge.html' with status=event.status label=event.get_status_display %}
+            <span class="badge bg-light text-dark border">Technical {{ event.technical_weight|floatformat:0 }}% · Commercial {{ event.commercial_weight|floatformat:0 }}%</span>
+        </div>
+        <h2 class="fw-bold text-dark mb-0">Evaluation &amp; Award — {{ event.title }}</h2>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if user.role_code == 'PROC_MGR' %}
+        <a href="/manager/awards/" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back to Awards</a>
+        {% else %}
+        <a href="{% url 'evaluation_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Evaluation &amp; Award</a>
+        {% endif %}
+        <a href="{% url 'bid_portal_event' event.id %}" class="btn btn-outline-secondary rounded-pill px-3">Bid portal</a>
+        <a href="{% url 'sourcing_detail' event.id %}" class="btn btn-outline-secondary rounded-pill px-3">Event setup</a>
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<ul class="nav nav-pills small mb-3 gap-1 flex-wrap" aria-label="Sections">
+    <li class="nav-item"><a class="nav-link py-1" href="#technical">1. Technical scoring</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#commercial">2. Commercial comparison</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#negotiation">3. Negotiation notes</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#award">4. Award approval</a></li>
+    <li class="nav-item"><a class="nav-link py-1" href="#audit">5. Decision audit</a></li>
+</ul>
+
+<!-- 1. Weighted technical scoring -->
+<section class="glass-card p-4 shadow-sm mb-4" id="technical" aria-labelledby="technical-h">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h5 class="fw-bold mb-0" id="technical-h"><i class="fa-solid fa-microchip text-primary me-2"></i>Weighted technical scoring</h5>
+        {% if caps.can_manage and event.status == 'TECHNICAL_REVIEW' %}
+            <form method="post" action="{% url 'sourcing_action' event.id 'start-commercial' %}">{% csrf_token %}
+                <button class="btn btn-primary btn-sm rounded-pill px-3"><i class="fa-solid fa-envelope-open me-1"></i>Complete technical review &amp; unseal pricing</button>
+            </form>
+        {% endif %}
+    </div>
+    <p class="small text-muted">Technical score (0–100) carries {{ event.technical_weight|floatformat:0 }}% of the weighted total. Requirement: {{ event.technical_requirements|default:"not specified"|truncatechars:200 }}</p>
+    {% for row in rows %}
+        <div class="border rounded p-3 mb-3">
+            <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                <div>
+                    <span class="fw-bold">{{ row.vendor.legal_name }}</span>
+                    <code class="small">{{ row.bid.bid_number }} v{{ row.bid.version }}</code>
+                    {% if row.vendor.status != 'ACTIVE' %}{% include 'partials/vendor_status_badge.html' with status=row.vendor.status label=row.vendor.get_status_display %}{% endif %}
+                </div>
+                <div class="small">Technical average: <strong>{% if row.technical_avg is None %}—{% else %}{{ row.technical_avg|floatformat:1 }}{% endif %}</strong> <span class="text-muted">({{ row.evaluation_count }} evaluator{{ row.evaluation_count|pluralize }})</span></div>
+            </div>
+            <div class="small bg-light border rounded p-2 mb-2">{{ row.bid.technical_proposal|default:row.bid.proposal_summary|default:"—"|linebreaksbr }}</div>
+            {% if row.attachments %}
+                <div class="small mb-2"><span class="fw-semibold text-muted">Attachments:</span>
+                    {% for att in row.attachments %}<a class="ms-2" href="{% url 'sourcing_attachment_download' event.id att.id %}">{{ att.title }}</a> <span class="text-muted">({{ att.get_document_type_display }})</span>{% endfor %}
+                </div>
+            {% endif %}
+            {% if caps.can_manage and event.status == 'TECHNICAL_REVIEW' %}
+                <form method="post" action="{% url 'sourcing_action' event.id 'technical-score' %}" class="d-flex flex-wrap gap-2 small">{% csrf_token %}
+                    <input type="hidden" name="bid_id" value="{{ row.bid.id }}">
+                    <label class="visually-hidden" for="ts-{{ row.bid.id }}">Technical score for {{ row.vendor.legal_name }}</label>
+                    <input id="ts-{{ row.bid.id }}" type="number" name="score" min="0" max="100" step="0.01" value="{% if row.my_evaluation and row.my_evaluation.technical_evaluated_at %}{{ row.my_evaluation.technical_score }}{% endif %}" class="form-control form-control-sm" style="max-width:140px" placeholder="Score 0-100" required>
+                    <input name="comments" class="form-control form-control-sm" style="max-width:380px" placeholder="Technical comments" aria-label="Technical comments">
+                    <button class="btn btn-sm btn-outline-primary">Save technical score</button>
+                </form>
+            {% endif %}
+        </div>
+    {% empty %}
+        <p class="small text-muted mb-0">No submitted bids to evaluate.</p>
+    {% endfor %}
+</section>
+
+<!-- 2. Commercial comparison -->
+<section class="glass-card p-4 shadow-sm mb-4" id="commercial" aria-labelledby="commercial-h">
+    <h5 class="fw-bold mb-3" id="commercial-h"><i class="fa-solid fa-sack-dollar text-success me-2"></i>Commercial comparison</h5>
+    {% if not show_commercial %}
+        <div class="p-4 text-center bg-light rounded border">
+            <i class="fa-solid fa-lock fa-2x text-warning mb-2"></i>
+            <div class="fw-semibold">Commercial envelopes sealed</div>
+            <div class="small text-muted">Prices and commercial terms unseal when technical review is completed.</div>
+        </div>
+    {% else %}
+        <div class="table-responsive mb-3">
+            <table class="table table-sm table-bordered align-middle small mb-0">
+                <thead class="table-light">
+                    <tr><th>Line item</th>{% for v in comparison.vendors %}<th class="text-end">{{ v.legal_name }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for line in comparison.lines %}
+                        <tr>
+                            <td>{{ line.label }}</td>
+                            {% for cell in line.cells %}
+                                <td class="text-end {% if cell.is_lowest %}table-success fw-semibold{% endif %}">
+                                    {% if cell.line %}{{ cell.line.quoted_total_price|floatformat:2 }}<div class="text-muted">{{ cell.line.quantity }} × {{ cell.line.quoted_unit_price|floatformat:2 }}</div>{% else %}<span class="text-muted">not quoted</span>{% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                    <tr class="table-light fw-bold">
+                        <td>Total bid</td>
+                        {% for t in comparison.totals %}
+                            <td class="text-end {% if t.is_lowest %}table-success{% endif %}">{{ t.amount|floatformat:2 }}{% if t.delta_pct %}<div class="fw-normal text-danger">+{{ t.delta_pct }}% vs lowest</div>{% elif t.is_lowest %}<div class="fw-normal text-success">lowest</div>{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="small fw-semibold mb-1">Weighted ranking</div>
+        <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle small mb-0">
+                <thead class="table-light"><tr><th>#</th><th>Vendor</th><th class="text-end">Technical</th><th class="text-end">Commercial</th><th class="text-end">Weighted total</th><th class="text-end">Bid amount</th><th>Commercial terms</th></tr></thead>
+                <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td>
+                        <td class="fw-semibold">{{ row.vendor.legal_name }}</td>
+                        <td class="text-end">{% if row.technical_avg is None %}—{% else %}{{ row.technical_avg|floatformat:1 }}{% endif %}</td>
+                        <td class="text-end">{% if row.commercial_avg is None %}—{% else %}{{ row.commercial_avg|floatformat:1 }}{% endif %}</td>
+                        <td class="text-end fw-bold">{% if row.weighted_avg is None %}—{% else %}{{ row.weighted_avg|floatformat:1 }}{% endif %}</td>
+                        <td class="text-end">{{ row.amount|floatformat:2 }}</td>
+                        <td>{{ row.commercial_proposal|default:"—"|truncatechars:160 }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if caps.can_manage and event.status == 'COMMERCIAL_REVIEW' %}
+            <div class="small fw-semibold mb-1">Record commercial scores</div>
+            {% for row in rows %}
+                <form method="post" action="{% url 'sourcing_action' event.id 'commercial-score' %}" class="d-flex flex-wrap align-items-center gap-2 small mb-2">{% csrf_token %}
+                    <input type="hidden" name="bid_id" value="{{ row.bid.id }}">
+                    <label class="mb-0" style="min-width:200px" for="cs-{{ row.bid.id }}">{{ row.vendor.legal_name }}</label>
+                    <input id="cs-{{ row.bid.id }}" type="number" name="score" min="0" max="100" step="0.01" value="{% if row.my_evaluation and row.my_evaluation.commercial_evaluated_at %}{{ row.my_evaluation.commercial_score }}{% endif %}" class="form-control form-control-sm" style="max-width:140px" placeholder="Score 0-100" required>
+                    <input name="comments" class="form-control form-control-sm" style="max-width:360px" placeholder="Commercial comments" aria-label="Commercial comments for {{ row.vendor.legal_name }}">
+                    <button class="btn btn-sm btn-outline-success">Save</button>
+                </form>
+            {% endfor %}
+        {% endif %}
+    {% endif %}
+</section>
+
+<!-- 3. Negotiation notes -->
+<section class="glass-card p-4 shadow-sm mb-4" id="negotiation" aria-labelledby="negotiation-h">
+    <h5 class="fw-bold mb-3" id="negotiation-h"><i class="fa-solid fa-handshake text-warning me-2"></i>Negotiation notes</h5>
+    {% if caps.can_manage and rows %}{% if event.status == 'COMMERCIAL_REVIEW' or event.status == 'AWARD_APPROVAL' %}
+        <form method="post" action="{% url 'sourcing_action' event.id 'negotiation-note' %}" class="row g-2 small mb-3">{% csrf_token %}
+            <div class="col-md-4">
+                <label class="visually-hidden" for="neg-bid">Vendor</label>
+                <select id="neg-bid" name="bid_id" class="form-select form-select-sm" required>
+                    {% for row in rows %}<option value="{{ row.bid.id }}">{{ row.vendor.legal_name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="visually-hidden" for="neg-note">Note</label>
+                <input id="neg-note" name="note" class="form-control form-control-sm" placeholder="Negotiation note (append-only, audited)" required>
+            </div>
+            <div class="col-md-2"><button class="btn btn-sm btn-outline-secondary w-100">Add note</button></div>
+        </form>
+    {% endif %}{% endif %}
+    <ul class="list-unstyled small mb-0">
+        {% for n in negotiation_notes %}
+            <li class="border-bottom py-2"><span class="fw-semibold">{{ n.bid.vendor.legal_name }}</span> <span class="text-muted">· {{ n.author.email }} · {{ n.created_at|date:"Y-m-d H:i" }}</span><div>{{ n.note }}</div></li>
+        {% empty %}
+            <li class="text-muted">No negotiation notes recorded{% if not show_commercial %}; notes open at commercial review{% endif %}.</li>
+        {% endfor %}
+    </ul>
+</section>
+
+<!-- 4. Award approval -->
+<section class="glass-card p-4 shadow-sm mb-4" id="award" aria-labelledby="award-h">
+    <h5 class="fw-bold mb-3" id="award-h"><i class="fa-solid fa-trophy text-success me-2"></i>Award approval</h5>
+
+    {% if current_decision %}
+        <div class="border rounded p-3 mb-3 small {% if current_decision.status == 'APPROVED' %}border-success{% endif %}">
+            <div><span class="fw-semibold">{% if current_decision.status == 'APPROVED' %}Awarded to{% else %}Recommended:{% endif %}</span> {{ current_decision.winning_bid.vendor.legal_name }} — {{ current_decision.winning_bid.bid_number }} ({{ current_decision.winning_bid.total_bid_amount|floatformat:2 }})</div>
+            <div class="text-muted">Recommended by {{ current_decision.recommended_by.email|default:"—" }} · {{ current_decision.created_at|date:"Y-m-d H:i" }}</div>
+            <div class="mt-1">{{ current_decision.award_reason }}</div>
+            {% if current_decision.status == 'APPROVED' %}<div class="mt-1 text-success">Approved by {{ current_decision.approved_by.email }} on {{ current_decision.decided_at|date:"Y-m-d H:i" }}{% if current_decision.decision_comments %} — {{ current_decision.decision_comments }}{% endif %}</div>{% endif %}
+        </div>
+    {% endif %}
+
+    {% if event.status == 'COMMERCIAL_REVIEW' and caps.can_manage %}
+        <form method="post" action="{% url 'sourcing_action' event.id 'recommend-award' %}" class="small mb-3">{% csrf_token %}
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <label class="form-label" for="rec-bid">Recommended bid</label>
+                    <select id="rec-bid" name="bid_id" class="form-select form-select-sm" required>
+                        {% for row in rows %}<option value="{{ row.bid.id }}">{{ row.vendor.legal_name }} — {{ row.amount|floatformat:2 }}{% if row.weighted_avg is not None %} · weighted {{ row.weighted_avg|floatformat:1 }}{% endif %}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-7">
+                    <label class="form-label" for="rec-reason">Award justification</label>
+                    <textarea id="rec-reason" name="award_reason" rows="2" class="form-control form-control-sm" required></textarea>
+                </div>
+            </div>
+            <button class="btn btn-sm btn-success mt-2">Submit for award approval</button>
+        </form>
+    {% elif event.status == 'AWARD_APPROVAL' %}
+        {% if caps.can_approve_award %}
+            <div class="row g-3 small">
+                <form method="post" action="{% url 'sourcing_action' event.id 'approve-award' %}" class="col-md-6">{% csrf_token %}
+                    <label class="form-label" for="appr-comments">Approval comments</label>
+                    <textarea id="appr-comments" name="comments" rows="2" class="form-control form-control-sm mb-2"></textarea>
+                    <button class="btn btn-sm btn-success">Approve award</button>
+                </form>
+                <form method="post" action="{% url 'sourcing_action' event.id 'reject-award' %}" class="col-md-6">{% csrf_token %}
+                    <label class="form-label" for="rej-reason">Rejection reason</label>
+                    <textarea id="rej-reason" name="reason" rows="2" class="form-control form-control-sm mb-2" required></textarea>
+                    <button class="btn btn-sm btn-outline-danger">Reject recommendation</button>
+                </form>
+            </div>
+        {% else %}
+            <p class="small text-muted">Awaiting Procurement Manager approval.</p>
+        {% endif %}
+    {% elif event.status == 'AWARDED' %}
+        {% if purchase_orders %}
+            <div class="small fw-semibold mb-1">Purchase orders</div>
+            <ul class="small">{% for po in purchase_orders %}<li><a href="{% url 'order_detail' po.id %}">{{ po.po_number }}</a> v{{ po.version }} · {{ po.get_status_display }} · {{ po.total_amount|floatformat:2 }}</li>{% endfor %}</ul>
+        {% endif %}
+        {% if caps.can_manage and not has_active_po %}
+            <form method="post" action="{% url 'sourcing_action' event.id 'generate-po' %}" class="d-flex flex-wrap gap-2 small">{% csrf_token %}
+                {% if cost_centers %}
+                    <label class="visually-hidden" for="po-cc">Cost center</label>
+                    <select id="po-cc" name="cost_center_id" class="form-select form-select-sm" style="max-width:320px" required>
+                        <option value="">Select cost center…</option>
+                        {% for cc in cost_centers %}<option value="{{ cc.id }}">{{ cc.code }} — {{ cc.name }}</option>{% endfor %}
+                    </select>
+                {% endif %}
+                <button class="btn btn-sm btn-primary"><i class="fa-solid fa-cart-shopping me-1"></i>Generate Purchase Order</button>
+            </form>
+        {% endif %}
+    {% else %}
+        <p class="small text-muted">Award recommendation opens at commercial review.</p>
+    {% endif %}
+
+    {% if decision_history %}
+        <div class="small fw-semibold mt-3 mb-1">Award decisions</div>
+        <div class="table-responsive"><table class="table table-sm small mb-0">
+            <thead><tr><th>Date</th><th>Vendor</th><th>Status</th><th>Recommended by</th><th>Decided by</th><th>Decided at</th><th>Comments</th></tr></thead>
+            <tbody>{% for d in decision_history %}<tr><td class="text-nowrap">{{ d.created_at|date:"Y-m-d H:i" }}</td><td>{{ d.winning_bid.vendor.legal_name }}</td><td>{{ d.get_status_display }}</td><td>{{ d.recommended_by.email|default:"—" }}</td><td>{{ d.approved_by.email|default:"—" }}</td><td class="text-nowrap">{{ d.decided_at|date:"Y-m-d H:i"|default:"—" }}</td><td>{{ d.decision_comments|default:"—" }}</td></tr>{% endfor %}</tbody>
+        </table></div>
+    {% endif %}
+</section>
+
+<!-- 5. Decision audit -->
+<section class="glass-card p-4 shadow-sm" id="audit" aria-labelledby="audit-h">
+    <h5 class="fw-bold mb-3" id="audit-h"><i class="fa-solid fa-shield-halved me-2"></i>Decision audit <span class="small text-muted fw-normal">(immutable: stage changes, scores, negotiation, award decisions)</span></h5>
+    <div class="table-responsive"><table class="table table-sm small align-middle mb-0">
+        <thead><tr><th>Timestamp</th><th>Actor</th><th>Role</th><th>Action</th><th>Object</th><th>Previous</th><th>Updated</th></tr></thead>
+        <tbody>
+        {% for log in decision_audit %}
+            <tr><td class="text-nowrap">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td><td>{{ log.actor_email }}</td><td>{{ log.actor_role }}</td><td>{{ log.get_action_display }}</td><td>{{ log.target_model }}</td><td><code class="text-wrap">{{ log.previous_state|default:"—" }}</code></td><td><code class="text-wrap">{{ log.new_state|default:"—" }}</code></td></tr>
+        {% empty %}<tr><td colspan="7" class="text-muted text-center py-3">No evaluation decisions recorded yet.</td></tr>{% endfor %}
+        </tbody>
+    </table></div>
+</section>
+{% endblock %}

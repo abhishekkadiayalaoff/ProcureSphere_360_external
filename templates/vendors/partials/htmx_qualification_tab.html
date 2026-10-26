@@ -1,0 +1,28 @@
+{% if rows %}
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th>Vendor</th><th>Status</th><th>KYC docs</th><th>Risk</th><th class="text-end">Qualify</th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+        <tr>
+            <td><a href="{% url 'vendor_detail' r.vendor.id %}">{{ r.vendor.legal_name }}</a><div class="text-muted small">{{ r.vendor.vendor_number }} · {{ r.vendor.category.name }}</div></td>
+            <td>{% include 'partials/vendor_status_badge.html' with status=r.vendor.status label=r.vendor.get_status_display %}</td>
+            <td><span class="badge bg-light text-dark border">{{ r.doc_verified }}/{{ r.doc_total }} verified</span></td>
+            <td>{% if r.latest_risk %}<span class="badge {% if r.latest_risk.risk_level == 'HIGH' %}bg-danger{% elif r.latest_risk.risk_level == 'MEDIUM' %}bg-warning text-dark{% else %}bg-success{% endif %}">{{ r.latest_risk.get_risk_level_display }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+            <td class="text-end text-nowrap">
+                <button class="btn btn-sm btn-outline-primary rounded-pill" hx-get="{% url 'vendors_documents_modal' r.vendor.id %}" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">Review KYC</button>
+                {% if caps.can_operate %}
+                <button class="btn btn-sm btn-outline-danger rounded-pill" hx-get="{% url 'vendors_risk_modal' r.vendor.id %}" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">Risk</button>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+<div id="vendor-action-result" class="mt-2" aria-live="polite"></div>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <i class="fa-solid fa-circle-check fa-2x text-success mb-2"></i>
+    <div class="fw-semibold">Qualification queue is clear.</div>
+    <div class="small">Vendors in SUBMITTED or KYC_REVIEW appear here.</div>
+</div>
+{% endif %}
