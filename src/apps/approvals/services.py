@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
@@ -77,6 +77,7 @@ def evaluate_approval_chain(*, module: str, amount: Decimal, department=None):
     Returns list of tuples: [(step, target_approver_role, effective_approver_user)]
     """
     policies = ApprovalPolicy.objects.filter(
+        models.Q(max_amount__isnull=True) | models.Q(max_amount__gte=amount),
         module=module,
         is_active=True,
         min_amount__lte=amount,
@@ -139,14 +140,19 @@ def record_approval_action_service(
         new_state=new_state,
     )
 
-    # Write append-only AuditLog
+    # Write append-only AuditLog with accurate action mapping
+    if action == ApprovalAction.ACTION_APPROVE:
+        audit_action = AuditLog.ACTION_APPROVE
+    elif action == ApprovalAction.ACTION_REJECT:
+        audit_action = AuditLog.ACTION_REJECT
+    elif action == ApprovalAction.ACTION_SUBMIT:
+        audit_action = AuditLog.ACTION_CREATE
+    else:
+        audit_action = AuditLog.ACTION_UPDATE
+
     AuditLog.objects.create(
         actor=actor,
-        action=(
-            AuditLog.ACTION_APPROVE
-            if action == ApprovalAction.ACTION_APPROVE
-            else AuditLog.ACTION_REJECT
-        ),
+        action=audit_action,
         target_model=target_model_name,
         target_object_id=str(target_object_id),
         previous_state={"status": previous_state},
@@ -172,3 +178,63 @@ def set_approval_delegate_service(
         reason=reason,
     )
     return delegate_record
+
+
+@transaction.atomic
+def process_approval_action_service(*, target_object, actor: User, action: str, comments: str = ""):
+    """
+    Processes an approval action (APPROVE or REJECT) on a target object (e.g. PurchaseRequisition).
+    Always returns the persisted ApprovalAction record.
+    """
+    from apps.requisitions.models import PurchaseRequisition
+    from apps.requisitions.services import (
+        approve_purchase_requisition_service,
+        reject_purchase_requisition_service,
+    )
+
+    act_str = str(action).upper()
+    if isinstance(target_object, PurchaseRequisition):
+        if act_str in ["APPROVE", "APPROVED"]:
+            approve_purchase_requisition_service(
+                requisition=target_object, approver=actor, comments=comments
+            )
+            return (
+                ApprovalAction.objects.filter(
+                    target_object_id=str(target_object.id),
+                    target_model_name="PurchaseRequisition",
+                )
+                .order_by("-created_at")
+                .first()
+            )
+        elif act_str in ["REJECT", "REJECTED"]:
+            reject_purchase_requisition_service(
+                requisition=target_object, approver=actor, comments=comments
+            )
+            return (
+                ApprovalAction.objects.filter(
+                    target_object_id=str(target_object.id),
+                    target_model_name="PurchaseRequisition",
+                )
+                .order_by("-created_at")
+                .first()
+            )
+
+    previous_state = getattr(target_object, "status", "UNKNOWN")
+    new_state = "APPROVED" if act_str in ["APPROVE", "APPROVED"] else "REJECTED"
+    if hasattr(target_object, "status"):
+        target_object.status = new_state
+        target_object.save()
+
+    return record_approval_action_service(
+        target_object_id=target_object.id,
+        target_model_name=target_object.__class__.__name__,
+        actor=actor,
+        action=(
+            ApprovalAction.ACTION_APPROVE
+            if act_str in ["APPROVE", "APPROVED"]
+            else ApprovalAction.ACTION_REJECT
+        ),
+        previous_state=previous_state,
+        new_state=new_state,
+        comments=comments,
+    )

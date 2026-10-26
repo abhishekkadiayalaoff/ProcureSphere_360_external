@@ -1,0 +1,98 @@
+{% extends 'layouts/requester_base.html' %}
+
+{% block title %}Approvals Inbox — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-stamp text-primary me-2"></i> Approvals Inbox</h2>
+        <p class="text-muted small mb-0">Review pending Requisitions, Change Orders, and Invoices awaiting your authorization.</p>
+    </div>
+    <span class="badge bg-primary rounded-pill fs-6 px-3 py-2">
+        <i class="fa-solid fa-bell me-1"></i> {{ pending_prs|length }} Items Pending
+    </span>
+</div>
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<div class="row g-4">
+    {% for pr in pending_prs %}
+        <div class="col-lg-6">
+            <div class="glass-card p-4 shadow-sm h-100 border-start border-4 border-warning">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill fw-bold">
+                        <i class="fa-solid fa-clock me-1"></i> PENDING {{ pr.status }}
+                    </span>
+                    <span class="text-muted small"><code>{{ pr.pr_number }}</code> &bull; {{ pr.created_at|date:"M d, Y" }}</span>
+                </div>
+
+                <h5 class="fw-bold text-dark mb-2">{{ pr.title }}</h5>
+                <p class="text-muted small mb-3 text-truncate-2">{{ pr.description|default:"No description provided." }}</p>
+
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="row g-2 text-center">
+                        <div class="col-4">
+                            <div class="small text-muted">REQUESTER</div>
+                            <div class="fw-semibold text-dark text-truncate small">{{ pr.requester.first_name }} {{ pr.requester.last_name }}</div>
+                        </div>
+                        <div class="col-4 border-start border-end">
+                            <div class="small text-muted">DEPARTMENT</div>
+                            <div class="fw-semibold text-dark small">{{ pr.department.code }}</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="small text-muted">ESTIMATED TOTAL</div>
+                            <div class="fw-bold text-navy small">${{ pr.total_amount|floatformat:2 }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {% if role_code != 'REQUESTER' %}
+                <form method="POST" action="/approvals/inbox/">
+                    {% csrf_token %}
+                    <input type="hidden" name="pr_id" value="{{ pr.id }}">
+                    <div class="mb-3">
+                        <input type="text" name="comments" class="form-control form-control-sm" placeholder="Add approval/rejection comment (optional)...">
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="APPROVED" class="btn btn-success btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm">
+                            <i class="fa-solid fa-check me-1"></i> Approve PR
+                        </button>
+                        <button type="submit" name="action" value="REJECTED" class="btn btn-danger btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm">
+                            <i class="fa-solid fa-xmark me-1"></i> Reject PR
+                        </button>
+                        <a href="/requisitions/{{ pr.id }}/" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2">
+                            Inspect <i class="fa-solid fa-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+                </form>
+                {% else %}
+                <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+                    <span class="small text-muted">
+                        <i class="fa-solid fa-clock-rotate-left text-warning me-1"></i> Awaiting Department Manager Authorization
+                    </span>
+                    <a href="/requisitions/{{ pr.id }}/" class="btn btn-primary btn-sm rounded-pill px-4 py-2 fw-semibold">
+                        <i class="fa-solid fa-eye me-1"></i> View & Track
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    {% empty %}
+        <div class="col-12">
+            <div class="glass-card p-5 text-center text-muted shadow-sm">
+                <i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i>
+                <h5 class="fw-bold text-dark mb-1">{% if role_code == 'REQUESTER' %}No Pending Requisitions{% else %}Your Approvals Inbox is Clear!{% endif %}</h5>
+                <p class="mb-0">{% if role_code == 'REQUESTER' %}You have no requisitions currently awaiting approval.{% else %}There are currently no pending Purchase Requisitions or Change Orders requiring your authorization.{% endif %}</p>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
