@@ -1,46 +1,181 @@
-{% extends 'base.html' %}
+{% extends 'layouts/approver_base.html' %}
 
 {% block title %}Department Approver Dashboard — ProcureSphere 360{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="p-4 mb-4 bg-white rounded shadow-sm border-start border-4 border-primary">
-            <h2 class="fw-bold text-dark mb-1">Department Approver Dashboard</h2>
-            <p class="text-muted">Review departmental requests and manage budget approvals.</p>
-            <hr>
-            <div class="alert alert-info">
-                <i class="fa-solid fa-circle-info me-2"></i> This dashboard is dynamically rendered for your role: <strong>{{ role_code }}</strong>
-            </div>
-            
-            <div class="row g-4 mt-2">
-                <!-- Example Widgets specific to this role would go here -->
-                <div class="col-md-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title text-primary"><i class="fa-solid fa-chart-pie me-2"></i>Summary Analytics</h5>
-                            <p class="card-text text-muted">Placeholder for interactive HTMX charts and data tables.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title text-warning"><i class="fa-solid fa-list-check me-2"></i>Pending Actions</h5>
-                            <p class="card-text text-muted">A list of items requiring your attention.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title text-success"><i class="fa-solid fa-clock-rotate-left me-2"></i>Recent Activity</h5>
-                            <p class="card-text text-muted">Your recent actions and system notifications.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<!-- Dashboard Header -->
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div style="min-width: 0;">
+        <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+            <h2 class="fw-bold text-dark mb-0 fs-3">Department Approver Dashboard</h2>
+            {% if user_department %}
+                <span class="badge bg-primary text-white rounded-pill px-3 py-1">{{ user_department.name }}</span>
+            {% endif %}
         </div>
+        <p class="text-muted mb-0 small">Review departmental purchase requests, verify budget allocations, and process authorization decisions.</p>
+    </div>
+    <div class="d-flex gap-2 flex-shrink-0">
+        <a href="/approvals/inbox/" class="btn btn-primary rounded-pill shadow-sm px-4 fw-semibold text-nowrap">
+            <i class="fa-solid fa-inbox me-2"></i>Open Inbox ({{ metrics.pending_count }})
+        </a>
+    </div>
+</div>
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small mb-4" role="alert">
+            <i class="fa-solid {% if message.tags == 'error' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i> {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Metrics Cards & Budget Summary Row -->
+<div class="row g-3 g-md-4 mb-4">
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="card-body p-4 d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0; flex-grow: 1;">
+                    <h6 class="text-uppercase text-muted fw-bold mb-2 small text-truncate">Total PRs</h6>
+                    <h2 class="fw-bold mb-0 text-dark fs-3 text-truncate">{{ metrics.total_prs_count }}</h2>
+                </div>
+                <div class="bg-primary bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 52px; height: 52px;">
+                    <i class="fa-solid fa-chart-pie fs-4 text-primary"></i>
+                </div>
+            </div>
+            <div class="bg-primary text-white text-center py-1 fw-semibold" style="font-size: 0.725rem; letter-spacing: 1px;">ALL TIME</div>
+        </div>
+    </div>
+    
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="card-body p-4 d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0; flex-grow: 1;">
+                    <h6 class="text-uppercase text-muted fw-bold mb-2 small text-truncate">Pending Actions</h6>
+                    <h2 class="fw-bold mb-0 text-warning fs-3 text-truncate">{{ metrics.pending_count }}</h2>
+                </div>
+                <div class="bg-warning bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 52px; height: 52px;">
+                    <i class="fa-solid fa-list-check fs-4 text-warning"></i>
+                </div>
+            </div>
+            <div class="bg-warning text-dark text-center py-1 fw-bold" style="font-size: 0.725rem; letter-spacing: 1px;">ACTION REQUIRED</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="card-body p-4 d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0; flex-grow: 1;">
+                    <h6 class="text-uppercase text-muted fw-bold mb-2 small text-truncate">Approved PRs</h6>
+                    <h2 class="fw-bold mb-0 text-success fs-3 text-truncate">{{ metrics.approved_count }}</h2>
+                </div>
+                <div class="bg-success bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 52px; height: 52px;">
+                    <i class="fa-solid fa-check-double fs-4 text-success"></i>
+                </div>
+            </div>
+            <div class="bg-success text-white text-center py-1 fw-semibold" style="font-size: 0.725rem; letter-spacing: 1px;">PROCESSED</div>
+        </div>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl-3">
+        <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="card-body p-4 d-flex align-items-center justify-content-between">
+                <div class="me-2" style="min-width: 0; flex-grow: 1;">
+                    <h6 class="text-uppercase text-muted fw-bold mb-2 small text-truncate">Available Budget</h6>
+                    <h2 class="fw-bold mb-0 text-info fs-4 text-truncate" title="${{ metrics.available_budget|floatformat:2 }}">${{ metrics.available_budget|floatformat:2 }}</h2>
+                </div>
+                <div class="bg-info bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 52px; height: 52px;">
+                    <i class="fa-solid fa-vault fs-4 text-info"></i>
+                </div>
+            </div>
+            <div class="bg-info text-dark text-center py-1 fw-semibold" style="font-size: 0.725rem; letter-spacing: 1px;">COST CENTER FUNDS</div>
+        </div>
+    </div>
+</div>
+
+<!-- Pending Approvals Action Queue -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-file-signature text-warning me-2"></i>Pending Approval Queue</h5>
+        <span class="badge bg-light text-dark border">Server-Side Policy Evaluated</span>
+    </div>
+    <div class="card-body p-4">
+        {% if pending_prs %}
+        <div class="table-responsive" style="-webkit-overflow-scrolling: touch;">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr class="small text-uppercase text-muted">
+                        <th class="ps-4" style="min-width: 220px;">PR Number & Title</th>
+                        <th style="min-width: 160px;">Requester</th>
+                        <th style="min-width: 140px;">Department</th>
+                        <th class="text-end" style="min-width: 130px;">Total Amount</th>
+                        <th class="text-center" style="min-width: 140px;">Current Status</th>
+                        <th class="text-end pe-4" style="min-width: 280px;">Approval Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pr in pending_prs %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark text-truncate" style="max-width: 240px;">
+                                    <a href="{% url 'requisition_detail' pr.pk %}" class="text-decoration-none text-navy" title="{{ pr.title }}">{{ pr.title }}</a>
+                                </div>
+                                <div class="text-muted small">
+                                    <code>{{ pr.pr_number }}</code> &bull; Submitted {{ pr.created_at|date:"M d, Y" }}
+                                    {% if pr.attachments.all %}
+                                        <div class="mt-1 d-flex flex-wrap gap-1">
+                                            {% for att in pr.attachments.all %}
+                                                <a href="{% url 'requisition_attachment_download' pr.pk att.pk %}?action=download" 
+                                                   class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-decoration-none py-1 px-2" 
+                                                   title="Download {{ att.title }} ({{ att.file_size_display }})">
+                                                    <i class="fa-solid fa-paperclip me-1"></i>{{ att.title|truncatechars:18 }}
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark small text-truncate" style="max-width: 160px;" title="{{ pr.requester.email }}">{{ pr.requester.email }}</div>
+                            </td>
+                            <td><span class="badge bg-light text-dark border">{{ pr.department.name }}</span></td>
+                            <td class="fw-bold text-navy text-end">${{ pr.total_amount|floatformat:2 }}</td>
+                            <td class="text-center">
+                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-clock me-1"></i> Pending Review
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <form method="POST" action="/approvals/inbox/" class="d-inline-flex flex-wrap justify-content-end align-items-center gap-2">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="pr_id" value="{{ pr.id }}">
+                                    <input type="text" name="comments" class="form-control form-control-sm d-none d-xl-inline-block" style="width: 130px;" placeholder="Comment...">
+                                    <button type="submit" name="action" value="APPROVED" class="btn btn-success btn-sm rounded-pill px-3 fw-bold shadow-sm">
+                                        <i class="fa-solid fa-check me-1"></i> Approve
+                                    </button>
+                                    <button type="submit" name="action" value="REJECTED" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                                        Reject
+                                    </button>
+                                    <a href="{% url 'requisition_detail' pr.pk %}" class="btn btn-sm btn-light rounded-pill px-3 text-secondary border">
+                                        <i class="fa-solid fa-eye me-1"></i> View
+                                    </a>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                <i class="fa-solid fa-check-circle text-success fs-1"></i>
+            </div>
+            <h5 class="text-muted fw-bold">Your approval inbox is completely clear!</h5>
+            <p class="text-secondary mb-0">All department purchase requisitions have been evaluated and processed.</p>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

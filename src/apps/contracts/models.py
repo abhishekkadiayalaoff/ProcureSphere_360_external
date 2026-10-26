@@ -86,6 +86,44 @@ class ContractMilestone(TimeStampedModel):
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
 
+    @property
+    def due_date_as_date(self):
+        if not self.due_date:
+            return None
+        if isinstance(self.due_date, str):
+            from datetime import datetime
+
+            return datetime.strptime(self.due_date, "%Y-%m-%d").date()
+        return self.due_date
+
+    @property
+    def is_overdue(self) -> bool:
+        d = self.due_date_as_date
+        if self.is_completed or not d:
+            return False
+        from django.utils import timezone
+
+        return d < timezone.now().date()
+
+    @property
+    def days_remaining(self) -> int:
+        d = self.due_date_as_date
+        if not d:
+            return 0
+        from django.utils import timezone
+
+        return (d - timezone.now().date()).days
+
+    @property
+    def due_status(self) -> str:
+        if self.is_completed:
+            return "COMPLETED"
+        if self.is_overdue:
+            return "OVERDUE"
+        if self.days_remaining <= 7:
+            return "DUE_SOON"
+        return "UPCOMING"
+
     def __str__(self):
         return f"Milestone: {self.title} (Due: {self.due_date})"
 
@@ -94,11 +132,13 @@ class ContractAlert(TimeStampedModel):
     ALERT_EXPIRATION = "EXPIRATION"
     ALERT_MILESTONE = "MILESTONE"
     ALERT_RENEWAL = "RENEWAL"
+    ALERT_OBLIGATION = "OBLIGATION"
 
     ALERT_CHOICES = [
         (ALERT_EXPIRATION, "Contract Expiration Warning"),
         (ALERT_MILESTONE, "Milestone Due Warning"),
         (ALERT_RENEWAL, "Renewal Notice Required"),
+        (ALERT_OBLIGATION, "Legal Obligation Due Warning"),
     ]
 
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="alerts")
@@ -109,3 +149,65 @@ class ContractAlert(TimeStampedModel):
 
     def __str__(self):
         return f"{self.get_alert_type_display()} for {self.contract.contract_number}"
+
+
+class ContractObligation(TimeStampedModel):
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="obligations")
+    title = models.CharField(max_length=200)
+    responsible_party = models.CharField(max_length=100, default="VENDOR")
+    due_date = models.DateField()
+    is_fulfilled = models.BooleanField(default=False)
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def due_date_as_date(self):
+        if not self.due_date:
+            return None
+        if isinstance(self.due_date, str):
+            from datetime import datetime
+
+            return datetime.strptime(self.due_date, "%Y-%m-%d").date()
+        return self.due_date
+
+    @property
+    def is_overdue(self) -> bool:
+        d = self.due_date_as_date
+        if self.is_fulfilled or not d:
+            return False
+        from django.utils import timezone
+
+        return d < timezone.now().date()
+
+    @property
+    def days_remaining(self) -> int:
+        d = self.due_date_as_date
+        if not d:
+            return 0
+        from django.utils import timezone
+
+        return (d - timezone.now().date()).days
+
+    @property
+    def due_status(self) -> str:
+        if self.is_fulfilled:
+            return "FULFILLED"
+        if self.is_overdue:
+            return "OVERDUE"
+        if self.days_remaining <= 7:
+            return "DUE_SOON"
+        return "UPCOMING"
+
+    def __str__(self):
+        return f"Obligation: {self.title} for {self.contract.contract_number} [{'FULFILLED' if self.is_fulfilled else 'PENDING'}]"
+
+
+class ContractDocument(TimeStampedModel):
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="documents")
+    title = models.CharField(max_length=200)
+    file = models.FileField(upload_to="contract_docs/%Y/%m/")
+    uploaded_by = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="uploaded_contract_docs"
+    )
+
+    def __str__(self):
+        return f"Doc: {self.title} for {self.contract.contract_number}"

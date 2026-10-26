@@ -1,0 +1,26 @@
+{% if ready %}
+<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+    <thead class="table-light"><tr><th>PR</th><th>Department / Cost center</th><th class="text-end">Amount</th><th>Sourcing</th><th class="text-end">Action</th></tr></thead>
+    <tbody>
+    {% for pr in ready %}
+        <tr>
+            <td><a href="/requisitions/{{ pr.id }}/">{{ pr.pr_number }}</a><div class="text-muted small">{{ pr.title|truncatechars:60 }}</div></td>
+            <td class="small">{{ pr.department.name|default:"—" }} / {{ pr.cost_center.code|default:"—" }}</td>
+            <td class="text-end">${{ pr.total_amount|floatformat:2 }}</td>
+            <td class="small">{% if pr.sourcing_events.all %}{% for e in pr.sourcing_events.all %}<a href="{% url 'sourcing_detail' e.id %}">{{ e.event_number }}</a> ({{ e.get_status_display }}){% if not forloop.last %}, {% endif %}{% endfor %}{% else %}<span class="text-muted">Not yet sourced</span>{% endif %}</td>
+            <td class="text-end">
+                {% if caps.can_manage %}
+                <a class="btn btn-sm btn-warning text-dark rounded-pill" href="{% url 'sourcing_create' %}?requisition={{ pr.id }}">Create RFQ/RFP</a>
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+{% else %}
+<div class="text-center py-4 text-muted">
+    <i class="fa-solid fa-inbox fa-2x mb-2"></i>
+    <div class="fw-semibold">No approved requisitions awaiting sourcing.</div>
+    <div class="small">APPROVED PRs appear here as intake for new RFQ/RFP events.</div>
+</div>
+{% endif %}

@@ -1,0 +1,566 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Goods Receipt {{ grn.grn_number }} — ProcureSphere 360{% endblock %}
+{% block page_heading %}Goods Receipt Note {{ grn.grn_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+        <a href="{% url 'receipts_list' %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+            <i class="fa-solid fa-arrow-left me-1"></i> Back to Goods Receipts List
+        </a>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+            <span class="badge bg-secondary px-3 py-2 text-uppercase">
+                <i class="fa-solid fa-receipt me-1"></i> GRN Details
+            </span>
+            <h2 class="fw-bold text-dark mb-0 font-monospace">{{ grn.grn_number }}</h2>
+
+            <!-- Inspection Status Badge -->
+            {% if grn.overall_inspection_status == 'PASSED' %}
+                <span class="badge bg-success-subtle text-success border border-success px-3 py-2">
+                    <i class="fa-solid fa-circle-check me-1"></i> Inspection Passed
+                </span>
+            {% elif grn.overall_inspection_status == 'FAILED' or grn.overall_inspection_status == 'REJECTED' %}
+                <span class="badge bg-danger-subtle text-danger border border-danger px-3 py-2">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Inspection Failed / Rejection
+                </span>
+            {% elif grn.overall_inspection_status == 'PARTIALLY_INSPECTED' %}
+                <span class="badge bg-info-subtle text-info border border-info px-3 py-2">
+                    <i class="fa-solid fa-clock-rotate-left me-1"></i> Partially Inspected
+                </span>
+            {% else %}
+                <span class="badge bg-warning-subtle text-warning border border-warning px-3 py-2">
+                    <i class="fa-solid fa-hourglass-half me-1"></i> Pending Inspection
+                </span>
+            {% endif %}
+
+            <!-- Stock Handoff Status Badge -->
+            {% if grn.stock_handoff_status == 'HANDED_OFF' %}
+                <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2">
+                    <i class="fa-solid fa-boxes-packing me-1"></i> In Stock
+                </span>
+            {% elif grn.stock_handoff_status == 'PARTIALLY_HANDED_OFF' %}
+                <span class="badge bg-info-subtle text-info border border-info px-3 py-2">
+                    <i class="fa-solid fa-dolly me-1"></i> Partially in Stock
+                </span>
+            {% elif grn.stock_handoff_status == 'ALL_REJECTED' %}
+                <span class="badge bg-danger-subtle text-danger border border-danger px-3 py-2">
+                    <i class="fa-solid fa-ban me-1"></i> All Items Rejected
+                </span>
+            {% elif grn.overall_inspection_status == 'PENDING' %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary px-3 py-2">
+                    <i class="fa-solid fa-lock me-1"></i> Stock Handoff Locked (Pending Inspection)
+                </span>
+            {% else %}
+                <span class="badge bg-secondary-subtle text-secondary border border-secondary px-3 py-2">
+                    <i class="fa-solid fa-warehouse me-1"></i> Pending Stock Handoff
+                </span>
+            {% endif %}
+        </div>
+        <p class="text-muted small mb-0 mt-1">
+            Recorded against PO <a href="{% url 'order_detail' po.id %}" class="fw-semibold text-primary font-monospace">{{ po.po_number }}</a> &bull; 
+            Vendor: <span class="fw-semibold text-dark">{{ po.vendor.legal_name }}</span>
+        </p>
+    </div>
+
+    <!-- Status-Gated Header Actions -->
+    <div class="d-flex align-items-center flex-wrap gap-2">
+        {% if grn.overall_inspection_status == 'PENDING' %}
+            <!-- Stage: Pending Quality Inspection -->
+            <a href="{% url 'receipt_inspect' grn_id=grn.id %}" class="btn btn-warning rounded-pill px-4 fw-bold shadow-sm text-dark">
+                <i class="fa-solid fa-clipboard-check me-1"></i> Quality Inspection
+            </a>
+            <a href="{% url 'order_detail' po.id %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-file-invoice me-1"></i> View PO
+            </a>
+        {% elif grn.can_hand_off_to_stock and grn.stock_handoff_status != 'HANDED_OFF' %}
+            <!-- Stage: Inspection Done, Accepted Stock Ready to Hand Off -->
+            <a href="{% url 'receipt_stock_handoff' grn_id=grn.id %}" class="btn btn-success text-white rounded-pill px-4 fw-bold shadow-sm">
+                <i class="fa-solid fa-dolly me-1"></i> Hand Off to Stock
+            </a>
+            <a href="{% url 'receipt_inspect' grn_id=grn.id %}" class="btn btn-outline-warning rounded-pill px-3 fw-semibold text-dark">
+                <i class="fa-solid fa-clipboard-check me-1"></i> Quality Inspection
+            </a>
+            <a href="{% url 'order_detail' po.id %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-file-invoice me-1"></i> View PO
+            </a>
+        {% elif grn.stock_handoff_status == 'HANDED_OFF' %}
+            <!-- Stage: Stock Handoff Complete -->
+            <a href="{% url 'receipt_stock_handoff' grn_id=grn.id %}" class="btn btn-outline-primary rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-warehouse me-1"></i> Stock Handoff Details
+            </a>
+            <a href="{% url 'receipt_inspect' grn_id=grn.id %}" class="btn btn-outline-warning rounded-pill px-3 fw-semibold text-dark">
+                <i class="fa-solid fa-clipboard-check me-1"></i> Quality Inspection
+            </a>
+            <a href="{% url 'order_detail' po.id %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-file-invoice me-1"></i> View PO
+            </a>
+        {% else %}
+            <!-- Stage: All items rejected or other terminal state -->
+            <a href="{% url 'receipt_inspect' grn_id=grn.id %}" class="btn btn-outline-warning rounded-pill px-3 fw-semibold text-dark">
+                <i class="fa-solid fa-clipboard-check me-1"></i> Quality Inspection
+            </a>
+            <a href="{% url 'receipts_rejections_queue' %}" class="btn btn-outline-danger rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-ban me-1"></i> Rejections &amp; Returns
+            </a>
+            <a href="{% url 'order_detail' po.id %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-file-invoice me-1"></i> View PO
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Lifecycle Status Progress Strip -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-body p-3 p-md-4">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary bg-opacity-10 text-primary px-2 py-1 rounded-pill fw-bold text-uppercase" style="font-size: 0.72rem;">
+                    <i class="fa-solid fa-arrows-split-up-and-left me-1"></i> Receiving Lifecycle
+                </span>
+                <span class="small fw-semibold text-muted">Current Workflow Milestone</span>
+            </div>
+            <div>
+                {% if grn.overall_inspection_status == 'PENDING' %}
+                    <div class="alert alert-warning py-1 px-3 mb-0 rounded-pill d-inline-flex align-items-center gap-2 small fw-semibold">
+                        <i class="fa-solid fa-circle-info text-warning"></i>
+                        <span>Next Step: Perform Quality Inspection. Stock handoff is locked until inspection is completed.</span>
+                    </div>
+                {% elif grn.can_hand_off_to_stock and grn.stock_handoff_status != 'HANDED_OFF' %}
+                    <div class="alert alert-success py-1 px-3 mb-0 rounded-pill d-inline-flex align-items-center gap-2 small fw-semibold">
+                        <i class="fa-solid fa-circle-check text-success"></i>
+                        <span>Next Step: Quality inspection complete. Hand off accepted goods to warehouse stock.</span>
+                    </div>
+                {% elif grn.stock_handoff_status == 'HANDED_OFF' %}
+                    <div class="alert alert-primary py-1 px-3 mb-0 rounded-pill d-inline-flex align-items-center gap-2 small fw-semibold">
+                        <i class="fa-solid fa-check-double text-primary"></i>
+                        <span>Receiving Complete: Accepted goods placed into inventory storage.</span>
+                    </div>
+                {% elif grn.stock_handoff_status == 'ALL_REJECTED' %}
+                    <div class="alert alert-danger py-1 px-3 mb-0 rounded-pill d-inline-flex align-items-center gap-2 small fw-semibold">
+                        <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                        <span>All Line Items Rejected: Goods queued for supplier return processing.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 1. GRN Details Section -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+        <h5 class="fw-bold text-dark mb-0">
+            <i class="fa-solid fa-circle-info text-primary me-2"></i> Goods Receipt Note Information
+        </h5>
+    </div>
+    <div class="card-body p-4">
+        <div class="row g-4">
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">GRN Number</small>
+                <div class="fs-6 fw-bold font-monospace text-primary">{{ grn.grn_number }}</div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Purchase Order Reference</small>
+                <div>
+                    <a href="{% url 'order_detail' po.id %}" class="fs-6 fw-bold font-monospace text-primary text-decoration-none">
+                        {{ po.po_number }}
+                    </a>
+                    <span class="badge bg-secondary-subtle text-secondary border ms-1">{{ po.get_status_display }}</span>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Vendor / Supplier</small>
+                <div class="fs-6 fw-bold text-dark">{{ po.vendor.legal_name }}</div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Delivery Note / Waybill</small>
+                <div class="fs-6 fw-bold text-dark">{{ grn.delivery_note_number|default:"N/A" }}</div>
+            </div>
+
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Received Date &amp; Time</small>
+                <div class="text-dark fw-semibold">{{ grn.received_date|date:"M d, Y H:i" }}</div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Received By</small>
+                <div class="text-dark fw-semibold">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Current Inspection Status</small>
+                <div>
+                    {% if grn.overall_inspection_status == 'PASSED' %}
+                        <span class="badge bg-success-subtle text-success border border-success">Passed</span>
+                    {% elif grn.overall_inspection_status == 'FAILED' or grn.overall_inspection_status == 'REJECTED' %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger">Failed / Rejected</span>
+                    {% elif grn.overall_inspection_status == 'PARTIALLY_INSPECTED' %}
+                        <span class="badge bg-info-subtle text-info border border-info">Partially Inspected</span>
+                    {% else %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning">Pending Inspection</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <small class="text-uppercase text-secondary fw-semibold">Current Stock Handoff Status</small>
+                <div>
+                    <span class="badge {% if grn.stock_handoff_status == 'HANDED_OFF' %}bg-primary{% elif grn.stock_handoff_status == 'PARTIALLY_HANDED_OFF' %}bg-info text-dark{% elif grn.stock_handoff_status == 'ALL_REJECTED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                        {{ grn.stock_handoff_status_display }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <small class="text-uppercase text-secondary fw-semibold">Receiving Remarks</small>
+                <div class="p-3 bg-light rounded-3 text-dark border">{{ grn.remarks|default:"No receiving remarks provided." }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Received Line Items Section (Read-Only) -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold text-dark mb-1">
+                <i class="fa-solid fa-boxes-stacked text-primary me-2"></i> Received Line Items &amp; Quality Verification
+            </h5>
+            <p class="text-muted small mb-0">Read-only summary of line quantities, inspection verdicts, and inventory storage records.</p>
+        </div>
+        <div>
+            {% if grn.overall_inspection_status == 'PENDING' %}
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill fw-semibold">
+                    <i class="fa-solid fa-hourglass-half me-1"></i> Inspection Required
+                </span>
+            {% elif grn.can_hand_off_to_stock and grn.stock_handoff_status != 'HANDED_OFF' %}
+                <a href="{% url 'receipt_stock_handoff' grn_id=grn.id %}" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold text-white">
+                    <i class="fa-solid fa-dolly me-1"></i> Proceed to Stock Handoff
+                </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-secondary">
+                    <tr>
+                        <th class="ps-3" style="width: 35px;">#</th>
+                        <th style="min-width: 200px;">Item Description</th>
+                        <th class="text-end" style="min-width: 90px;">PO Ordered</th>
+                        <th class="text-end" style="min-width: 100px;">Qty Received</th>
+                        <th class="text-end" style="min-width: 100px;">Qty Accepted</th>
+                        <th class="text-end" style="min-width: 100px;">Qty Rejected</th>
+                        <th class="text-center" style="min-width: 70px;">UOM</th>
+                        <th class="text-center" style="min-width: 130px;">Inspection Status</th>
+                        <th style="min-width: 220px;" class="pe-3">Inspection &amp; Stock Traceability</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in lines %}
+                    <tr>
+                        <td class="ps-3 text-secondary small">{{ forloop.counter }}</td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                            <small class="text-muted font-monospace">Line #{{ line.po_line.line_number|default:forloop.counter }}</small>
+                        </td>
+                        <td class="text-end font-monospace text-muted">{{ line.po_line.quantity|floatformat:2 }}</td>
+                        <td class="text-end font-monospace fw-bold text-primary">{{ line.quantity_received|floatformat:2 }}</td>
+                        <td class="text-end font-monospace fw-bold text-success">{{ line.quantity_accepted|floatformat:2 }}</td>
+                        <td class="text-end font-monospace fw-bold {% if line.quantity_rejected > 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {{ line.quantity_rejected|floatformat:2 }}
+                        </td>
+                        <td class="text-center"><span class="badge bg-light text-dark border">{{ line.po_line.uom|default:"EA" }}</span></td>
+                        <td class="text-center">
+                            {% if line.inspection_status == 'PASSED' %}
+                                <span class="badge bg-success-subtle text-success border border-success">
+                                    <i class="fa-solid fa-check me-1"></i> Passed
+                                </span>
+                            {% elif line.inspection_status == 'REJECTED' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger">
+                                    <i class="fa-solid fa-ban me-1"></i> Rejected
+                                </span>
+                            {% elif line.inspection_status == 'FAILED' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger">
+                                    <i class="fa-solid fa-xmark me-1"></i> Failed
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning">
+                                    <i class="fa-solid fa-clock me-1"></i> Pending
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-3 small">
+                            <!-- Inspection Details -->
+                            {% if line.inspection %}
+                                <div class="mb-1">
+                                    <span class="text-secondary fw-semibold">Inspector:</span> 
+                                    <span class="text-dark">{{ line.inspection.inspected_by.get_full_name|default:line.inspection.inspected_by.email }}</span>
+                                </div>
+                                {% if line.inspection.inspection_notes %}
+                                <div class="text-muted fst-italic">"{{ line.inspection.inspection_notes }}"</div>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted fst-italic">Pending quality inspection.</span>
+                            {% endif %}
+
+                            <!-- Stock Handoff Details -->
+                            {% if line.is_handed_off %}
+                                <div class="mt-2 p-2 bg-primary-subtle rounded-2 border border-primary-subtle">
+                                    <div class="text-primary fw-bold">
+                                        <i class="fa-solid fa-warehouse me-1"></i> Bin: {{ line.stock_handoff_record.storage_location }}
+                                    </div>
+                                    <div class="text-dark small">
+                                        Handed Off: <span class="font-monospace fw-semibold">{{ line.stock_handoff_record.quantity_handed_off|floatformat:2 }}</span> units
+                                        by {{ line.stock_handoff_record.handed_off_by.get_full_name|default:line.stock_handoff_record.handed_off_by.email }}
+                                    </div>
+                                    {% if line.stock_handoff_record.handoff_notes %}
+                                    <div class="text-muted fst-italic mt-1">"{{ line.stock_handoff_record.handoff_notes }}"</div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                            <!-- Rejection Details -->
+                            {% if line.quantity_rejected > 0 %}
+                                {% for rej in line.rejections.all %}
+                                <div class="mt-2 p-2 bg-danger-subtle rounded-2 border border-danger-subtle">
+                                    <div class="text-danger fw-semibold">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i> Rejected: {{ rej.rejected_quantity|floatformat:2 }} units
+                                    </div>
+                                    <div class="text-dark">{{ rej.rejection_reason }}</div>
+                                    <div class="mt-2 d-flex align-items-center justify-content-between flex-wrap gap-1">
+                                        <span class="badge {% if rej.returned_to_vendor %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                            Return to Vendor: {% if rej.returned_to_vendor %}Yes{% else %}Pending{% endif %}
+                                        </span>
+                                        {% if not rej.returned_to_vendor %}
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-0 small" data-bs-toggle="modal" data-bs-target="#returnModalDetail{{ rej.id }}">
+                                            <i class="fa-solid fa-truck-arrow-right me-1"></i> Dispatch Return
+                                        </button>
+
+                                        <!-- Vendor Return Modal for {{ rej.id }} -->
+                                        <div class="modal fade" id="returnModalDetail{{ rej.id }}" tabindex="-1" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <form method="POST" action="{% url 'record_vendor_return' rejection_id=rej.id %}" class="modal-content border-0 shadow rounded-4 text-start">
+                                                    {% csrf_token %}
+                                                    <input type="hidden" name="next" value="{% url 'receipt_detail' grn_id=grn.id %}">
+                                                    <div class="modal-header border-bottom bg-danger bg-opacity-10">
+                                                        <h5 class="modal-title fw-bold text-danger">
+                                                            <i class="fa-solid fa-truck-arrow-right me-2"></i> Process Return to Vendor
+                                                        </h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <div class="modal-body p-4">
+                                                        <div class="mb-3">
+                                                            <div class="small text-muted fw-semibold text-uppercase">Shipment &amp; Item Reference</div>
+                                                            <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                                                            <div class="small font-monospace text-primary">GRN: {{ grn.grn_number }} &bull; PO: {{ po.po_number }}</div>
+                                                            <div class="small text-muted">Vendor: {{ po.vendor.legal_name }}</div>
+                                                        </div>
+
+                                                        <div class="alert alert-danger py-2 px-3 small rounded-3 mb-3">
+                                                            <span class="fw-bold">Defect / Rejection Reason:</span> {{ rej.rejection_reason }}
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label class="form-label small fw-bold text-dark">Return Quantity (Max: {{ rej.rejected_quantity }})</label>
+                                                            <input type="number" step="0.01" min="0.01" max="{{ rej.rejected_quantity }}"
+                                                                   name="return_quantity" value="{{ rej.rejected_quantity }}" class="form-control" required>
+                                                            <div class="form-text small">Accepted warehouse stock is guaranteed unchanged by returns.</div>
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label class="form-label small fw-bold text-dark">Carrier / Tracking Reference <span class="text-danger">*</span></label>
+                                                            <input type="text" name="tracking_reference" class="form-control" placeholder="e.g. DHL-WAYBILL-998811 or RMA-HPE-4421" required>
+                                                        </div>
+
+                                                        <div class="mb-3">
+                                                            <label class="form-label small fw-bold text-dark">Return / Dispatch Notes</label>
+                                                            <textarea name="return_notes" class="form-control" rows="2" placeholder="e.g. Dispatched via courier; vendor credit note requested..."></textarea>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer border-top bg-light">
+                                                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                                                        <button type="submit" class="btn btn-danger rounded-pill px-4 fw-bold">
+                                                            <i class="fa-solid fa-check me-1"></i> Confirm Dispatch
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <!-- Quantity Correction Action -->
+                            <div class="mt-2 pt-2 border-top d-flex justify-content-end">
+                                <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 small" data-bs-toggle="modal" data-bs-target="#correctLineModal{{ line.id }}">
+                                    <i class="fa-solid fa-pen-to-square me-1"></i> Correct Qty
+                                </button>
+                            </div>
+
+                            <!-- Quantity Correction Modal for line {{ line.id }} -->
+                            <div class="modal fade" id="correctLineModal{{ line.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <form method="POST" action="{% url 'receipt_line_correct' line_id=line.id %}" class="modal-content border-0 shadow rounded-4 text-start">
+                                        {% csrf_token %}
+                                        <div class="modal-header border-bottom bg-light">
+                                            <h5 class="modal-title fw-bold text-dark">
+                                                <i class="fa-solid fa-pen-to-square text-primary me-2"></i> Correct Receipt Quantities
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body p-4">
+                                            <div class="mb-3">
+                                                <div class="small text-muted fw-semibold text-uppercase">Line Item Reference</div>
+                                                <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                                                <div class="small font-monospace text-muted">PO Ordered: {{ line.po_line.quantity }} {{ line.po_line.uom|default:"EA" }}</div>
+                                            </div>
+
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-bold text-dark">New Quantity Received <span class="text-danger">*</span></label>
+                                                    <input type="number" step="0.01" min="0.01" max="{{ line.po_line.quantity }}" name="quantity_received" value="{{ line.quantity_received }}" class="form-control" required>
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-bold text-dark">New Quantity Accepted</label>
+                                                    <input type="number" step="0.01" min="0.00" name="quantity_accepted" value="{{ line.quantity_accepted }}" class="form-control">
+                                                </div>
+                                            </div>
+
+                                            {% if line.is_handed_off %}
+                                            <div class="alert alert-info py-2 px-3 small rounded-3 mb-3">
+                                                <i class="fa-solid fa-warehouse me-1"></i>
+                                                Already Handed-Off to Stock: <strong>{{ line.stock_handoff_record.quantity_handed_off }}</strong> units. Corrected accepted quantity cannot be less than stock.
+                                            </div>
+                                            {% endif %}
+
+                                            <div class="mb-3">
+                                                <label class="form-label small fw-bold text-dark">Correction Reason <span class="text-danger">*</span></label>
+                                                <input type="text" name="reason" class="form-control" placeholder="e.g. Waybill recount discrepancy, supplier shipment note adjustment" required>
+                                                <div class="form-text small">Mandatory to preserve audit trail and compliance integrity.</div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label small fw-bold text-dark">Additional Notes</label>
+                                                <textarea name="notes" class="form-control" rows="2" placeholder="Optional audit explanation..."></textarea>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-top bg-light">
+                                            <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                                            <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">
+                                                <i class="fa-solid fa-check me-1"></i> Apply Correction
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4 text-muted">No receipt line items found for this GRN.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Immutable Receipt History & Audit Trail Section -->
+<div class="card border-0 shadow-sm rounded-4 mb-4 bg-white">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+        <h5 class="fw-bold text-dark mb-1">
+            <i class="fa-solid fa-shield-halved text-primary me-2"></i> Immutable Receipt History &amp; Audit Trail
+        </h5>
+        <p class="text-muted small mb-0">Complete historical timeline of receiving events, quality inspections, quantity corrections, and vendor returns.</p>
+    </div>
+    <div class="card-body p-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light small text-uppercase text-secondary">
+                    <tr>
+                        <th class="ps-3" style="min-width: 150px;">Timestamp</th>
+                        <th style="min-width: 140px;">Actor / User</th>
+                        <th style="min-width: 120px;">Action</th>
+                        <th style="min-width: 140px;">Target Object</th>
+                        <th class="pe-3" style="min-width: 250px;">Audit Details &amp; State Delta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in audit_logs %}
+                    <tr>
+                        <td class="ps-3 small text-muted font-monospace">
+                            {{ log.timestamp|date:"M d, Y H:i:s" }}
+                        </td>
+                        <td class="small">
+                            <div class="fw-bold text-dark">{{ log.actor.get_full_name|default:log.actor.email|default:"System" }}</div>
+                            <span class="badge bg-secondary-subtle text-secondary small">{{ log.actor.role.name|default:"User" }}</span>
+                        </td>
+                        <td>
+                            {% if log.action == 'CREATE' %}
+                                <span class="badge bg-success-subtle text-success border border-success">CREATE</span>
+                            {% elif log.action == 'RETURN_TO_VENDOR' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger">RETURN TO VENDOR</span>
+                            {% elif 'CORRECTION' in log.action or 'UPDATE' in log.action %}
+                                <span class="badge bg-warning-subtle text-warning border border-warning">CORRECTION</span>
+                            {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary">{{ log.action }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="small font-monospace text-secondary">
+                            {{ log.target_model }} <span class="text-muted small">({{ log.target_object_id|slice:":8" }}...)</span>
+                        </td>
+                        <td class="pe-3 small">
+                            {% if log.new_state.reason %}
+                                <div class="fw-semibold text-dark mb-1">
+                                    <span class="text-secondary">Reason:</span> {{ log.new_state.reason }}
+                                </div>
+                            {% endif %}
+                            {% if log.new_state.tracking_reference %}
+                                <div class="text-danger fw-semibold mb-1">
+                                    <i class="fa-solid fa-truck-arrow-right me-1"></i> Tracking Ref: {{ log.new_state.tracking_reference }}
+                                </div>
+                            {% endif %}
+                            {% if log.new_state.quantity_received or log.new_state.quantity_accepted %}
+                                <div class="font-monospace small text-muted">
+                                    Recv: {{ log.new_state.quantity_received|default:"N/A" }} &bull; Accept: {{ log.new_state.quantity_accepted|default:"N/A" }} &bull; Reject: {{ log.new_state.quantity_rejected|default:"N/A" }}
+                                </div>
+                            {% endif %}
+                            {% if log.new_state.overall_inspection_status %}
+                                <div class="small text-muted">
+                                    Inspection Status: <span class="fw-semibold text-dark">{{ log.new_state.overall_inspection_status }}</span>
+                                </div>
+                            {% endif %}
+                            {% if log.previous_state and log.new_state %}
+                            <details class="mt-1">
+                                <summary class="text-primary small cursor-pointer" style="cursor: pointer;">View State Payload</summary>
+                                <pre class="bg-light p-2 rounded mt-1 mb-0 small font-monospace" style="font-size: 0.75rem;">Prev: {{ log.previous_state }}&#10;New:  {{ log.new_state }}</pre>
+                            </details>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-clock-rotate-left me-1"></i> No prior audit events recorded for this Goods Receipt.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

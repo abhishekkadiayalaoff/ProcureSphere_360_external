@@ -1,0 +1,63 @@
+<div class="table-responsive mb-3"><table class="table table-sm align-middle small mb-0">
+    <thead><tr><th>Vendor</th><th>Status</th><th>Responded</th><th>Bid</th><th></th></tr></thead>
+    <tbody>
+    {% for row in invitation_rows %}
+        <tr>
+            <td>{{ row.vendor.legal_name }} <code>{{ row.vendor.vendor_number }}</code></td>
+            <td>{% include 'partials/vendor_status_badge.html' with status=row.vendor.status label=row.vendor.get_status_display %}</td>
+            <td>{{ row.invite.is_responded|yesno:"Yes,No" }}</td>
+            <td>{{ row.bid_status|default:"—" }}</td>
+            <td class="text-end">
+                {% if caps.can_manage and event.status == 'DRAFT' %}
+                <form method="post" action="{% url 'sourcing_invites_htmx' event.id %}"
+                      hx-post="{% url 'sourcing_invites_htmx' event.id %}"
+                      hx-target="#sourcing-invites-result" hx-swap="innerHTML" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="op" value="revoke">
+                    <input type="hidden" name="invite_id" value="{{ row.invite.id }}">
+                    <button class="btn btn-sm btn-outline-danger" aria-label="Remove invitation"><i class="fa-solid fa-xmark"></i></button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+    {% empty %}
+        <tr><td colspan="5" class="text-muted text-center py-3">No vendors invited yet.</td></tr>
+    {% endfor %}
+    </tbody>
+</table></div>
+<div id="sourcing-invites-result" aria-live="polite"></div>
+{% if can_invite and eligible_vendors %}
+<div class="border rounded p-3 small">
+    <div class="fw-semibold mb-2">Invite eligible vendors <span class="text-muted fw-normal">(only ACTIVE vendors)</span></div>
+    <form method="post" action="{% url 'sourcing_invites_htmx' event.id %}"
+          hx-post="{% url 'sourcing_invites_htmx' event.id %}"
+          hx-target="#sourcing-invites-result" hx-swap="innerHTML">
+        {% csrf_token %}
+        <input type="hidden" name="op" value="invite">
+        <div class="row g-1 mb-2" style="max-height:200px; overflow:auto">
+            {% for v in eligible_vendors %}
+                <div class="col-md-6"><div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="vendor_ids" value="{{ v.id }}" id="hx-inv-{{ v.id }}">
+                    <label class="form-check-label" for="hx-inv-{{ v.id }}">{{ v.legal_name }} <span class="text-muted">· {{ v.category.name }}</span></label>
+                </div></div>
+            {% endfor %}
+        </div>
+        <button class="btn btn-sm btn-info text-white"><i class="fa-solid fa-paper-plane me-1"></i>Invite selected</button>
+    </form>
+</div>
+{% endif %}
+{% if pending_vendors %}
+<div class="border rounded p-3 mt-3 small bg-light">
+    <div class="fw-semibold mb-1"><i class="fa-solid fa-user-clock text-warning me-1"></i>Newly registered vendors awaiting KYC approval</div>
+    <div class="text-muted mb-2">They can be invited once the vendor submits KYC documents and the registration is approved (status ACTIVE).</div>
+    <ul class="list-unstyled mb-0">
+    {% for v in pending_vendors %}
+        <li class="d-flex justify-content-between flex-wrap gap-2 py-1 border-top">
+            <span>{{ v.legal_name }} <span class="text-muted">· {{ v.category.name }}</span></span>
+            <span><span class="badge bg-secondary">{{ v.get_status_display }}</span>
+            <a class="ms-2" href="{% url 'vendor_detail' v.id %}">Review onboarding</a></span>
+        </li>
+    {% endfor %}
+    </ul>
+</div>
+{% endif %}

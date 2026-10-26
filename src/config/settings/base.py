@@ -1,3 +1,5 @@
+import os
+import sys
 from pathlib import Path
 
 import environ
@@ -18,9 +20,17 @@ env = environ.Env(
     REDIS_URL=(str, "redis://127.0.0.1:6379/0"),
 )
 
-# Read .env file if present
+# Read .env file if present, unless running in an isolated test environment
+# to ensure automated tests never load production database credentials.
 env_file = BASE_DIR / ".env"
-if env_file.exists():
+_is_test_env = (
+    os.environ.get("DJANGO_SETTINGS_MODULE") == "config.settings.test"
+    or os.environ.get("PROCURESPHERE_TESTING") == "1"
+    or "pytest" in sys.modules
+    or any("pytest" in arg for arg in sys.argv)
+    or any(arg == "test" for arg in sys.argv)
+)
+if env_file.exists() and not _is_test_env:
     env.read_env(str(env_file))
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
@@ -72,12 +82,15 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "apps.core.middleware.RequestIDMiddleware",
+    "apps.core.middleware.SecurityHeadersMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.accounts.middleware.PasswordChangeRequiredMiddleware",
     "apps.core.middleware.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -102,6 +115,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.notifications.context_processors.notifications_processor",
+                "apps.core.context_processors.layout_context",
             ],
         },
     },
@@ -135,7 +150,6 @@ else:
         }
     }
 
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -149,7 +163,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = "Asia/Kolkata"
 USE_I18N = True
 USE_TZ = True
 
@@ -157,6 +171,16 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+WHITENOISE_USE_FINDERS = True
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
@@ -181,8 +205,9 @@ REST_FRAMEWORK = {
 # Session & CSRF Security Baseline
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
-SESSION_COOKIE_SECURE = False  # Set to True in HTTPS production
+SESSION_COOKIE_SECURE = env.bool("SESSION_COOKIE_SECURE", default=False)
 CSRF_COOKIE_HTTPONLY = False  # Allows frontend JS/HTMX to attach CSRF headers
+
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_USE_SESSIONS = False
 
@@ -195,8 +220,8 @@ SPECTACULAR_SETTINGS = {
     "SCHEMA_PATH_PREFIX": r"/api/v1/",
 }
 
-# Celery Configuration
-REDIS_URL = env("REDIS_URL")
+# Celery & Redis Configuration
+REDIS_URL = env("REDIS_URL", default="redis://127.0.0.1:6379/0").strip()
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
@@ -209,17 +234,61 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.notifications.tasks.test_celery_beat_task",
         "schedule": 60.0,  # every 60 seconds
     },
+    "sync-sourcing-bid-windows": {
+        "task": "apps.sourcing.tasks.sync_sourcing_bid_windows_task",
+        "schedule": 300.0,  # every 5 minutes; views/services also sync on access
+    },
+    "scan-contract-expirations-and-milestones": {
+        "task": "contracts.tasks.scan_contract_expirations_and_milestones",
+        "schedule": 86400.0,  # daily scan for upcoming renewal/milestones
+    },
+    "scan-overdue-approvals-and-escalate": {
+        "task": "notifications.tasks.scan_overdue_approvals_and_escalate",
+        "schedule": 3600.0,  # hourly scan for approvals exceeding SLA turnaround
+    },
 }
+
 # Login Throttling (django-axes) & Redirects
 AXES_FAILURE_LIMIT = 5
-AXES_COOLOFF_TIME = 1
+AXES_COOLOFF_TIME = 0.05  # 3 minutes cooloff window
 AXES_LOCKOUT_TEMPLATE = "pages/lockout.html"
-AXES_LOCKOUT_PARAMETERS = ["ip_address", "username"]
+AXES_LOCKOUT_PARAMETERS = [["username", "ip_address"]]
+AXES_RESET_ON_SUCCESS = True
+AXES_USERNAME_CALLABLE = "apps.accounts.axes_utils.get_axes_username"
 LOGIN_REDIRECT_URL = "/"
 LOGIN_URL = "/login/"
-
 
 # Security Baseline
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
+
+# Email Configuration (loaded from environment variables, never hardcoded)
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="smtp-relay.brevo.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=15)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="ProcureSphere 360 <no-reply@localhost>")
+
+# Application Login URL (used in credential welcome emails)
+APP_LOGIN_URL = env("APP_LOGIN_URL", default="http://localhost:8000/login/")
+
+# KYC document types (VendorDocument.document_type codes) that must be present AND verified
+# before a vendor can be activated. Empty = at least one verified document is required.
+VENDOR_MANDATORY_KYC_DOC_TYPES = env.list("VENDOR_MANDATORY_KYC_DOC_TYPES", default=[])
+
+# Login URLs placed in vendor credential emails (comma separated, one line per environment)
+VENDOR_PORTAL_LOGIN_URLS = env.list(
+    "VENDOR_PORTAL_LOGIN_URLS", default=["http://localhost:8000/login/"]
+)
+
+# ---------------------------------------------------------------------------
+# Brevo Transactional Email API (used for vendor credential emails)
+# ---------------------------------------------------------------------------
+BREVO_API_KEY = env("BREVO_API_KEY", default="")
+BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="no-reply@procuresphere.com")
+BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="ProcureSphere 360")

@@ -1,0 +1,338 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Bid {{ bid.bid_number }} — Details{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="/vendor/bids/" class="text-decoration-none text-muted">My Bids</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">{{ bid.bid_number }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header & Action Buttons -->
+    <div class="d-flex flex-wrap justify-content-between align-items-start align-items-md-center mb-3 mb-md-4 gap-3">
+        <div class="w-100 w-md-auto">
+            <div class="d-flex flex-wrap align-items-center gap-1 gap-sm-2 mb-2">
+                <span class="badge bg-dark">{{ event.event_type }}</span>
+                <span class="badge {% if bid.status == 'SUBMITTED' %}bg-success{% elif bid.status == 'AMENDED' %}bg-info text-dark{% elif bid.status == 'DRAFT' %}bg-warning text-dark{% elif bid.status == 'WITHDRAWN' %}bg-danger text-white{% else %}bg-secondary{% endif %}">
+                    {{ bid.get_status_display }}
+                </span>
+                <span class="badge bg-secondary rounded-pill">Version {{ bid.version }}</span>
+                {% if event.is_sealed %}
+                <span class="badge bg-secondary bg-opacity-25 text-dark border">
+                    <i class="fa-solid fa-lock me-1"></i> Sealed Proposal
+                </span>
+                {% endif %}
+            </div>
+            <h3 class="fw-bold text-dark mb-1 fs-5 fs-md-3 text-break">{{ bid.bid_number }} &bull; {{ event.title }}</h3>
+            <span class="font-monospace text-muted small d-block">Event Ref: {{ event.event_number }}</span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 w-100 w-md-auto">
+            {% if can_amend %}
+            <a href="{% url 'vendor_bid_amend' bid_id=bid.id %}" class="btn btn-primary btn-sm rounded-pill px-3 px-sm-4 shadow-sm flex-fill flex-md-grow-0 text-center">
+                <i class="fa-solid fa-code-compare me-1"></i> Amend Submitted Bid
+            </a>
+            {% endif %}
+            {% if can_withdraw %}
+            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 px-sm-4 shadow-sm flex-fill flex-md-grow-0 text-center" data-bs-toggle="modal" data-bs-target="#withdrawBidModal">
+                <i class="fa-solid fa-ban me-1"></i> Withdraw Bid
+            </button>
+            {% elif bid.status == 'DRAFT' and is_event_open %}
+            <a href="{% url 'vendor_bid_create' event_id=event.id %}" class="btn btn-warning btn-sm rounded-pill px-3 px-sm-4 fw-semibold shadow-sm flex-fill flex-md-grow-0 text-center">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Complete & Submit Draft
+            </a>
+            {% elif bid.status == 'WITHDRAWN' %}
+            <button class="btn btn-secondary btn-sm rounded-pill px-3 flex-fill flex-md-grow-0" disabled title="Withdrawn bids cannot be amended or re-submitted.">
+                <i class="fa-solid fa-ban me-1"></i> Bid Withdrawn
+            </button>
+            {% else %}
+            <button class="btn btn-secondary btn-sm rounded-pill px-3 flex-fill flex-md-grow-0" disabled title="Amendments are only permissible while the bid window is open.">
+                <i class="fa-solid fa-lock me-1"></i> Amendments Closed
+            </button>
+            {% endif %}
+
+            <a href="{% url 'vendor_sourcing_detail' event_id=event.id %}" class="btn btn-outline-dark btn-sm rounded-pill px-3 flex-fill flex-md-grow-0 text-center">
+                <i class="fa-solid fa-gavel me-1"></i> View Sourcing Event
+            </a>
+        </div>
+    </div>
+
+    {% if bid.status == 'WITHDRAWN' %}
+    <!-- Withdrawn Notice -->
+    <div class="alert alert-danger d-flex align-items-center mb-4 rounded-3 shadow-sm border-danger">
+        <i class="fa-solid fa-triangle-exclamation fs-3 me-3 text-danger"></i>
+        <div>
+            <h6 class="fw-bold mb-1 text-danger">Bid Formally Withdrawn</h6>
+            <p class="small mb-0 text-dark">This bid was withdrawn prior to the event closure deadline. Current versions have been immutably archived for audit compliance. This bid will be excluded from technical and commercial evaluations and cannot be reopened.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Overview KPI Grid -->
+    <div class="row g-2 g-md-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="stat-card glass-card h-100 p-3">
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Total Quoted Bid</span>
+                <div class="fs-5 fs-sm-4 fs-md-3 fw-bold text-success text-break">${{ bid.total_bid_amount|floatformat:2 }}</div>
+                <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Commercial envelope</small>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card glass-card h-100 p-3">
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Current Version</span>
+                <div class="fs-5 fs-sm-4 fs-md-3 fw-bold text-primary">V{{ bid.version }}</div>
+                <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">
+                    {% if versions.count > 1 %}
+                        {{ versions.count }} archived
+                    {% else %}
+                        Original submission
+                    {% endif %}
+                </small>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card glass-card h-100 p-3">
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Submission Time</span>
+                <div class="fs-6 fs-md-5 fw-bold text-dark text-break">
+                    {% if bid.submitted_at %}
+                        {{ bid.submitted_at|date:"M d, H:i" }}
+                    {% else %}
+                        <span class="text-warning">In Draft</span>
+                    {% endif %}
+                </div>
+                <small class="text-muted d-none d-sm-block" style="font-size: 0.72rem;">Server audit logged</small>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="stat-card glass-card h-100 p-3">
+                <span class="text-muted small fw-semibold text-uppercase d-block mb-1" style="font-size: 0.7rem;">Event Deadline</span>
+                <div class="fs-6 fs-md-5 fw-bold text-danger text-break">{{ event.bid_end_date|date:"M d, H:i" }}</div>
+                <small class="{% if is_event_open %}text-success fw-semibold{% else %}text-muted{% endif %} d-block" style="font-size: 0.72rem;">
+                    {% if is_event_open %}&bull; Open{% else %}&bull; Closed{% endif %}
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 g-md-4 mb-4">
+        <!-- Technical Response -->
+        <div class="col-lg-6">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom border-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fa-solid fa-microchip text-info me-2"></i> Technical Response Envelope
+                    </h6>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    <div class="mb-4">
+                        <label class="text-muted small fw-semibold text-uppercase">Proposal Summary</label>
+                        <div class="p-3 bg-light rounded border text-dark mt-1 text-break">
+                            {{ bid.proposal_summary|linebreaksbr|default:"No executive summary provided." }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-muted small fw-semibold text-uppercase">Detailed Technical Proposal</label>
+                        <div class="p-3 bg-light rounded border text-dark mt-1 text-break" style="max-height: 250px; overflow-y: auto;">
+                            {{ bid.technical_proposal|linebreaksbr|default:"No technical proposal text provided." }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Commercial Response & Line Items -->
+        <div class="col-lg-6">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom border-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fa-solid fa-calculator text-success me-2"></i> Commercial Response Envelope
+                    </h6>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    {% if bid.commercial_proposal %}
+                    <div class="mb-3">
+                        <label class="text-muted small fw-semibold text-uppercase">Commercial Terms</label>
+                        <div class="p-3 bg-light rounded border text-dark small text-break">
+                            {{ bid.commercial_proposal|linebreaksbr }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <label class="text-muted small fw-semibold text-uppercase mb-2">Itemized BOQ Line Items</label>
+                    <div class="table-responsive" style="-webkit-overflow-scrolling: touch;">
+                        <table class="table table-sm table-bordered align-middle mb-0" style="min-width: 360px;">
+                            <thead class="table-light small text-uppercase text-secondary">
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end text-nowrap">Unit Price</th>
+                                    <th class="text-end text-nowrap">Total Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for line in bid.lines.all %}
+                                <tr>
+                                    <td class="fw-semibold text-dark text-break">{{ line.item_description }}</td>
+                                    <td class="text-end font-monospace text-nowrap">{{ line.quantity }}</td>
+                                    <td class="text-end font-monospace text-nowrap">${{ line.quoted_unit_price|floatformat:2 }}</td>
+                                    <td class="text-end font-monospace fw-bold text-success text-nowrap">${{ line.quoted_total_price|floatformat:2 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-3">No line items recorded.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="3" class="text-end fw-bold">Grand Total:</th>
+                                    <th class="text-end font-monospace fs-6 text-success fw-bold text-nowrap">${{ bid.total_bid_amount|floatformat:2 }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Attachments & Version History -->
+    <div class="row g-3 g-md-4">
+        <!-- Supporting Attachments -->
+        <div class="col-lg-5">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom border-light py-3">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fa-solid fa-paperclip text-warning me-2"></i> Bid Attachments
+                    </h6>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    {% if bid.attachments.all %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for att in bid.attachments.all %}
+                        <div class="p-2 px-3 bg-light rounded border d-flex flex-wrap justify-content-between align-items-center gap-2">
+                            <div class="text-truncate" style="max-width: 100%;">
+                                <i class="fa-regular fa-file-pdf text-danger me-2"></i>
+                                <span class="fw-semibold text-dark small text-truncate">{{ att.title }}</span>
+                                <span class="badge bg-secondary ms-1 d-inline-block" style="font-size: 0.65rem;">{{ att.get_document_type_display }}</span>
+                            </div>
+                            <a href="{% url 'vendor_document_download' doc_type='bid' doc_id=att.id %}" class="btn btn-sm btn-link text-decoration-none p-0">
+                                <i class="fa-solid fa-download me-1"></i> Download
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small">
+                        <i class="fa-regular fa-folder text-muted fs-3 mb-2"></i>
+                        <p class="mb-0">No attachments uploaded for this bid.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 8: Bid Version History (Immutable Snapshots) -->
+        <div class="col-lg-7">
+            <div class="card glass-card border-0 shadow-sm h-100">
+                <div class="card-header bg-white border-bottom border-light py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <h6 class="mb-0 fw-bold text-dark">
+                        <i class="fa-solid fa-code-branch text-primary me-2"></i> Bid Version History (Immutable Snapshots)
+                    </h6>
+                    <span class="badge bg-secondary rounded-pill">Section 8 Compliant</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if versions %}
+                    <div class="table-responsive" style="-webkit-overflow-scrolling: touch;">
+                        <table class="table table-hover align-middle mb-0" style="min-width: 480px;">
+                            <thead class="table-light small text-uppercase text-secondary">
+                                <tr>
+                                    <th class="ps-3 ps-md-4">Version</th>
+                                    <th>Status</th>
+                                    <th class="text-nowrap">Total Quoted</th>
+                                    <th class="text-nowrap">Submission Time</th>
+                                    <th class="pe-3 pe-md-4">Amendment Justification</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in versions %}
+                                <tr>
+                                    <td class="ps-3 ps-md-4 fw-bold">
+                                        <span class="badge {% if v.version_number == bid.version %}bg-primary{% else %}bg-secondary{% endif %}">
+                                            V{{ v.version_number }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge {% if v.status == 'SUBMITTED' %}bg-success{% elif v.status == 'AMENDED' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %}">
+                                            {{ v.status }}
+                                        </span>
+                                    </td>
+                                    <td class="font-monospace fw-semibold text-dark text-nowrap">${{ v.total_bid_amount|floatformat:2 }}</td>
+                                    <td class="small text-muted text-nowrap">{{ v.submitted_at|date:"M d, Y H:i"|default:"N/A" }}</td>
+                                    <td class="small text-dark pe-3 pe-md-4 text-break">
+                                        {% if v.amendment_reason %}
+                                            {{ v.amendment_reason }}
+                                        {% else %}
+                                            <span class="text-muted fst-italic">Initial Submission</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted small">
+                        <p class="mb-0">No historical amendment versions exist for this bid.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if can_withdraw %}
+<!-- Modal: Confirm Bid Withdrawal -->
+<div class="modal fade" id="withdrawBidModal" tabindex="-1" aria-labelledby="withdrawBidModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form method="POST" action="{% url 'vendor_bid_withdraw' bid_id=bid.id %}">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title fw-bold" id="withdrawBidModalLabel">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>Withdraw Bid Proposal
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning small mb-3">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        <strong>Important:</strong> Withdrawing bid <code>{{ bid.bid_number }}</code> will preserve your current submission (Version {{ bid.version }}) in the audit records and set status to <strong>WITHDRAWN</strong>.
+                        Once withdrawn before event close, this bid will <strong>not be evaluated</strong>, and you cannot re-submit or amend it.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-uppercase text-secondary">
+                            Reason for Withdrawal <span class="text-danger">*</span>
+                        </label>
+                        <textarea name="withdrawal_reason" rows="3" class="form-control" placeholder="State your business reason for withdrawing this bid (e.g. production capacity constraints, raw material price volatility, specification mismatch)..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger btn-sm rounded-pill px-4 fw-semibold">
+                        <i class="fa-solid fa-ban me-1"></i> Confirm Bid Withdrawal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock vendor_content %}

@@ -1,0 +1,233 @@
+{% extends base_layout|default:'layouts/approver_base.html' %}
+
+{% block title %}{% if active_tab == 'history' %}My Approvals History{% else %}Pending Approvals{% endif %} — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+    <div>
+        <h2 class="fw-bold text-dark mb-1">
+            {% if active_tab == 'history' %}
+                <i class="fa-solid fa-timeline text-success me-2"></i>My Approvals History
+            {% else %}
+                <i class="fa-solid fa-inbox text-warning me-2"></i>Pending Approvals Queue
+            {% endif %}
+        </h2>
+        <p class="text-muted mb-0">
+            {% if active_tab == 'history' %}
+                Audit record of evaluated, approved, and rejected departmental requisitions.
+            {% else %}
+                Track and process requisitions requiring your authorization review.
+            {% endif %}
+        </p>
+    </div>
+
+    <!-- Navigation Pills for Tabs -->
+    <div class="nav nav-pills bg-white p-1 rounded-pill shadow-sm border">
+        <a href="/approvals/inbox/" class="nav-link rounded-pill px-4 fw-semibold {% if active_tab != 'history' %}active bg-primary text-white{% else %}text-secondary{% endif %}">
+            <i class="fa-solid fa-square-check me-1"></i> Pending ({{ pending_prs.count }})
+        </a>
+        <a href="/approvals/inbox/?tab=history" class="nav-link rounded-pill px-4 fw-semibold {% if active_tab == 'history' %}active bg-primary text-white{% else %}text-secondary{% endif %}">
+            <i class="fa-solid fa-history me-1"></i> Evaluated History
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small mb-4" role="alert">
+            <i class="fa-solid {% if message.tags == 'error' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i> {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if active_tab != 'history' and has_budget_overrun %}
+<div class="alert alert-danger border border-danger shadow-sm rounded-4 mb-4 p-3 d-flex align-items-center gap-3">
+    <div class="bg-danger text-white rounded-circle d-flex align-items-center justify-content-center p-2 fs-4 flex-shrink-0" style="width: 44px; height: 44px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <div class="flex-grow-1">
+        <h6 class="fw-bold text-danger mb-0">Budget Alert: Over-Budget Requisitions In Pending Queue</h6>
+        <p class="mb-0 text-muted small">One or more requisitions in your approval queue exceed their cost center budget allocation and require budget exception review.</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Search & Filter Bar -->
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="" class="row g-2 align-items-center">
+            {% if active_tab == 'history' %}
+                <input type="hidden" name="tab" value="history">
+            {% endif %}
+            <div class="col-md-6 col-lg-7">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="fa-solid fa-search"></i></span>
+                    <input type="text" name="q" class="form-control border-start-0 ps-0" placeholder="Search by PR #, title, requester email..." value="{{ search_q|default:'' }}">
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <select name="status" class="form-select text-secondary fw-medium" onchange="this.form.submit()">
+                    <option value="">All Statuses</option>
+                    <option value="SUBMITTED" {% if status_filter == 'SUBMITTED' %}selected{% endif %}>Submitted</option>
+                    <option value="MANAGER_REVIEW" {% if status_filter == 'MANAGER_REVIEW' %}selected{% endif %}>Manager Review</option>
+                    <option value="BUDGET_REVIEW" {% if status_filter == 'BUDGET_REVIEW' %}selected{% endif %}>Budget Review</option>
+                    <option value="APPROVED" {% if status_filter == 'APPROVED' %}selected{% endif %}>Approved</option>
+                    <option value="REJECTED" {% if status_filter == 'REJECTED' %}selected{% endif %}>Rejected</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary w-100 rounded-3"><i class="fa-solid fa-filter me-1"></i> Filter</button>
+                {% if search_q or status_filter %}
+                    <a href="{% if active_tab == 'history' %}?tab=history{% else %}/approvals/inbox/{% endif %}" class="btn btn-outline-secondary rounded-3" title="Clear Filters"><i class="fa-solid fa-xmark"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-0">
+        {% if active_tab == 'history' %}
+            {% if history_prs %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-secondary fw-bold">
+                            <th class="ps-4 py-3">Reference & Title</th>
+                            <th class="py-3">Requester</th>
+                            <th class="py-3 text-end">Amount</th>
+                            <th class="py-3 text-center">Final Decision</th>
+                            <th class="py-3 text-center">Processed Date</th>
+                            <th class="pe-4 py-3 text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pr in history_prs %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark"><a href="{% url 'requisition_detail' pr.pk %}" class="text-decoration-none text-navy">{{ pr.title }}</a></div>
+                                <div class="text-muted small"><code>{{ pr.pr_number }}</code> &bull; {{ pr.department.name }}</div>
+                            </td>
+                            <td><span class="small text-dark fw-semibold">{{ pr.requester.email }}</span></td>
+                            <td class="text-end fw-bold text-navy">${{ pr.total_amount|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if pr.status == 'APPROVED' or pr.status == 'SOURCING' or pr.status == 'PO_ISSUED' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-3 py-1">
+                                        <i class="fa-solid fa-check me-1"></i> Approved
+                                    </span>
+                                {% elif pr.status == 'REJECTED' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-3 py-1">
+                                        <i class="fa-solid fa-xmark me-1"></i> Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary rounded-pill px-3 py-1">{{ pr.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center text-muted small">{{ pr.updated_at|date:"M d, Y" }}</td>
+                            <td class="pe-4 text-end">
+                                <a href="{% url 'requisition_detail' pr.pk %}" class="btn btn-sm btn-light rounded-pill px-3 text-secondary border">
+                                    <i class="fa-solid fa-eye me-1"></i> View Audit Detail
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                    <i class="fa-solid fa-folder-open text-muted fs-1"></i>
+                </div>
+                <h5 class="text-muted fw-bold">No evaluation history found</h5>
+                <p class="text-secondary mb-0">No approved or rejected requisitions recorded yet.</p>
+            </div>
+            {% endif %}
+
+        {% else %}
+            {% if pending_prs %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr class="small text-uppercase text-secondary fw-bold">
+                            <th class="ps-4 py-3">Reference & Title</th>
+                            <th class="py-3">Requester</th>
+                            <th class="py-3 text-end">Amount</th>
+                            <th class="py-3 text-center">Current Status</th>
+                            <th class="py-3 text-center">Pending Role</th>
+                            <th class="pe-4 py-3 text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pr in pending_prs %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="fw-bold text-dark"><a href="{% url 'requisition_detail' pr.pk %}" class="text-decoration-none text-navy">{{ pr.title }}</a></div>
+                                <div class="text-muted small">
+                                    <code>{{ pr.pr_number }}</code> &bull; Submitted {{ pr.created_at|date:"M d, Y" }}
+                                    {% if pr.attachments.all %}
+                                        <div class="mt-1 d-flex flex-wrap gap-1">
+                                            {% for att in pr.attachments.all %}
+                                                <a href="{% url 'requisition_attachment_download' pr.pk att.pk %}?action=download" 
+                                                   class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill text-decoration-none py-1 px-2" 
+                                                   title="Download {{ att.title }} ({{ att.file_size_display }})">
+                                                    <i class="fa-solid fa-paperclip me-1"></i>{{ att.title|truncatechars:18 }}
+                                                </a>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td><span class="small text-dark fw-semibold">{{ pr.requester.email }}</span></td>
+                            <td class="text-end fw-bold text-navy">
+                                ${{ pr.total_amount|floatformat:2 }}
+                                {% if pr.status == 'BUDGET_REVIEW' %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill px-2 py-0 small d-block mt-1" style="font-size: 0.68rem;">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i>Over Budget
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if pr.status == 'BUDGET_REVIEW' %}
+                                <span class="badge bg-danger text-white rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Budget Review
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-clock me-1"></i> {{ pr.get_status_display }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if pr.status == 'MANAGER_REVIEW' %}
+                                    <span class="text-muted small"><i class="fa-solid fa-user-tie me-1"></i> Department Approver</span>
+                                {% elif pr.status == 'BUDGET_REVIEW' %}
+                                    <span class="text-danger small fw-semibold"><i class="fa-solid fa-calculator me-1"></i> Finance / Budget Exception</span>
+                                {% else %}
+                                    <span class="text-muted small"><i class="fa-solid fa-user-tie me-1"></i> Routing...</span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <a href="{% url 'requisition_detail' pr.pk %}" class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm">
+                                    <i class="fa-solid fa-eye me-1"></i> View Details
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
+                    <i class="fa-solid fa-check-double text-success fs-1"></i>
+                </div>
+                <h5 class="text-muted fw-bold">All caught up!</h5>
+                <p class="text-secondary mb-0">You don't have any requests pending approval.</p>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

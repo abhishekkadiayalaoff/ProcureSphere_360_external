@@ -1,0 +1,30 @@
+<div class="modal-header">
+    <h5 class="modal-title"><i class="fa-solid fa-gavel text-warning me-2"></i>New RFQ / RFP event</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<form method="post" action="{% url 'sourcing_event_create_htmx' %}"
+      hx-post="{% url 'sourcing_event_create_htmx' %}"
+      hx-target="#modal-content-body" hx-swap="innerHTML">
+    {% csrf_token %}
+    <div class="modal-body small">
+        {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+        <div class="row g-2">
+            <div class="col-12"><label class="form-label fw-semibold" for="{{ form.title.id_for_label }}">Title *</label>{{ form.title }}{% if form.title.errors %}<div class="text-danger">{{ form.title.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.event_type.id_for_label }}">Type *</label>{{ form.event_type }}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.requisition.id_for_label }}">Requisition</label>{{ form.requisition }}{% if form.requisition.errors %}<div class="text-danger">{{ form.requisition.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.bid_start_date.id_for_label }}">Bid start *</label>{{ form.bid_start_date }}{% if form.bid_start_date.errors %}<div class="text-danger">{{ form.bid_start_date.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.bid_end_date.id_for_label }}">Bid deadline *</label>{{ form.bid_end_date }}{% if form.bid_end_date.errors %}<div class="text-danger">{{ form.bid_end_date.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.technical_weight.id_for_label }}">Technical weight % *</label>{{ form.technical_weight }}{% if form.technical_weight.errors %}<div class="text-danger">{{ form.technical_weight.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.commercial_weight.id_for_label }}">Commercial weight % *</label>{{ form.commercial_weight }}{% if form.commercial_weight.errors %}<div class="text-danger">{{ form.commercial_weight.errors }}</div>{% endif %}</div>
+            <div class="col-12"><label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">Scope / requirements *</label>{{ form.description }}{% if form.description.errors %}<div class="text-danger">{{ form.description.errors }}</div>{% endif %}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.technical_requirements.id_for_label }}">Technical requirements</label>{{ form.technical_requirements }}</div>
+            <div class="col-md-6"><label class="form-label fw-semibold" for="{{ form.commercial_requirements.id_for_label }}">Commercial requirements</label>{{ form.commercial_requirements }}</div>
+            <div class="col-12"><label class="form-label fw-semibold" for="{{ form.required_documents.id_for_label }}">Required supporting documents</label>{{ form.required_documents }}</div>
+        </div>
+        <p class="text-muted mt-2 mb-0">Weights must total 100. Persists via <code>create_sourcing_event_service()</code> as DRAFT.</p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-warning text-dark fw-bold">Create DRAFT event</button>
+    </div>
+</form>

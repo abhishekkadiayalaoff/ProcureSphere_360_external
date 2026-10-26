@@ -17,9 +17,9 @@
                     <p class="text-white-50 mb-0">Source-to-Pay Workflow, Multi-Level Approvals, Stage-Gated Sourcing, and 3-Way Invoice Match Engine.</p>
                 </div>
                 <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                    <button class="btn btn-cyan btn-lg rounded-pill fw-bold px-4 me-2 shadow-sm" hx-get="/api/v1/requisitions/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container">
+                    <a href="/requisitions/create/" class="btn btn-cyan btn-lg rounded-pill fw-bold px-4 me-2 shadow-sm">
                         <i class="fa-solid fa-plus me-1"></i> New Requisition
-                    </button>
+                    </a>
                     <a href="/api/docs/" class="btn btn-outline-light btn-lg rounded-pill px-4">
                         <i class="fa-solid fa-book-open me-1"></i> API Docs
                     </a>
@@ -32,67 +32,75 @@
 <!-- 4 Key Executive KPI Stat Cards -->
 <div class="row g-4 mb-4">
     <div class="col-xl-3 col-md-6">
-        <div class="stat-card hover-elevate shadow-sm h-100">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="icon-avatar icon-avatar-primary">
-                    <i class="fa-solid fa-file-invoice-dollar"></i>
+        <a href="/requisitions/" class="text-decoration-none">
+            <div class="stat-card hover-elevate shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-avatar icon-avatar-primary">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <span class="badge badge-status badge-status-pending">
+                        <i class="fa-solid fa-clock me-1"></i> {{ metrics.pending_pr_count }} Pending
+                    </span>
                 </div>
-                <span class="badge badge-status badge-status-pending">
-                    <i class="fa-solid fa-clock me-1"></i> {{ metrics.pending_pr_count }} Pending
-                </span>
+                <div class="metric-label">Purchase Requisitions</div>
+                <div class="metric-value my-1">{{ metrics.total_pr_count }}</div>
+                <div class="text-muted small"><i class="fa-solid fa-layer-group text-primary me-1"></i> Multi-level Policy Scoped</div>
             </div>
-            <div class="metric-label">Purchase Requisitions</div>
-            <div class="metric-value my-1">{{ metrics.total_pr_count }}</div>
-            <div class="text-muted small"><i class="fa-solid fa-layer-group text-primary me-1"></i> Multi-level Policy Scoped</div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6">
-        <div class="stat-card hover-elevate shadow-sm h-100">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="icon-avatar icon-avatar-success">
-                    <i class="fa-solid fa-building-circle-check"></i>
+        <a href="/vendors/" class="text-decoration-none">
+            <div class="stat-card hover-elevate shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-avatar icon-avatar-success">
+                        <i class="fa-solid fa-building-circle-check"></i>
+                    </div>
+                    <span class="badge badge-status badge-status-active">
+                        <i class="fa-solid fa-check me-1"></i> {{ metrics.active_vendors }} Active
+                    </span>
                 </div>
-                <span class="badge badge-status badge-status-active">
-                    <i class="fa-solid fa-check me-1"></i> {{ metrics.active_vendors }} Active
-                </span>
+                <div class="metric-label">Vendor Master & KYC</div>
+                <div class="metric-value my-1">{{ metrics.total_vendors }}</div>
+                <div class="text-muted small"><i class="fa-solid fa-user-shield text-success me-1"></i> {{ metrics.kyc_review_vendors }} Under KYC Review</div>
             </div>
-            <div class="metric-label">Vendor Master & KYC</div>
-            <div class="metric-value my-1">{{ metrics.total_vendors }}</div>
-            <div class="text-muted small"><i class="fa-solid fa-user-shield text-success me-1"></i> {{ metrics.kyc_review_vendors }} Under KYC Review</div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6">
-        <div class="stat-card hover-elevate shadow-sm h-100">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="icon-avatar icon-avatar-warning">
-                    <i class="fa-solid fa-gavel"></i>
+        <a href="/sourcing-events/" class="text-decoration-none">
+            <div class="stat-card hover-elevate shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-avatar icon-avatar-warning">
+                        <i class="fa-solid fa-gavel"></i>
+                    </div>
+                    <span class="badge badge-status badge-status-pending">
+                        <i class="fa-solid fa-lock me-1"></i> Sealed Stage
+                    </span>
                 </div>
-                <span class="badge badge-status badge-status-pending">
-                    <i class="fa-solid fa-lock me-1"></i> Sealed Stage
-                </span>
+                <div class="metric-label">Sourcing & Sealed Bids</div>
+                <div class="metric-value my-1">{{ metrics.open_sourcing_events }}</div>
+                <div class="text-muted small"><i class="fa-solid fa-handshake-simple text-warning me-1"></i> RFQ / RFP Stage-gated</div>
             </div>
-            <div class="metric-label">Sourcing & Sealed Bids</div>
-            <div class="metric-value my-1">{{ metrics.open_sourcing_events }}</div>
-            <div class="text-muted small"><i class="fa-solid fa-handshake-simple text-warning me-1"></i> RFQ / RFP Stage-gated</div>
-        </div>
+        </a>
     </div>
 
     <div class="col-xl-3 col-md-6">
-        <div class="stat-card hover-elevate shadow-sm h-100">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="icon-avatar icon-avatar-danger">
-                    <i class="fa-solid fa-receipt"></i>
+        <a href="/invoices/" class="text-decoration-none">
+            <div class="stat-card hover-elevate shadow-sm h-100">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="icon-avatar icon-avatar-danger">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <span class="badge badge-status badge-status-suspended">
+                        <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ metrics.pending_exceptions }} Exceptions
+                    </span>
                 </div>
-                <span class="badge badge-status badge-status-suspended">
-                    <i class="fa-solid fa-triangle-exclamation me-1"></i> {{ metrics.pending_exceptions }} Exceptions
-                </span>
+                <div class="metric-label">Invoices & 3-Way Match</div>
+                <div class="metric-value my-1">{{ metrics.total_invoices }}</div>
+                <div class="text-muted small"><i class="fa-solid fa-scale-balanced text-danger me-1"></i> Price/Qty Tolerance Engine</div>
             </div>
-            <div class="metric-label">Invoices & 3-Way Match</div>
-            <div class="metric-value my-1">{{ metrics.total_invoices }}</div>
-            <div class="text-muted small"><i class="fa-solid fa-scale-balanced text-danger me-1"></i> Price/Qty Tolerance Engine</div>
-        </div>
+        </a>
     </div>
 </div>
 
@@ -154,7 +162,7 @@
             <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-cubes text-cyan me-2"></i> ERP Business Module Workflows</h5>
             <div class="row g-3">
                 <div class="col-lg-3 col-md-6">
-                    <a href="/api/v1/requisitions/" class="card text-decoration-none h-100 hover-elevate border">
+                    <a href="/requisitions/" class="card text-decoration-none h-100 hover-elevate border">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="fa-solid fa-file-signature text-primary fs-4 me-2"></i>
@@ -165,7 +173,7 @@
                     </a>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <a href="/api/v1/vendors/" class="card text-decoration-none h-100 hover-elevate border">
+                    <a href="/vendors/" class="card text-decoration-none h-100 hover-elevate border">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="fa-solid fa-handshake text-success fs-4 me-2"></i>
@@ -176,7 +184,7 @@
                     </a>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <a href="/api/v1/invoices/" class="card text-decoration-none h-100 hover-elevate border">
+                    <a href="/invoices/" class="card text-decoration-none h-100 hover-elevate border">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="fa-solid fa-scale-balanced text-danger fs-4 me-2"></i>
@@ -187,7 +195,7 @@
                     </a>
                 </div>
                 <div class="col-lg-3 col-md-6">
-                    <a href="/api/v1/contracts/" class="card text-decoration-none h-100 hover-elevate border">
+                    <a href="/contracts/" class="card text-decoration-none h-100 hover-elevate border">
                         <div class="card-body">
                             <div class="d-flex align-items-center mb-2">
                                 <i class="fa-solid fa-file-contract text-info fs-4 me-2"></i>
@@ -201,6 +209,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Embedded Chart.js Script -->
 <script>

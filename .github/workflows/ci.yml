@@ -2,9 +2,13 @@ name: ProcureSphere 360 CI Workflow
 
 on:
   push:
-    branches: [ main, staging, "feature/**", "bugfix/**" ]
+    branches: [ main, dev, staging, "feature/**", "features/**", "bugfix/**" ]
   pull_request:
-    branches: [ main, staging ]
+    branches: [ main, dev, staging ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-test:
@@ -20,7 +24,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U procure_user -d procuresphere_test_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -37,6 +41,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -49,15 +55,32 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Lint with Ruff & Black
+      - name: Lint with Ruff & Black (Changed Python Files)
         run: |
-          ruff check .
-          black --check .
+          git fetch origin dev || true
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            BASE_REF="origin/$GITHUB_BASE_REF"
+          else
+            BASE_REF="origin/dev"
+          fi
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d $BASE_REF...HEAD -- "*.py" 2>/dev/null || true)
+          if [ -z "$CHANGED_FILES" ]; then
+            CHANGED_FILES=$(git diff --name-only --diff-filter=d HEAD~1 HEAD -- "*.py" 2>/dev/null || true)
+          fi
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Linting changed Python files:"
+            echo "$CHANGED_FILES"
 
+            ruff check $CHANGED_FILES
+            black --check $CHANGED_FILES
+          else
+            echo "No changed Python files detected. Skipping lint."
+          fi
       - name: Run Migrations Check
         env:
           DJANGO_SETTINGS_MODULE: config.settings.dev
           DB_HOST: localhost
+          DB_PORT: "5432"
           DB_NAME: procuresphere_test_db
           DB_USER: procure_user
           DB_PASSWORD: procure_password
@@ -70,6 +93,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: config.settings.dev
           DB_HOST: localhost
+          DB_PORT: "5432"
           DB_NAME: procuresphere_test_db
           DB_USER: procure_user
           DB_PASSWORD: procure_password

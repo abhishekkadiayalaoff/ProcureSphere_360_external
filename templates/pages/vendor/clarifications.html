@@ -1,0 +1,154 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Clarifications & Inquiries{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Clarifications</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Sourcing Clarifications & Inquiries</h3>
+            <p class="text-muted mb-0 small">
+                Submit formal technical and commercial inquiries regarding active sourcing events and view procurement responses.
+            </p>
+        </div>
+        <div>
+            <button class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#newClarificationModal">
+                <i class="fa-solid fa-plus me-1"></i> Submit Clarification Question
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <ul class="nav nav-pills gap-2">
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'questions' %}active{% else %}text-secondary{% endif %}" href="?tab=questions">
+                        All Questions <span class="badge bg-secondary bg-opacity-25 text-dark ms-1">{{ tab_counts.all }}</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'responses' %}active{% else %}text-secondary{% endif %}" href="?tab=responses">
+                        Answered Inquiries <span class="badge bg-success bg-opacity-25 text-success ms-1">{{ tab_counts.answered }}</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Clarifications Table / Cards -->
+    <div class="card glass-card border-0 shadow-sm">
+        <div class="card-body p-0">
+            {% if clarifications %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4" style="width: 20%;">Event Ref</th>
+                            <th style="width: 40%;">Inquiry / Question</th>
+                            <th style="width: 15%;">Submitted</th>
+                            <th style="width: 15%;">Status</th>
+                            <th class="text-end pe-4" style="width: 10%;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in clarifications %}
+                        <tr>
+                            <td class="ps-4">
+                                <a href="{% url 'vendor_sourcing_detail' event_id=c.event.id %}" class="fw-bold font-monospace text-primary text-decoration-none">
+                                    {{ c.event.event_number }}
+                                </a>
+                                <div class="small text-muted text-truncate" style="max-width: 180px;">{{ c.event.title }}</div>
+                            </td>
+                            <td>
+                                <div class="fw-semibold text-dark">{{ c.question }}</div>
+                                {% if c.answer %}
+                                <div class="p-2 bg-success bg-opacity-10 border border-success border-opacity-25 rounded mt-2 text-dark small">
+                                    <strong class="text-success"><i class="fa-solid fa-reply me-1"></i>Response:</strong> {{ c.answer }}
+                                    <div class="text-muted mt-1" style="font-size: 0.65rem;">
+                                        Answered by Procurement &bull; {{ c.answered_at|date:"M d, Y H:i" }}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="text-muted small mt-1 fst-italic">
+                                    <i class="fa-solid fa-hourglass-start me-1"></i> Awaiting procurement committee response
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ c.created_at|date:"M d, Y H:i" }}</td>
+                            <td>
+                                <span class="badge {% if c.status == 'ANSWERED' %}bg-success{% else %}bg-warning text-dark{% endif %} rounded-pill">
+                                    {{ c.get_status_display }}
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'vendor_sourcing_detail' event_id=c.event.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                    View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fa-regular fa-circle-question text-muted fs-1 mb-2"></i>
+                <p class="text-muted mb-0">No clarifications recorded for your account.</p>
+                <small class="text-secondary">Have an inquiry regarding specifications or deadlines? Submit a question below.</small>
+                <div class="mt-3">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#newClarificationModal">
+                        Submit First Clarification
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal: New Clarification Question -->
+<div class="modal fade" id="newClarificationModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content glass-card">
+            <form method="POST" action="{% url 'vendor_clarifications' %}">
+                {% csrf_token %}
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold text-dark">Submit Clarification Question</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="fa-solid fa-info-circle me-1"></i> You may only submit inquiries for events where your company holds an active invitation.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Target Sourcing Event <span class="text-danger">*</span></label>
+                        <select name="event_id" class="form-select form-select-sm" required>
+                            <option value="">Select an invited sourcing event...</option>
+                            {% for ev in eligible_events %}
+                            <option value="{{ ev.id }}">{{ ev.event_number }} — {{ ev.title|truncatechars:40 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Question / Inquiry Specification <span class="text-danger">*</span></label>
+                        <textarea name="question" rows="4" class="form-control" placeholder="Specify technical, commercial, or logistics inquiry clearly..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm">Submit Question</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock vendor_content %}

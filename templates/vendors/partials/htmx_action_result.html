@@ -1,0 +1,14 @@
+{% if success %}
+<div class="alert alert-success small" role="alert">
+    <i class="fa-solid fa-circle-check me-1"></i>
+    {% if record %}Risk assessment recorded ({{ record.get_risk_level_display }}) for <a href="{% url 'vendor_detail' vendor.id %}" class="alert-link">{{ vendor.legal_name }}</a>.
+    {% elif detail %}{{ detail }} <a href="{% url 'vendor_detail' vendor.id %}" class="alert-link">{{ vendor.legal_name }}</a> is now {{ vendor.get_status_display }}.
+    {% else %}Saved.{% endif %}
+    <div class="text-muted mt-1">The qualification queue refreshes automatically (event <code>vendor-updated</code>).</div>
+</div>
+{% else %}
+<div class="alert alert-danger small" role="alert">
+    <i class="fa-solid fa-circle-xmark me-1"></i>
+    {% for e in errors %}{{ e }}{% if not forloop.last %}<br>{% endif %}{% empty %}Action failed.{% endfor %}
+</div>
+{% endif %}

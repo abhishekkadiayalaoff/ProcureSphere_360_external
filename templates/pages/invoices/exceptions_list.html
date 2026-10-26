@@ -1,0 +1,52 @@
+{% extends 'layouts/finance_base.html' %}
+
+{% block title %}Match Exceptions — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i> Match Exceptions</h2>
+            <p class="text-muted mb-0">Review and resolve invoices that failed the 3-Way Match tolerance check.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <table class="table table-hover table-striped align-middle mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th scope="col" class="ps-4">Exception Type</th>
+                    <th scope="col">Invoice Ref</th>
+                    <th scope="col">Variance Amount</th>
+                    <th scope="col">Date Flagged</th>
+                    <th scope="col" class="pe-4 text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exception in exceptions %}
+                <tr>
+                    <td class="ps-4">
+                        <span class="badge bg-warning text-dark">{{ exception.get_exception_type_display }}</span>
+                    </td>
+                    <td class="fw-bold">{{ exception.invoice.invoice_number }}</td>
+                    <td class="text-danger fw-bold">+${{ exception.variance_amount|floatformat:2 }}</td>
+                    <td class="text-muted">{{ exception.created_at|date:"M d, Y" }}</td>
+                    <td class="pe-4 text-end">
+                        <a href="{% url 'exception_detail' exception.id %}" class="btn btn-sm btn-primary rounded-pill px-3">Review</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-5 text-muted">
+                        <h5>No Open Exceptions</h5>
+                        <p class="mb-0">All invoices are matching within tolerance.</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

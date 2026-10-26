@@ -1,0 +1,25 @@
+{% for c in clarifications %}
+    <div class="border rounded p-3 mb-2 small">
+        <div class="d-flex justify-content-between flex-wrap gap-2">
+            <div><span class="fw-semibold">{{ c.vendor.legal_name }}</span> <span class="text-muted">asked {{ c.created_at|date:"Y-m-d H:i" }}</span></div>
+            <span class="badge {% if c.status == 'ANSWERED' %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ c.get_status_display }}</span>
+        </div>
+        <div class="mt-1">{{ c.question|linebreaksbr }}</div>
+        {% if c.answer %}
+            <div class="mt-2 ps-2 border-start border-3 border-success"><span class="text-muted">Answer by {{ c.answered_by.email|default:"—" }} on {{ c.answered_at|date:"Y-m-d H:i" }}:</span><br>{{ c.answer|linebreaksbr }}</div>
+        {% elif caps.can_manage and event.status != 'AWARDED' and event.status != 'CANCELLED' %}
+            <form method="post" action="{% url 'sourcing_clarifications_htmx' event.id %}"
+                  hx-post="{% url 'sourcing_clarifications_htmx' event.id %}"
+                  hx-target="#sourcing-clarif-result" hx-swap="innerHTML" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="clarification_id" value="{{ c.id }}">
+                <label class="visually-hidden" for="hx-ans-{{ c.id }}">Answer</label>
+                <textarea id="hx-ans-{{ c.id }}" name="answer" rows="2" class="form-control form-control-sm mb-2" placeholder="Response to vendor" required></textarea>
+                <button class="btn btn-sm btn-primary">Send answer</button>
+            </form>
+        {% endif %}
+    </div>
+{% empty %}
+    <p class="small text-muted mb-0">No clarification questions received.</p>
+{% endfor %}
+<div id="sourcing-clarif-result" aria-live="polite"></div>

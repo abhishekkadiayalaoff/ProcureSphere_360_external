@@ -1,0 +1,7 @@
+{% if status == 'DRAFT' %}<span class="badge bg-secondary">{{ label }}</span>
+{% elif status == 'PUBLISHED' %}<span class="badge bg-info text-dark">{{ label }}</span>
+{% elif status == 'BID_WINDOW' %}<span class="badge bg-dark"><i class="fa-solid fa-lock me-1"></i>{{ label }}</span>
+{% elif status == 'TECHNICAL_REVIEW' or status == 'COMMERCIAL_REVIEW' %}<span class="badge bg-warning text-dark">{{ label }}</span>
+{% elif status == 'AWARD_APPROVAL' %}<span class="badge bg-primary">{{ label }}</span>
+{% elif status == 'AWARDED' %}<span class="badge bg-success">{{ label }}</span>
+{% else %}<span class="badge bg-light text-muted border">{{ label }}</span>{% endif %}

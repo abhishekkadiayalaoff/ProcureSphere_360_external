@@ -1,0 +1,76 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Contracts{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Contracts</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Contracts & Agreements</h3>
+            <p class="text-muted mb-0 small">Review awarded contracts, legal agreements, and upcoming renewals.</p>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="text-secondary small fw-semibold text-uppercase ps-4 py-3">Contract #</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Title</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Value</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Start Date</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">End Date</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contract in contracts %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark">{{ contract.contract_number }}</span>
+                                <div class="small text-muted">v{{ contract.version }}</div>
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-dark">{{ contract.title }}</span>
+                            </td>
+                            <td>
+                                <span class="fw-bold text-dark">${{ contract.contract_value }}</span>
+                            </td>
+                            <td class="text-muted small">{{ contract.start_date|date:"M d, Y" }}</td>
+                            <td class="text-muted small">{{ contract.end_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if contract.status == 'ACTIVE' %}
+                                    <span class="badge bg-success bg-opacity-25 text-success border border-success rounded-pill px-2 py-1">Active</span>
+                                {% elif contract.status == 'EXPIRED' or contract.status == 'TERMINATED' %}
+                                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger rounded-pill px-2 py-1">{{ contract.get_status_display }}</span>
+                                {% elif contract.status == 'RENEWAL_DUE' %}
+                                    <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-2 py-1">Renewal Due</span>
+                                {% else %}
+                                    <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary rounded-pill px-2 py-1">{{ contract.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-file-contract text-secondary opacity-25 mb-3" style="font-size: 3rem;"></i>
+                                <p class="mb-0">No contracts found for your company.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

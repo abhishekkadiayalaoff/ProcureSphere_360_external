@@ -1,0 +1,285 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Reports & History{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Reports & History</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Vendor Reports & Activity History</h3>
+            <p class="text-muted mb-0 small">
+                Complete, immutable audit trails of sourcing participation, submitted bids, purchase order fulfillment, and system actions.
+            </p>
+        </div>
+        <div>
+            <span class="badge bg-secondary bg-opacity-25 text-secondary px-3 py-2 rounded-pill font-monospace small">
+                <i class="fa-solid fa-lock me-1"></i> Data Scoped to {{ vendor.vendor_number }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-3">
+            <ul class="nav nav-pills gap-2 flex-wrap">
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'bids' %}active{% else %}text-secondary{% endif %}" href="?tab=bids">
+                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Bid Lifecycle History
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'participation' %}active{% else %}text-secondary{% endif %}" href="?tab=participation">
+                        <i class="fa-solid fa-gavel me-1"></i> Sourcing Participation
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'orders' %}active{% else %}text-secondary{% endif %}" href="?tab=orders">
+                        <i class="fa-solid fa-cart-shopping me-1"></i> Purchase Order History
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'performance' %}active{% else %}text-secondary{% endif %}" href="?tab=performance">
+                        <i class="fa-solid fa-chart-line me-1"></i> Performance Records
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link rounded-pill px-3 py-1 small fw-semibold {% if tab == 'activity' %}active{% else %}text-secondary{% endif %}" href="?tab=activity">
+                        <i class="fa-solid fa-clock-rotate-left me-1"></i> Audit Activity Log
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Content Sections based on Tab -->
+    {% if tab == 'bids' %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Bid Submission & Version History</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if bids_history %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Bid Ref</th>
+                            <th>Event Number</th>
+                            <th>Current Version</th>
+                            <th>Total Quoted</th>
+                            <th>Created At</th>
+                            <th>Submitted At</th>
+                            <th>Status</th>
+                            <th class="text-end pe-4">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for bid in bids_history %}
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-primary">{{ bid.bid_number }}</td>
+                            <td class="fw-semibold text-dark">{{ bid.event.event_number }}</td>
+                            <td><span class="badge bg-secondary rounded-pill">V{{ bid.version }} ({{ bid.versions.count }} snapshots)</span></td>
+                            <td class="fw-bold text-dark">${{ bid.total_bid_amount|floatformat:2 }}</td>
+                            <td class="small text-muted">{{ bid.created_at|date:"M d, Y" }}</td>
+                            <td class="small text-muted">{{ bid.submitted_at|date:"M d, Y H:i"|default:"Draft" }}</td>
+                            <td><span class="badge bg-info text-dark">{{ bid.status }}</span></td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'vendor_bid_detail' bid_id=bid.id %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fa-solid fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No bids recorded yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% elif tab == 'participation' %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Sourcing Events Participation History</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if sourcing_participation %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Event Number</th>
+                            <th>Event Title</th>
+                            <th>Type</th>
+                            <th>Invited On</th>
+                            <th>Bid Window End</th>
+                            <th>Event Status</th>
+                            <th class="text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in sourcing_participation %}
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-primary">{{ inv.event.event_number }}</td>
+                            <td class="fw-semibold text-dark">{{ inv.event.title }}</td>
+                            <td><span class="badge bg-dark">{{ inv.event.event_type }}</span></td>
+                            <td class="small text-muted">{{ inv.created_at|date:"M d, Y" }}</td>
+                            <td class="small text-muted">{{ inv.event.bid_end_date|date:"M d, Y H:i" }}</td>
+                            <td><span class="badge bg-secondary">{{ inv.event.status }}</span></td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'vendor_sourcing_detail' event_id=inv.event.id %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fa-solid fa-eye"></i> View Event
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No event invitations recorded yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% elif tab == 'orders' %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Purchase Order Fulfillment History</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if po_history %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">PO Number</th>
+                            <th>PO Date</th>
+                            <th>Total Value</th>
+                            <th>Status</th>
+                            <th>Acknowledged On</th>
+                            <th>Created On</th>
+                            <th class="text-end pe-4">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for po in po_history %}
+                        <tr>
+                            <td class="ps-4 font-monospace fw-bold text-primary">{{ po.po_number }}</td>
+                            <td class="small text-muted">{{ po.po_date|date:"M d, Y" }}</td>
+                            <td class="fw-bold text-dark">${{ po.total_amount|floatformat:2 }}</td>
+                            <td><span class="badge bg-primary">{{ po.status }}</span></td>
+                            <td class="small text-muted">{{ po.acknowledged_at|date:"M d, Y H:i"|default:"Pending" }}</td>
+                            <td class="small text-muted">{{ po.created_at|date:"M d, Y" }}</td>
+                            <td class="text-end pe-4">
+                                <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fa-solid fa-eye"></i> View PO
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No purchase orders on record.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% elif tab == 'performance' %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Supplier Scorecard Performance Archive</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if scorecards_history %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Period</th>
+                            <th>Overall Score</th>
+                            <th>Delivery</th>
+                            <th>Quality</th>
+                            <th>Price</th>
+                            <th>Compliance</th>
+                            <th class="pe-4">Evaluated Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for sc in scorecards_history %}
+                        <tr>
+                            <td class="ps-4 fw-bold font-monospace text-primary">{{ sc.evaluation_period }}</td>
+                            <td><span class="badge bg-success rounded-pill fw-bold">{{ sc.composite_score|floatformat:1 }}/100</span></td>
+                            <td>{{ sc.delivery_score|floatformat:1 }}%</td>
+                            <td>{{ sc.quality_score|floatformat:1 }}%</td>
+                            <td>{{ sc.price_score|floatformat:1 }}%</td>
+                            <td>{{ sc.compliance_score|floatformat:1 }}%</td>
+                            <td class="small text-muted pe-4">{{ sc.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No performance scorecards recorded yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% elif tab == 'activity' %}
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 pt-3 pb-0">
+            <h5 class="fw-bold text-dark mb-0">Immutable Audit Activity Logs</h5>
+        </div>
+        <div class="card-body p-0 pt-3">
+            {% if activity_history %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4">Timestamp</th>
+                            <th>Actor</th>
+                            <th>Action</th>
+                            <th>Target Entity</th>
+                            <th class="pe-4">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in activity_history %}
+                        <tr>
+                            <td class="ps-4 small text-muted font-monospace">{{ log.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td class="small fw-semibold text-dark">{{ log.actor.email|default:"System" }}</td>
+                            <td><span class="badge bg-secondary font-monospace">{{ log.action }}</span></td>
+                            <td class="small text-dark font-monospace">{{ log.target_model }} #{{ log.target_object_id|slice:":8" }}</td>
+                            <td class="small text-muted pe-4">
+                                {% if log.new_state %}
+                                    <span class="font-monospace" style="font-size: 0.75rem;">{{ log.new_state|truncatechars:60 }}</span>
+                                {% else %}
+                                    State transition
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No activity logs recorded.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

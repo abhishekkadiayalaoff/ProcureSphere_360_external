@@ -1,0 +1,86 @@
+{% extends 'layouts/finance_base.html' %}
+
+{% block title %}Resolve Match Exception — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="/invoices/exceptions/" class="text-decoration-none">Exceptions</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ exception.invoice.invoice_number }}</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold text-dark mb-1">Exception Review</h2>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <!-- Exception Details -->
+        <div class="card shadow-sm border-0 mb-4 border-top border-warning border-4">
+            <div class="card-header bg-white pt-4 pb-0 px-4 border-bottom-0">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-warning text-dark fs-6 rounded-pill px-3 py-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> {{ exception.get_exception_type_display }}</span>
+                    <span class="text-muted small">Flagged: {{ exception.created_at|date:"M d, Y H:i" }}</span>
+                </div>
+                <h4 class="fw-bold">{{ exception.invoice.invoice_number }}</h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-danger bg-danger bg-opacity-10 border-0 mb-4">
+                    <h6 class="fw-bold text-danger mb-1"><i class="fa-solid fa-circle-info me-2"></i> System Identified Variance:</h6>
+                    <p class="mb-0 ms-4">{{ exception.description }}</p>
+                    <div class="mt-3 ms-4">
+                        <span class="fs-5 fw-bold text-danger">Total Variance Impact: +${{ exception.variance_amount|floatformat:2 }}</span>
+                    </div>
+                </div>
+
+                <h5 class="fw-bold mb-3 border-bottom pb-2">Invoice Summary</h5>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-semibold small text-uppercase">Supplier</div>
+                    <div class="col-sm-8 fw-bold">{{ exception.invoice.vendor.legal_name }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-semibold small text-uppercase">Linked PO</div>
+                    <div class="col-sm-8"><a href="#" class="text-decoration-none fw-bold">{{ exception.invoice.po.po_number }}</a></div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted fw-semibold small text-uppercase">Invoice Total</div>
+                    <div class="col-sm-8 fw-bold text-navy">${{ exception.invoice.total_amount|floatformat:2 }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <!-- Resolution Action Card -->
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white pt-4 pb-3 px-4">
+                <h5 class="fw-bold mb-0">Finance Resolution</h5>
+            </div>
+            <div class="card-body p-4">
+                <p class="text-muted small mb-4">Review the variance and determine whether to override the exception and accept the invoice, or reject it back to the supplier.</p>
+                
+                <form action="{% url 'resolve_exception' exception.id %}" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Resolution Notes (Required)</label>
+                        <textarea class="form-control bg-light" name="resolution_notes" rows="4" placeholder="Enter justification for overriding this variance..." required></textarea>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" name="action" value="RESOLVE" class="btn btn-success fw-bold py-2">
+                            <i class="fa-solid fa-check me-2"></i> Override & Resolve
+                        </button>
+                        <button type="submit" name="action" value="REJECT" class="btn btn-outline-danger fw-bold py-2 mt-2">
+                            <i class="fa-solid fa-xmark me-2"></i> Reject Invoice
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

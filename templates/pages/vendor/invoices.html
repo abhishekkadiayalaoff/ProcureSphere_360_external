@@ -1,0 +1,82 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Invoices & Payments{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">Invoices</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">Invoices & Payments</h3>
+            <p class="text-muted mb-0 small">Track submitted invoices, match exceptions, and payment status.</p>
+        </div>
+        <div>
+            <a href="{% url 'vendor_purchase_orders_list' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm">
+                <i class="fa-solid fa-file-invoice-dollar me-2"></i> Submit Invoice
+            </a>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="text-secondary small fw-semibold text-uppercase ps-4 py-3">Invoice #</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Date</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Due Date</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Amount</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">PO Ref</th>
+                            <th class="text-secondary small fw-semibold text-uppercase py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in invoices %}
+                        <tr>
+                            <td class="ps-4">
+                                <span class="fw-bold text-dark">{{ invoice.invoice_number }}</span>
+                            </td>
+                            <td class="text-muted small">{{ invoice.invoice_date|date:"M d, Y" }}</td>
+                            <td class="text-muted small">{{ invoice.due_date|date:"M d, Y" }}</td>
+                            <td>
+                                <span class="fw-bold text-dark">${{ invoice.total_amount }}</span>
+                            </td>
+                            <td>
+                                <a href="/vendor/purchase-orders/{{ invoice.po.id }}/" class="text-decoration-none text-primary fw-semibold">{{ invoice.po.po_number }}</a>
+                            </td>
+                            <td>
+                                {% if invoice.status == 'PAID' %}
+                                    <span class="badge bg-success bg-opacity-25 text-success border border-success rounded-pill px-2 py-1">Paid</span>
+                                {% elif invoice.status == 'READY_FOR_PAYMENT' %}
+                                    <span class="badge bg-info bg-opacity-25 text-info border border-info rounded-pill px-2 py-1">Ready for Payment</span>
+                                {% elif invoice.status == 'EXCEPTION' %}
+                                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger rounded-pill px-2 py-1">Match Exception</span>
+                                {% elif invoice.status == 'REJECTED' %}
+                                    <span class="badge bg-dark bg-opacity-25 text-dark border border-dark rounded-pill px-2 py-1">Rejected</span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-25 text-dark border border-warning rounded-pill px-2 py-1">{{ invoice.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-file-invoice text-secondary opacity-25 mb-3" style="font-size: 3rem;"></i>
+                                <p class="mb-0">No invoices found for your company.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

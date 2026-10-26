@@ -1,42 +1,179 @@
-{% extends 'base.html' %}
+{% extends 'layouts/legal_base.html' %}
 
-{% block title %}Contracts — ProcureSphere 360{% endblock %}
+{% block title %}Contract Register — ProcureSphere 360 ERP{% endblock %}
 
 {% block content %}
+<!-- Header Banner -->
 <div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
-        <div>
-            <h2 class="fw-bold text-dark mb-1">Contracts</h2>
-            <p class="text-muted mb-0">Live backend data from Contract module.</p>
+    <div class="col-12">
+        <div class="glass-card-dark p-4 position-relative overflow-hidden">
+            <div class="row align-items-center">
+                <div class="col-lg-8">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-secondary text-white rounded-pill fw-bold px-3 py-1 me-2">LEGAL & CONTRACTS</span>
+                        <span class="text-white-50 small"><i class="fa-solid fa-scale-balanced me-1"></i> Governance & Master SLA Register</span>
+                    </div>
+                    <h1 class="fw-bold text-white mb-2 display-6">Contract Lifecycle Register</h1>
+                    <p class="text-white-50 mb-0">Central repository for supplier master agreements, version amendments, SLA milestone tracking, and legal compliance.</p>
+                </div>
+                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                    <a href="{% url 'contract_create' %}" class="btn btn-primary btn-lg rounded-pill fw-bold px-4 shadow-sm">
+                        <i class="fa-solid fa-plus me-1"></i> Draft New Contract
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm border-0">
-    <div class="card-body p-0">
-        <table class="table table-hover table-striped align-middle mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th scope="col" class="ps-4">ID / Ref</th>
-                    <th scope="col">Summary</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="pe-4 text-end">Actions</th>
+<!-- Metrics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card hover-elevate shadow-sm h-100 border-start border-primary border-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-muted small fw-semibold">TOTAL CONTRACTS</span>
+                <i class="fa-solid fa-file-contract text-primary fs-4"></i>
+            </div>
+            <div class="metric-value text-navy">{{ metrics.total_contracts }}</div>
+            <div class="text-muted small mt-1">All managed agreements</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card hover-elevate shadow-sm h-100 border-start border-success border-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-muted small fw-semibold">ACTIVE CONTRACTS</span>
+                <i class="fa-solid fa-circle-check text-success fs-4"></i>
+            </div>
+            <div class="metric-value text-success">{{ metrics.active_contracts }}</div>
+            <div class="text-muted small mt-1">Currently executing</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card hover-elevate shadow-sm h-100 border-start border-warning border-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-muted small fw-semibold">PENDING LEGAL REVIEW</span>
+                <i class="fa-solid fa-gavel text-warning fs-4"></i>
+            </div>
+            <div class="metric-value text-warning">{{ metrics.pending_legal_review }}</div>
+            <div class="text-muted small mt-1">Awaiting legal clearance</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card hover-elevate shadow-sm h-100 border-start border-danger border-4">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="text-muted small fw-semibold">EXPIRING (<30 DAYS)</span>
+                <i class="fa-solid fa-triangle-exclamation text-danger fs-4"></i>
+            </div>
+            <div class="metric-value text-danger">{{ metrics.expiring_soon }}</div>
+            <div class="text-muted small mt-1">Renewal window active</div>
+        </div>
+    </div>
+</div>
+
+<!-- Search & Filter Nav Tabs -->
+<div class="glass-card p-4 shadow-sm mb-4">
+    <form method="GET" action="{% url 'contracts_list' %}" class="row g-3 align-items-center mb-3">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                <input type="text" name="q" value="{{ search_query }}" class="form-control border-start-0" placeholder="Search by contract #, title, or vendor name...">
+            </div>
+        </div>
+        <div class="col-md-4">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="">-- All Statuses --</option>
+                {% for code, label in statuses %}
+                    <option value="{{ code }}" {% if current_status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-outline-dark fw-bold">Filter</button>
+        </div>
+    </form>
+
+    <ul class="nav nav-pills border-bottom pb-2 gap-2">
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-3 {% if not current_status %}active bg-primary{% else %}text-muted{% endif %}" href="{% url 'contracts_list' %}">All Contracts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-3 {% if current_status == 'LEGAL_REVIEW' %}active bg-warning text-dark{% else %}text-muted{% endif %}" href="{% url 'contracts_list' %}?status=LEGAL_REVIEW">Legal Review</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-3 {% if current_status == 'ACTIVE' %}active bg-success{% else %}text-muted{% endif %}" href="{% url 'contracts_list' %}?status=ACTIVE">Active</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-3 {% if current_status == 'RENEWAL_DUE' %}active bg-danger{% else %}text-muted{% endif %}" href="{% url 'contracts_list' %}?status=RENEWAL_DUE">Renewal Due</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link rounded-pill px-3 {% if current_status == 'DRAFT' %}active bg-secondary{% else %}text-muted{% endif %}" href="{% url 'contracts_list' %}?status=DRAFT">Drafts</a>
+        </li>
+    </ul>
+</div>
+
+<!-- Contracts Table -->
+<div class="glass-card p-4 shadow-sm">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-4">Contract # / Version</th>
+                    <th>Title & Vendor</th>
+                    <th>Contract Value</th>
+                    <th>Term (Start - End)</th>
+                    <th>Status</th>
+                    <th>Owner</th>
+                    <th class="text-end pe-4">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in items %}
                 <tr>
-                    <td class="ps-4 fw-semibold text-secondary">{{ item }}</td>
-                    <td class="fw-bold">Active Record</td>
-                    <td><span class="badge bg-primary">{{ item.status }}</span></td>
-                    <td class="pe-4 text-end">
-                        <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></button>
+                    <td class="ps-4">
+                        <a href="{% url 'contract_detail' contract_id=item.id %}" class="fw-bold text-navy text-decoration-none">
+                            <code>{{ item.contract_number }}</code>
+                        </a>
+                        <div class="text-muted small">Ver {{ item.version }}</div>
+                    </td>
+                    <td>
+                        <div class="fw-bold text-dark">{{ item.title }}</div>
+                        <div class="text-muted small"><i class="fa-solid fa-building me-1"></i>{{ item.vendor.legal_name }}</div>
+                    </td>
+                    <td class="fw-bold text-success">${{ item.contract_value|floatformat:2 }}</td>
+                    <td class="small text-muted">
+                        <div>{{ item.start_date|date:"M d, Y" }} &rarr; {{ item.end_date|date:"M d, Y" }}</div>
+                        <div class="text-xs text-secondary">{{ item.renewal_notice_days }} days notice</div>
+                    </td>
+                    <td>
+                        {% if item.status == 'ACTIVE' %}
+                            <span class="badge bg-success text-white rounded-pill px-3 py-1">ACTIVE</span>
+                        {% elif item.status == 'LEGAL_REVIEW' %}
+                            <span class="badge bg-warning text-dark rounded-pill px-3 py-1">LEGAL REVIEW</span>
+                        {% elif item.status == 'BUSINESS_APPROVAL' %}
+                            <span class="badge bg-info text-white rounded-pill px-3 py-1">BUSINESS APPROVAL</span>
+                        {% elif item.status == 'RENEWAL_DUE' %}
+                            <span class="badge bg-danger text-white rounded-pill px-3 py-1">RENEWAL DUE</span>
+                        {% elif item.status == 'RENEWED' %}
+                            <span class="badge bg-primary text-white rounded-pill px-3 py-1">RENEWED</span>
+                        {% elif item.status == 'TERMINATED' %}
+                            <span class="badge bg-dark text-white rounded-pill px-3 py-1">TERMINATED</span>
+                        {% else %}
+                            <span class="badge bg-secondary text-white rounded-pill px-3 py-1">{{ item.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ item.contract_owner.email }}</td>
+                    <td class="text-end pe-4">
+                        <a href="{% url 'contract_detail' contract_id=item.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                            <i class="fa-solid fa-eye me-1"></i> View Workspace
+                        </a>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="4" class="text-center py-5 text-muted">
-                        <h5>No Records Found</h5>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="fa-solid fa-folder-open fs-1 text-muted mb-3 d-block"></i>
+                        <h5>No Contracts Found</h5>
+                        <p class="small mb-0">Try changing filter criteria or draft a new contract agreement.</p>
                     </td>
                 </tr>
                 {% endfor %}

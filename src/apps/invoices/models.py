@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from apps.core.models import TimeStampedModel
@@ -55,11 +57,37 @@ class InvoiceLine(TimeStampedModel):
     invoice = models.ForeignKey(SupplierInvoice, on_delete=models.CASCADE, related_name="lines")
     po_line = models.ForeignKey("orders.POLine", on_delete=models.SET_NULL, null=True, blank=True)
     item_description = models.CharField(max_length=255)
-    quantity = models.DecimalField(max_digits=12, decimal_places=2)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2)
+    quantity = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(
+                Decimal("0.01"), message="Quantity must be greater than zero."
+            )
+        ],
+    )
+    unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        validators=[
+            MinValueValidator(Decimal("0.00"), message="Unit price cannot be negative.")
+        ],
+    )
     line_total = models.DecimalField(max_digits=14, decimal_places=2)
 
+    def clean(self):
+        super().clean()
+        if self.quantity is not None and self.quantity <= Decimal("0.00"):
+            raise ValidationError(
+                {"quantity": "Quantity must be greater than zero. Negative or zero counts are not permitted."}
+            )
+        if self.unit_price is not None and self.unit_price < Decimal("0.00"):
+            raise ValidationError(
+                {"unit_price": "Unit price cannot be negative."}
+            )
+
     def save(self, *args, **kwargs):
+        self.clean()
         self.line_total = self.quantity * self.unit_price
         super().save(*args, **kwargs)
 
@@ -109,3 +137,80 @@ class MatchException(TimeStampedModel):
         return (
             f"{self.get_exception_type_display()} on {self.invoice.invoice_number} [{self.status}]"
         )
+
+
+class MatchResult(TimeStampedModel):
+    invoice = models.ForeignKey(
+        SupplierInvoice, on_delete=models.CASCADE, related_name="match_results"
+    )
+    is_matched = models.BooleanField(default=False)
+    price_variance_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("0.00")
+    )
+    quantity_variance = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+    tolerance_applied_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal("2.00")
+    )
+    performed_by = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="performed_matches"
+    )
+
+    def __str__(self):
+        return f"Match Result for {self.invoice.invoice_number}: {'PASSED' if self.is_matched else 'FAILED'}"
+
+
+class PaymentStatus(TimeStampedModel):
+    invoice = models.OneToOneField(
+        SupplierInvoice, on_delete=models.CASCADE, related_name="payment_record"
+    )
+    payment_reference = models.CharField(max_length=100, unique=True)
+    payment_date = models.DateField()
+    amount_paid = models.DecimalField(max_digits=14, decimal_places=2)
+    payment_method = models.CharField(max_length=50, default="ACH_TRANSFER")
+    paid_by = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="processed_payments"
+    )
+
+    def __str__(self):
+        return f"Payment {self.payment_reference} for {self.invoice.invoice_number} (${self.amount_paid})"
+
+
+class MatchTolerancePolicy(TimeStampedModel):
+    """
+    Singleton-like model to hold global 3-way match tolerance percentages.
+    """
+
+    is_active = models.BooleanField(
+        default=True, help_text="Only one policy can be active at a time."
+    )
+    price_tolerance_pct = models.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.0500"), help_text="e.g. 0.0500 for 5%"
+    )
+    qty_tolerance_pct = models.DecimalField(
+        max_digits=5, decimal_places=4, default=Decimal("0.0500"), help_text="e.g. 0.0500 for 5%"
+    )
+
+    def save(self, *args, **kwargs):
+        if self.is_active:
+            MatchTolerancePolicy.objects.exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_current(cls):
+        policy = cls.objects.filter(is_active=True).first()
+        if not policy:
+            policy = cls.objects.create(is_active=True)
+        return policy
+
+    @property
+    def price_tolerance_pct_int(self):
+        return int(round(self.price_tolerance_pct * 100))
+
+    @property
+    def qty_tolerance_pct_int(self):
+        return int(round(self.qty_tolerance_pct * 100))
+
+    def __str__(self):
+        return f"Tolerance Policy (Price: {self.price_tolerance_pct*100}%, Qty: {self.qty_tolerance_pct*100}%)"

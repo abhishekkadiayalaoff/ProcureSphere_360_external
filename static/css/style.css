@@ -13,8 +13,9 @@
     --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-body.app-body {
+body, body.app-body {
     font-family: var(--font-body);
+    font-size: 0.875rem;
     background-color: #F8FAFC;
     color: #1E293B;
     min-height: 100vh;
@@ -76,11 +77,25 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 }
 
 .glass-card-dark {
-    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
-    color: #FFFFFF;
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%) !important;
+    color: #FFFFFF !important;
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 14px;
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.2);
+}
+
+.glass-card-dark h1,
+.glass-card-dark h2,
+.glass-card-dark h3,
+.glass-card-dark h4,
+.glass-card-dark h5,
+.glass-card-dark h6 {
+    color: #FFFFFF !important;
+}
+
+.glass-card-dark p,
+.glass-card-dark .text-white-50 {
+    color: rgba(255, 255, 255, 0.8) !important;
 }
 
 .stat-card {
@@ -189,3 +204,146 @@ h1, h2, h3, h4, h5, h6, .font-heading {
 ::-webkit-scrollbar-thumb:hover {
     background: #94A3B8;
 }
+
+/* Button Loading State */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.85;
+    cursor: not-allowed !important;
+}
+
+.btn-loading .spinner-border {
+    vertical-align: -0.15em;
+}
+
+/* Responsive Layout Helpers */
+@media (max-width: 991.98px) {
+    .sidebar-desktop {
+        display: none !important;
+    }
+}
+
+/* Notification feed micro-interactions (HTMX mark-as-read fade-out) */
+.notif-item {
+    transition: opacity 0.4s ease, transform 0.4s ease, background-color 0.3s ease;
+}
+.notif-item.htmx-swapping {
+    opacity: 0;
+    transform: translateX(24px);
+}
+.notif-read-btn {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.notif-read-btn:hover {
+    transform: scale(1.08);
+}
+.notif-feed-scroll {
+    max-height: 380px;
+    overflow-y: auto;
+}
+/* Mobile Optimization & Responsive Viewport Fixes */
+html, body {
+    overflow-x: clip;
+    max-width: 100vw;
+    width: 100%;
+}
+
+.table-responsive {
+    -webkit-overflow-scrolling: touch;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+@media (max-width: 767.98px) {
+    .glass-card, .card {
+        border-radius: 10px;
+    }
+    .stat-card {
+        padding: 0.85rem !important;
+        border-radius: 10px;
+    }
+    .stat-card .fs-3 {
+        font-size: 1.35rem !important;
+    }
+    .stat-card .fs-4 {
+        font-size: 1.15rem !important;
+    }
+    .stat-card .metric-value {
+        font-size: 1.35rem !important;
+    }
+    .navbar-brand {
+        font-size: 1rem !important;
+    }
+    .breadcrumb {
+        font-size: 0.75rem !important;
+    }
+}
+
+/* Unified Manager & Auditor Navigation styling (matches Procurement Executive) */
+.manager-nav-link, .auditor-nav-link {
+    font-size: 0.875rem !important;
+    transition: all 0.18s ease-in-out;
+    border: 1px solid transparent;
+    color: rgba(255, 255, 255, 0.75) !important;
+}
+
+.manager-nav-link:hover, .auditor-nav-link:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
+.manager-nav-link.active, .auditor-nav-link.active {
+    background-color: #0d6efd !important;
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    border-color: transparent !important;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+}
+
+.manager-nav-link.active i, .auditor-nav-link.active i {
+    color: #FFFFFF !important;
+}
+
+/* Unified Sidebar Width & Style */
+.manager-sidebar, .auditor-sidebar {
+    width: 268px !important;
+    min-width: 268px !important;
+    background-color: #212529 !important; /* Bootstrap bg-dark matching proc exec sidebar */
+    border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Responsive Width Utilities */
+@media (min-width: 576px) {
+    .w-sm-auto {
+        width: auto !important;
+    }
+    .w-sm-100 {
+        width: 100% !important;
+    }
+}
+
+@media (min-width: 768px) {
+    .w-md-auto {
+        width: auto !important;
+    }
+    .w-md-100 {
+        width: 100% !important;
+    }
+}
+
+@media (min-width: 992px) {
+    .w-lg-auto {
+        width: auto !important;
+    }
+    .w-lg-100 {
+        width: 100% !important;
+    }
+}
+
+

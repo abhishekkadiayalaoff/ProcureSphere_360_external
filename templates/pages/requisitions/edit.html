@@ -1,0 +1,485 @@
+{% extends 'layouts/requester_base.html' %}
+
+{% block title %}Edit PR {{ pr.pr_number }} — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'requisition_detail' pr.pk %}" class="text-decoration-none text-muted mb-2 d-inline-block">
+        <i class="fa-solid fa-arrow-left me-1"></i> Back to Requisition
+    </a>
+    <h2 class="fw-bold text-dark mb-1">Edit Requisition {{ pr.pr_number }}</h2>
+    <p class="text-muted mb-0">Fill out the details below to request goods or services.</p>
+</div>
+
+{% if messages %}
+<div class="mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="POST" action="{% url 'requisition_edit' pr.pk %}" enctype="multipart/form-data" id="pr_edit_form">
+    {% csrf_token %}
+    <div class="row">
+        <!-- Main Details -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                    <h5 class="fw-bold text-dark mb-0">General Information</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Requisition Title *</label>
+                        <input type="text" name="title" class="form-control form-control-lg bg-light border-0" required value="{{ pr.title }}">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Business Justification *</label>
+                        <textarea name="justification" class="form-control bg-light border-0" rows="3" required>{{ pr.justification }}</textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Department *</label>
+                            <select name="department" class="form-select bg-light border-0" required>
+                                <option value="" disabled>Select Department...</option>
+                                {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if pr.department_id == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-secondary small">Cost Center *</label>
+                            <select name="cost_center" id="cost_center_select" class="form-select bg-light border-0" required onchange="updateBudgetNotice()">
+                                <option value="" disabled>Select Cost Center...</option>
+                                {% for cc in cost_centers %}
+                                <option value="{{ cc.id }}" {% if pr.cost_center_id == cc.id %}selected{% endif %} data-budget="{% if cc.available_budget != None %}{{ cc.available_budget|floatformat:2 }}{% else %}N/A{% endif %}">
+                                    {{ cc.code }} - {{ cc.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="budget_notice_box" class="alert border-0 rounded-4 shadow-sm d-none mb-3 p-3">
+                        <div class="d-flex align-items-center">
+                            <i id="budget_notice_icon" class="fa-solid fa-circle-check text-success fs-3 me-3"></i>
+                            <div>
+                                <span class="fw-bold text-dark d-block">Cost Center Budget Status</span>
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span id="budget_notice_status" class="badge bg-success rounded-pill px-3 py-2 fw-bold">Within Budget</span>
+                                    <span id="budget_notice_desc" class="small text-muted">Estimated amount is within the allocated Cost Center budget.</span>
+                                </div>
+                                <span id="budget_notice_amount" class="d-none"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Line Items -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0">Line Items</h5>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" onclick="addLineItem()">
+                        <i class="fa-solid fa-plus me-1"></i> Add Item
+                    </button>
+                </div>
+                <div class="card-body p-4">
+                    <div class="table-responsive">
+                        <table class="table align-middle" id="line-items-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 40%">Description *</th>
+                                    <th style="width: 15%">Qty *</th>
+                                    <th style="width: 15%">UOM *</th>
+                                    <th style="width: 20%">Est. Unit Price *</th>
+                                    <th style="width: 10%"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="line-items-body">
+                                {% for line in pr.lines.all %}
+                                <tr>
+                                    <td>
+                                        <input type="text" name="item_description[]" class="form-control form-control-sm bg-light border-0" required value="{{ line.item_description }}">
+                                    </td>
+                                    <td>
+                                        <input type="number" name="quantity[]" class="form-control form-control-sm bg-light border-0 item-qty" step="1" min="1" required value="{{ line.quantity|floatformat:0 }}" oninput="validateQuantityInput(this); calculateTotalAmount();" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+                                    </td>
+                                    <td>
+                                        <select name="unit_of_measure[]" class="form-select form-select-sm bg-light border-0">
+                                            <option value="EA" {% if line.unit_of_measure == 'EA' %}selected{% endif %}>EA (Each)</option>
+                                            <option value="HR" {% if line.unit_of_measure == 'HR' %}selected{% endif %}>HR (Hour)</option>
+                                            <option value="BOX" {% if line.unit_of_measure == 'BOX' %}selected{% endif %}>BOX</option>
+                                            <option value="LOT" {% if line.unit_of_measure == 'LOT' %}selected{% endif %}>LOT</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light border-0">$</span>
+                                            <input type="number" name="estimated_unit_price[]" class="form-control bg-light border-0 item-price" step="0.01" min="0" required value="{{ line.estimated_unit_price }}" oninput="calculateTotalAmount()">
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-light text-danger" onclick="removeLineItem(this);" title="Delete or clear item"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td>
+                                        <input type="text" name="item_description[]" class="form-control form-control-sm bg-light border-0" required>
+                                    </td>
+                                    <td>
+                                        <input type="number" name="quantity[]" class="form-control form-control-sm bg-light border-0 item-qty" step="0.01" min="0.01" required oninput="calculateTotalAmount()">
+                                    </td>
+                                    <td>
+                                        <select name="unit_of_measure[]" class="form-select form-select-sm bg-light border-0">
+                                            <option value="EA">EA (Each)</option>
+                                            <option value="HR">HR (Hour)</option>
+                                            <option value="BOX">BOX</option>
+                                            <option value="LOT">LOT</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light border-0">$</span>
+                                            <input type="number" name="estimated_unit_price[]" class="form-control bg-light border-0 item-price" step="0.01" min="0" required oninput="calculateTotalAmount()">
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button type="button" class="btn btn-sm btn-light text-danger" onclick="removeLineItem(this);" title="Delete or clear item"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attachments -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                    <h5 class="fw-bold text-dark mb-0">
+                        <i class="fa-solid fa-paperclip text-primary me-2"></i>Supporting Documents
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    {% if pr.attachments.exists %}
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Current Attached Documents</label>
+                        <ul class="list-group list-group-flush mb-2">
+                            {% for attachment in pr.attachments.all %}
+                            <li class="list-group-item px-0 border-bottom py-2 d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fa-solid {% if attachment.file_extension == 'pdf' %}fa-file-pdf text-danger{% else %}fa-file-word text-primary{% endif %} me-2"></i>
+                                    <span class="small fw-semibold text-dark">{{ attachment.title }}</span>
+                                    <span class="badge bg-light text-muted border ms-2 small">{{ attachment.file_size_display }}</span>
+                                </div>
+                                <a href="{% url 'requisition_attachment_download' pr.pk attachment.pk %}?action=download" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0 small">
+                                    <i class="fa-solid fa-download me-1"></i>Download
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    <div class="mb-0">
+                        <label class="form-label fw-bold text-secondary small">Upload Additional Documents (PDF, DOC, DOCX &bull; Max 10MB)</label>
+                        <input type="file" name="attachments" class="form-control bg-light border-0" multiple accept=".pdf,.doc,.docx">
+                        <div class="form-text">You can select multiple files to append.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar config -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                    <h5 class="fw-bold text-dark mb-0">Delivery Details</h5>
+                </div>
+                <div class="card-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-secondary small">Required Delivery Date *</label>
+                        <input type="date" name="requested_delivery_date" id="requested_delivery_date" class="form-control bg-light border-0" required value="{{ pr.requested_delivery_date|date:'Y-m-d' }}" min="{{ today }}">
+                    </div>
+                    <hr>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary rounded-pill fw-bold py-2">
+                            Save Changes
+                        </button>
+                        <a href="{% url 'requisition_detail' pr.pk %}" class="btn btn-light rounded-pill fw-bold py-2 text-muted">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- Insufficient Budget Modal Pop-up -->
+<div class="modal fade" id="budgetExceededModal" tabindex="-1" aria-labelledby="budgetExceededModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-bottom-0 bg-danger text-white rounded-top-4 p-4">
+                <h5 class="modal-title fw-bold" id="budgetExceededModalLabel">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i> Budget Notice
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 64px; height: 64px;">
+                    <i class="fa-solid fa-wallet fs-2"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-2">Requisition Out of Budget</h5>
+                <p class="text-muted mb-3">
+                    This requisition is <strong class="text-danger fs-5">Out of Budget</strong> for <strong id="modal_cc_code">Cost Center</strong>.
+                </p>
+                <span id="modal_total_amt" class="d-none"></span>
+                <span id="modal_available_amt" class="d-none"></span>
+                <div class="alert alert-warning small border-0 mb-3 text-start">
+                    <i class="fa-solid fa-info-circle me-1"></i> You may save this draft, but if you proceed, this requisition will be routed for <strong>Budget Exception Review</strong> by the Finance team when submitted.
+                </div>
+                <button type="button" class="btn btn-warning fw-bold text-dark rounded-pill px-4 shadow-sm" onclick="forceSubmitForm(this)">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>Proceed Anyway
+                </button>
+            </div>
+            <div class="modal-footer border-top-0 p-4 justify-content-center bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-secondary rounded-pill px-4 fw-semibold shadow-sm" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.forceSubmitForm = function(btn) {
+        const modalEl = document.getElementById('budgetExceededModal');
+        const form = document.getElementById('pr_edit_form');
+        const proceedBtn = btn || (modalEl ? modalEl.querySelector('.btn-warning') : null);
+        if (proceedBtn) {
+            window.setButtonLoading(proceedBtn, 'Saving Changes...');
+        }
+        const saveBtn = form ? form.querySelector('button[type="submit"]') : null;
+        if (saveBtn) {
+            window.setButtonLoading(saveBtn, 'Saving Changes...');
+        }
+        form.removeEventListener('submit', validateBudgetOnSubmit);
+        if (form.requestSubmit) {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    };
+
+    function validateQuantityInput(input) {
+        if (!input) return;
+        input.value = input.value.replace(/[^0-9]/g, '');
+        if (input.value !== '' && parseInt(input.value, 10) <= 0) {
+            input.value = '1';
+        }
+    }
+
+    function validateBudgetOnSubmit(e) {
+        const rows = document.querySelectorAll('#line-items-body tr');
+        let hasValidItem = false;
+        rows.forEach(tr => {
+            const desc = tr.querySelector('input[name="item_description[]"]');
+            if (desc && desc.value.trim() !== '') {
+                hasValidItem = true;
+            }
+        });
+        if (!hasValidItem || rows.length === 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            alert('A purchase requisition must have at least one line item with a description and quantity.');
+            const form = document.getElementById('pr_edit_form');
+            if (form) {
+                delete form.dataset.submitting;
+                const saveBtn = form.querySelector('button[type="submit"]');
+                if (saveBtn) window.resetButtonLoading(saveBtn);
+            }
+            if (rows.length === 0) {
+                addLineItem();
+            }
+            const firstDesc = document.querySelector('input[name="item_description[]"]');
+            if (firstDesc) firstDesc.focus();
+            return;
+        }
+
+        const total = calculateTotalAmount(false);
+        const select = document.getElementById('cost_center_select');
+        const selectedOpt = select ? select.options[select.selectedIndex] : null;
+        const budgetVal = selectedOpt ? selectedOpt.getAttribute('data-budget') : null;
+        
+        const isOverBudget = !budgetVal || budgetVal === 'N/A' || (parseFloat(budgetVal) <= 0) || (total > parseFloat(budgetVal));
+        if (isOverBudget) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            const form = document.getElementById('pr_edit_form');
+            if (form) {
+                delete form.dataset.submitting;
+                const saveBtn = form.querySelector('button[type="submit"]');
+                if (saveBtn) window.resetButtonLoading(saveBtn);
+            }
+            
+            const totalAmtEl = document.getElementById('modal_total_amt');
+            if (totalAmtEl) totalAmtEl.textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            const availAmtEl = document.getElementById('modal_available_amt');
+            if (availAmtEl) availAmtEl.textContent = (budgetVal && budgetVal !== 'N/A') ? ('$' + parseFloat(budgetVal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})) : 'N/A';
+            
+            const ccCodeEl = document.getElementById('modal_cc_code');
+            if (ccCodeEl && selectedOpt) ccCodeEl.textContent = selectedOpt.text.trim();
+            
+            const modal = new bootstrap.Modal(document.getElementById('budgetExceededModal'));
+            modal.show();
+        }
+    }
+
+    function addLineItem() {
+        const tbody = document.getElementById('line-items-body');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <input type="text" name="item_description[]" class="form-control form-control-sm bg-light border-0" required>
+            </td>
+            <td>
+                <input type="number" name="quantity[]" class="form-control form-control-sm bg-light border-0 item-qty" step="1" min="1" required oninput="validateQuantityInput(this); calculateTotalAmount();" onkeypress="return event.charCode >= 48 && event.charCode <= 57">
+            </td>
+            <td>
+                <select name="unit_of_measure[]" class="form-select form-select-sm bg-light border-0">
+                    <option value="EA">EA (Each)</option>
+                    <option value="HR">HR (Hour)</option>
+                    <option value="BOX">BOX</option>
+                    <option value="LOT">LOT</option>
+                </select>
+            </td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-light border-0">$</span>
+                    <input type="number" name="estimated_unit_price[]" class="form-control bg-light border-0 item-price" step="0.01" min="0" required oninput="calculateTotalAmount()">
+                </div>
+            </td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-light text-danger" onclick="removeLineItem(this);" title="Delete or clear item"><i class="fa-solid fa-trash"></i></button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+        calculateTotalAmount();
+    }
+
+    function removeLineItem(btn) {
+        const tbody = document.getElementById('line-items-body');
+        if (!tbody) return;
+        const rows = tbody.querySelectorAll('tr');
+        if (rows.length <= 1) {
+            // Cannot remove the only row: clear its inputs instead to maintain at least one row
+            const tr = btn.closest('tr');
+            if (tr) {
+                const desc = tr.querySelector('input[name="item_description[]"]');
+                const qty = tr.querySelector('input[name="quantity[]"]');
+                const price = tr.querySelector('input[name="estimated_unit_price[]"]');
+                const uom = tr.querySelector('select[name="unit_of_measure[]"]');
+                if (desc) desc.value = '';
+                if (qty) qty.value = '1';
+                if (price) price.value = '';
+                if (uom) uom.value = 'EA';
+                calculateTotalAmount();
+            }
+            return;
+        }
+        btn.closest('tr').remove();
+        calculateTotalAmount();
+    }
+
+    function calculateTotalAmount(updateNotice = true) {
+        const qties = document.querySelectorAll('.item-qty');
+        const prices = document.querySelectorAll('.item-price');
+        let total = 0;
+        for (let i = 0; i < qties.length; i++) {
+            const q = parseFloat(qties[i].value) || 0;
+            const p = parseFloat(prices[i].value) || 0;
+            total += (q * p);
+        }
+        if (updateNotice) {
+            updateBudgetNotice();
+        }
+        return total;
+    }
+
+    function updateBudgetNotice() {
+        const select = document.getElementById('cost_center_select');
+        if (!select) return;
+        const selectedOpt = select.options[select.selectedIndex];
+        const budgetVal = selectedOpt ? selectedOpt.getAttribute('data-budget') : null;
+        const box = document.getElementById('budget_notice_box');
+        const icon = document.getElementById('budget_notice_icon');
+        const statusSpan = document.getElementById('budget_notice_status');
+        const descSpan = document.getElementById('budget_notice_desc');
+        
+        if (!box || !select.value) {
+            if (box) box.classList.add('d-none');
+            return;
+        }
+
+        box.classList.remove('d-none', 'alert-info', 'alert-success', 'alert-warning', 'alert-danger');
+
+        const total = calculateTotalAmount(false);
+
+        if (budgetVal && budgetVal !== 'N/A') {
+            const available = parseFloat(budgetVal);
+            if (total > available || available <= 0) {
+                box.classList.add('alert-danger');
+                if (icon) icon.className = 'fa-solid fa-triangle-exclamation text-danger fs-3 me-3';
+                if (statusSpan) {
+                    statusSpan.className = 'badge bg-danger rounded-pill px-3 py-2 fw-bold';
+                    statusSpan.textContent = 'Out of Budget';
+                }
+                if (descSpan) {
+                    descSpan.textContent = 'This requisition exceeds the allocated Cost Center budget and will require Finance Exception approval.';
+                }
+            } else {
+                box.classList.add('alert-success');
+                if (icon) icon.className = 'fa-solid fa-circle-check text-success fs-3 me-3';
+                if (statusSpan) {
+                    statusSpan.className = 'badge bg-success rounded-pill px-3 py-2 fw-bold';
+                    statusSpan.textContent = 'Within Budget';
+                }
+                if (descSpan) {
+                    descSpan.textContent = 'Estimated amount is within the allocated Cost Center budget.';
+                }
+            }
+        } else {
+            box.classList.add('alert-warning');
+            if (icon) icon.className = 'fa-solid fa-circle-info text-warning fs-3 me-3';
+            if (statusSpan) {
+                statusSpan.className = 'badge bg-warning text-dark rounded-pill px-3 py-2 fw-bold';
+                statusSpan.textContent = 'Out of Budget';
+            }
+            if (descSpan) {
+                descSpan.textContent = 'No active budget allocation found for this Cost Center (will require Finance Exception approval).';
+            }
+        }
+    }
+
+    document.getElementById('pr_edit_form').addEventListener('submit', validateBudgetOnSubmit);
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const deliveryDateInput = document.querySelector('input[name="requested_delivery_date"]');
+        if (deliveryDateInput) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            deliveryDateInput.min = todayStr;
+        }
+        updateBudgetNotice();
+    });
+</script>
+{% endblock %}

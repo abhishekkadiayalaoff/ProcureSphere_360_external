@@ -129,6 +129,11 @@ def test_demo_2_pr_multi_level_approval_and_budget_reservation(db_roles):
     pr = approve_purchase_requisition_service(
         requisition=pr, approver=dept_mgr_user, comments="Step 1 Dept approval granted."
     )
+    assert pr.status == PurchaseRequisition.STATUS_MANAGER_REVIEW
+
+    pr = approve_purchase_requisition_service(
+        requisition=pr, approver=proc_mgr_user, comments="Step 2 Proc Mgr approval granted."
+    )
     assert pr.status == PurchaseRequisition.STATUS_APPROVED
 
     # 8. Verify Approval Actions & Audit Trail
@@ -140,3 +145,75 @@ def test_demo_2_pr_multi_level_approval_and_budget_reservation(db_roles):
 
     app_action = actions.filter(action=ApprovalAction.ACTION_APPROVE).first()
     assert app_action.actor == dept_mgr_user
+
+
+@pytest.mark.django_db
+def test_pr_creation_fails_when_budget_exceeded(db_roles):
+    """
+    Verify that creating a draft PR with requested total amount exceeding cost center available budget
+    raises a ValidationError and prevents draft PR creation.
+    """
+    from django.core.exceptions import ValidationError
+
+    today = timezone.now().date()
+    org = Organization.objects.create(name="HPE Tech Solutions", code="HPE-US-2")
+    dept = Department.objects.create(organization=org, name="IT Services", code="DEPT-IT-2")
+    user = User.objects.create_user(
+        email="requester_it2@hpe.com",
+        password="Password123!",
+        role=db_roles[Role.REQUESTER],
+        department=dept,
+    )
+    cost_center = CostCenter.objects.create(
+        department=dept, code="CC-IT-101", name="IT Ops", manager=user
+    )
+    period = FiscalPeriod.objects.create(
+        organization=org,
+        year=today.year,
+        period_number=1,
+        name=f"FY-{today.year}-Q1-IT",
+        start_date=today - timedelta(days=30),
+        end_date=today + timedelta(days=60),
+    )
+    # Budget allocation: $50,000
+    allocate_budget_service(
+        cost_center=cost_center, fiscal_period=period, allocated_amount=Decimal("50000.00")
+    )
+
+    policy = create_approval_policy_service(
+        name="IT Services Over-budget Policy",
+        module=ApprovalPolicy.MODULE_PR,
+        min_amount=Decimal("0.00"),
+        department=dept,
+    )
+    add_approval_step_service(
+        policy=policy,
+        step_number=1,
+        approver_role=db_roles[Role.DEPT_APPROVER],
+    )
+
+    # Attempt to create PR totaling $80,000 (exceeds $50,000)
+    line_items = [
+        {
+            "item_description": "High-end Workstations",
+            "quantity": 10,
+            "unit_of_measure": "EA",
+            "estimated_unit_price": "8000.00",  # $80,000 total
+        }
+    ]
+
+    pr = create_purchase_requisition_service(
+        title="Over-budget IT Hardware",
+        justification="Hardware refresh",
+        requester=user,
+        department=dept,
+        cost_center=cost_center,
+        requested_delivery_date=today + timedelta(days=14),
+        line_items=line_items,
+    )
+
+    assert pr.status == PurchaseRequisition.STATUS_DRAFT
+
+    pr = submit_purchase_requisition_service(requisition=pr, user=user)
+
+    assert pr.status == PurchaseRequisition.STATUS_BUDGET_REVIEW

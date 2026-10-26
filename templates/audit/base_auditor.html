@@ -1,0 +1,542 @@
+{% extends 'base.html' %}
+
+{% block title %}Compliance & Audit Portal — ProcureSphere 360{% endblock %}
+
+{% block navbar %}
+{# Suppress default base top navbar to render custom Auditor layout #}
+{% endblock navbar %}
+
+{% block layout %}
+<!-- Mobile & Tablet Sidebar Backdrop Overlay -->
+<div id="auditorSidebarBackdrop" class="auditor-backdrop d-lg-none" onclick="toggleAuditorSidebar()"></div>
+
+<div class="auditor-app-layout d-flex min-vh-100 bg-slate-50">
+
+    <!-- ========================================================================= -->
+    <!-- 1. STICKY DARK SIDEBAR (ProcureSphere 360 Theme: Navy #002B49 / #0F172A)  -->
+    <!-- ========================================================================= -->
+    <aside id="auditorSidebar" class="auditor-sidebar bg-dark text-white border-end border-secondary border-opacity-25 d-flex flex-column flex-shrink-0 shadow-sm" style="width: 268px;">
+        
+        <!-- Sidebar Brand Header -->
+        <div class="sidebar-brand-box px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+            <a href="/audit/dashboard/" class="d-flex align-items-center text-white text-decoration-none">
+                <i class="fa-solid fa-layer-group text-primary fa-xl me-2"></i>
+                <div>
+                    <div class="brand-title fw-bold font-heading lh-1 text-white fs-6">ProcureSphere <span class="text-primary fw-light">360</span></div>
+                    <span class="badge bg-info text-dark rounded-pill fw-bold mt-1" style="font-size: 0.62rem; letter-spacing: 0.04em;">
+                        COMPLIANCE AUDITOR
+                    </span>
+                </div>
+            </a>
+            <!-- Mobile/Tablet Close Button -->
+            <button class="btn btn-link text-white-50 p-1 d-lg-none" type="button" aria-label="Close Navigation" onclick="toggleAuditorSidebar()">
+                <i class="fa-solid fa-xmark fs-5"></i>
+            </button>
+        </div>
+
+        <!-- Sidebar Navigation Items (Dedicated Routes) -->
+        <div class="sidebar-nav-container flex-grow-1 overflow-y-auto px-2 py-3">
+            <ul class="nav nav-pills flex-column gap-1 small" id="sidebarMenu">
+                <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-1 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
+                    AUDIT &amp; TRACEABILITY
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/dashboard/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if request.path == '/audit/dashboard/' or request.path == '/' or request.path == '/audit/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-chart-pie me-2"></i>
+                        <span>Executive Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/logs/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/logs/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-fingerprint me-2"></i>
+                        <span>Audit Logs</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/sourcing-activity/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/sourcing-activity/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-gavel me-2"></i>
+                        <span>Sourcing &amp; Bids</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/approvals/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/approvals/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-signature me-2"></i>
+                        <span>Approvals &amp; Gate Trail</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/po-changes/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/po-changes/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-cart-shopping me-2"></i>
+                        <span>PO Changes &amp; Records</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/invoice-exceptions/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/invoice-exceptions/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        <span>Invoice Exceptions</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/vendors/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/vendors/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-building-shield me-2"></i>
+                        <span>Vendor Compliance</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/contract-changes/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/contract-changes/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-file-contract me-2"></i>
+                        <span>Contracts &amp; SLA Risk</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/security-events/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/security-events/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-shield-halved me-2"></i>
+                        <span>Security &amp; Auth Events</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/audit/lifecycle/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/audit/lifecycle/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-diagram-project me-2"></i>
+                        <span>Lifecycle Explorer</span>
+                    </a>
+                </li>
+                <li class="nav-item my-2 border-top border-secondary border-opacity-25"></li>
+                <li class="nav-item">
+                    <a href="/reports/hub/" class="nav-link auditor-nav-link rounded-3 py-2 px-3 small {% if '/reports/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <i class="fa-solid fa-chart-line me-2"></i>
+                        <span>Financial Reports</span>
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer border-top border-secondary border-opacity-25 px-3 py-3 mt-auto">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <div class="d-flex align-items-center" style="min-width: 0;">
+                    <i class="fa-solid fa-circle-user text-info fs-4 me-2"></i>
+                    <div style="min-width: 0;">
+                        <div class="small fw-semibold text-white text-truncate" title="{{ user.email }}">{{ user.email|default:"auditor@hpe.com" }}</div>
+                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Compliance Auditor</div>
+                    </div>
+                </div>
+                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill" title="Sign out"><i class="fa-solid fa-arrow-right-from-bracket"></i><span class="visually-hidden">Sign out</span></a>
+            </div>
+            <div class="d-flex align-items-center justify-content-between small text-white-50 pt-2 border-top border-secondary border-opacity-25">
+                <span class="d-flex align-items-center text-truncate me-2">
+                    <i class="fa-solid fa-shield-halved me-2 text-info"></i>
+                    <span class="text-truncate">Read-Only Evidence Vault</span>
+                </span>
+                <span class="badge bg-secondary bg-opacity-25 text-white-50 border border-secondary border-opacity-50">v2026.1</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ========================================================================= -->
+    <!-- 2. MAIN CONTENT WRAPPER                                                   -->
+    <!-- ========================================================================= -->
+    <div class="auditor-main-content flex-grow-1 d-flex flex-column min-vh-100">
+        
+        <!-- Top Sticky Header Bar (Sticky on Desktop, Tablet, and Mobile) -->
+        <header class="auditor-topbar sticky-top bg-white border-bottom px-3 px-md-4 py-2 d-flex align-items-center justify-content-between shadow-xs z-3">
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                <!-- Hamburger Button for Mobile & Tablet -->
+                <button class="btn btn-outline-secondary btn-sm rounded-3 d-lg-none d-flex align-items-center justify-content-center" type="button" aria-label="Toggle Navigation" onclick="toggleAuditorSidebar()" style="width: 36px; height: 36px;">
+                    <i class="fa-solid fa-bars fs-6"></i>
+                </button>
+                
+                <!-- Scope Switcher Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-light border dropdown-toggle fw-semibold rounded-pill px-2 px-md-3 py-1 text-dark d-flex align-items-center gap-1 gap-md-2 shadow-2xs" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-globe text-primary"></i>
+                        <span id="activeScopeLabel" class="d-none d-sm-inline">Scope: All Business Units (Global)</span>
+                        <span class="d-inline d-sm-none">Global</span>
+                    </button>
+                    <ul class="dropdown-menu shadow-sm border-0 small">
+                        <li><a class="dropdown-item active" href="javascript:void(0)" onclick="setAuditorScope('All Business Units (Global)')">🌐 All Business Units (Global)</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="setAuditorScope('IT Infrastructure (IT-OPS)')">💻 IT Infrastructure Operations</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="setAuditorScope('Global Supply Chain (OPS)')">📦 Global Operations</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" onclick="setAuditorScope('Finance & Accounting (FIN-AP)')">💳 Finance & AP</a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- User Pill & Signout Button -->
+            <div class="d-flex align-items-center gap-2 gap-md-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="avatar-circle-sm bg-primary text-white fw-bold d-flex align-items-center justify-content-center rounded-circle flex-shrink-0 shadow-2xs">
+                        {{ user.email|slice:":1"|upper|default:"A" }}
+                    </div>
+                    <div class="d-none d-md-block text-start leading-tight">
+                        <div class="fw-bold text-dark small">{{ user.email|default:"auditor@hpe.com" }}</div>
+                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Compliance Auditor</div>
+                    </div>
+                </div>
+                <a href="/logout/" class="btn btn-outline-secondary btn-sm rounded-pill px-2 px-md-3 fw-semibold d-flex align-items-center gap-1 shadow-2xs">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span class="d-none d-sm-inline">Sign out</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Body Content Block -->
+        <main class="auditor-page-body flex-grow-1 p-2 p-sm-3 p-md-4">
+            {% block auditor_content %}
+                {% block content %}{% endblock content %}
+            {% endblock auditor_content %}
+        </main>
+    </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- 3. MODAL: JSON STATE DIFF INSPECTOR                                       -->
+<!-- ========================================================================= -->
+<div class="modal fade" id="auditDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header bg-dark text-white px-4 py-3 border-bottom border-secondary border-opacity-25">
+                <h6 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 mb-0">
+                    <i class="fa-solid fa-code-compare text-info"></i> State Transition &amp; Audit Diff Inspector
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="auditDetailModalBody">
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ProcureSphere 360 Auditor Design Tokens - Unified with Procurement Executive */
+    :root {
+        --hpe-navy: #0F172A;
+        --hpe-cyan: #00B0B9;
+        --hpe-emerald: #10B981;
+        --hpe-rose: #F43F5E;
+        --hpe-indigo: #6366F1;
+        --slate-50: #F8FAFC;
+        --slate-100: #F1F5F9;
+        --slate-200: #E2E8F0;
+    }
+
+    .bg-hpe-navy { background-color: #212529 !important; }
+    .bg-slate-50 { background-color: var(--slate-50) !important; }
+    .bg-slate-100 { background-color: var(--slate-100) !important; }
+    .text-cyan { color: #00B0B9 !important; }
+    .text-emerald { color: var(--hpe-emerald) !important; }
+    .text-indigo { color: var(--hpe-indigo) !important; }
+    .bg-cyan { background-color: #00B0B9 !important; }
+    .bg-cyan-10 { background-color: rgba(0, 176, 185, 0.12) !important; }
+    .bg-emerald-10 { background-color: rgba(16, 185, 129, 0.12) !important; }
+    .bg-rose-10 { background-color: rgba(244, 63, 94, 0.12) !important; }
+    .bg-indigo-10 { background-color: rgba(99, 102, 241, 0.12) !important; }
+    .bg-black-20 { background-color: rgba(0, 0, 0, 0.2) !important; }
+    .border-white-10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+    .text-white-75 { color: rgba(255, 255, 255, 0.75) !important; }
+    .hover-bg-slate:hover { background-color: #F8FAFC; }
+
+    /* Sticky Navbar across all screen sizes */
+    .auditor-topbar {
+        position: -webkit-sticky !important;
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 1030 !important;
+        background-color: rgba(255, 255, 255, 0.98) !important;
+        backdrop-filter: blur(12px) !important;
+        -webkit-backdrop-filter: blur(12px) !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .auditor-main-content {
+        min-width: 0;
+        overflow-x: clip;
+    }
+
+    .auditor-sidebar,
+    .sidebar-nav-container {
+        overscroll-behavior: contain !important;
+        overscroll-behavior-y: contain !important;
+    }
+
+    /* Desktop Sidebar (>= 992px) */
+    @media (min-width: 992px) {
+        .auditor-sidebar {
+            width: 268px !important;
+            min-width: 268px !important;
+            height: 100vh;
+            position: -webkit-sticky;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+            background-color: #212529 !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
+        .auditor-backdrop {
+            display: none !important;
+        }
+    }
+
+    /* Mobile & Tablet Responsive Sidebar (< 992px) */
+    @media (max-width: 991.98px) {
+        .auditor-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            max-width: 85vw;
+            height: 100vh;
+            z-index: 1050;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background-color: #212529 !important;
+            box-shadow: none;
+        }
+        .auditor-sidebar.show {
+            transform: translateX(0);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.45) !important;
+        }
+        .auditor-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            z-index: 1040;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .auditor-backdrop.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    }
+
+    .brand-badge-square {
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #0d6efd 0%, #0b5ed7 100%);
+    }
+
+    /* Navigation links matching Procurement Executive */
+    .auditor-nav-link {
+        font-size: 0.875rem !important;
+        transition: all 0.18s ease-in-out;
+        border: 1px solid transparent;
+        color: rgba(255, 255, 255, 0.75) !important;
+    }
+    .auditor-nav-link:hover {
+        background-color: rgba(255, 255, 255, 0.08) !important;
+        color: #FFFFFF !important;
+        transform: none;
+    }
+    .auditor-nav-link.active {
+        background-color: #0d6efd !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-color: transparent !important;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.25) !important;
+    }
+    .auditor-nav-link.active i {
+        color: #FFFFFF !important;
+    }
+
+    /* Top-Accent KPI Cards */
+    .auditor-kpi-card {
+        border-top: 4px solid transparent !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .auditor-kpi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px -5px rgba(0, 43, 73, 0.08) !important;
+    }
+    .border-top-accent-cyan { border-top-color: var(--hpe-cyan) !important; }
+    .border-top-accent-emerald { border-top-color: var(--hpe-emerald) !important; }
+    .border-top-accent-rose { border-top-color: var(--hpe-rose) !important; }
+    .border-top-accent-indigo { border-top-color: var(--hpe-indigo) !important; }
+
+    /* Avatar and Pulse */
+    .avatar-circle-sm {
+        width: 32px;
+        height: 32px;
+        font-size: 0.85rem;
+    }
+    .status-dot-pulse {
+        width: 8px;
+        height: 8px;
+        background-color: var(--hpe-emerald);
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse-green 2s infinite;
+    }
+    @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .shadow-xs {
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    }
+    .shadow-2xs {
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    }
+
+    /* Enhanced Table Spacing & Modern Aesthetics */
+    .table > :not(caption) > * > * {
+        padding: 0.9rem 1.15rem !important;
+        vertical-align: middle;
+    }
+    .table thead th {
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        font-size: 0.76rem;
+        background-color: #F8FAFC !important;
+        color: #475569 !important;
+        border-bottom: 1px solid #E2E8F0 !important;
+    }
+    .table tbody tr {
+        transition: background-color 0.15s ease;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #F8FAFC !important;
+    }
+    .badge {
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        padding: 0.4em 0.75em;
+    }
+</style>
+
+<script>
+    function setAuditorScope(label) {
+        const labelEl = document.getElementById('activeScopeLabel');
+        if (labelEl) {
+            labelEl.textContent = `Scope: ${label}`;
+        }
+    }
+
+    function toggleAuditorSidebar() {
+        const sidebar = document.getElementById('auditorSidebar');
+        const backdrop = document.getElementById('auditorSidebarBackdrop');
+        if (sidebar) {
+            sidebar.classList.toggle('show');
+        }
+        if (backdrop) {
+            backdrop.classList.toggle('show');
+        }
+    }
+
+    // Auto-close sidebar on mobile/tablet when a route is clicked & isolate sidebar mouse wheel scroll
+    document.addEventListener('DOMContentLoaded', () => {
+        const sidebar = document.getElementById('auditorSidebar');
+        const backdrop = document.getElementById('auditorSidebarBackdrop');
+
+        if (sidebar) {
+            // Isolate mouse wheel scrolling so the background dashboard NEVER scrolls up/down when cursor is over sidebar
+            sidebar.addEventListener('wheel', (e) => {
+                const nav = sidebar.querySelector('.sidebar-nav-container');
+                if (nav && nav.scrollHeight > nav.clientHeight) {
+                    const atTop = nav.scrollTop <= 0 && e.deltaY < 0;
+                    const atBottom = (nav.scrollHeight - nav.scrollTop - nav.clientHeight <= 1) && e.deltaY > 0;
+                    if (!atTop && !atBottom) {
+                        nav.scrollTop += e.deltaY;
+                    }
+                }
+                e.preventDefault();
+                e.stopPropagation();
+            }, { passive: false });
+        }
+
+        if (window.innerWidth < 992) {
+            const navLinks = document.querySelectorAll('.auditor-nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (sidebar) sidebar.classList.remove('show');
+                    if (backdrop) backdrop.classList.remove('show');
+                });
+            });
+        }
+    });
+
+    async function showLogDetail(logId) {
+        const modal = new bootstrap.Modal(document.getElementById('auditDetailModal'));
+        const modalBody = document.getElementById('auditDetailModalBody');
+        modal.show();
+
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-cyan"></div>
+                <div class="text-muted small mt-2">Loading audit record state diff...</div>
+            </div>`;
+
+        try {
+            const res = await fetch(`/api/v1/audit/logs/${logId}/`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            modalBody.innerHTML = `
+                <div class="mb-3 d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-hpe-navy text-cyan fw-bold me-2 px-3 py-1">${data.action_display || data.action}</span>
+                        <strong class="text-dark">${data.target_model}</strong> (<code>${data.target_object_id}</code>)
+                    </div>
+                    <span class="text-muted small">${new Date(data.timestamp).toLocaleString()}</span>
+                </div>
+                <div class="p-3 bg-slate-100 rounded-3 mb-3 small">
+                    <div><strong>Actor:</strong> ${data.actor_email}</div>
+                    <div><strong>IP:</strong> <code>${data.ip_address || '127.0.0.1'}</code> | <strong>Request ID:</strong> <code>${data.request_id || 'N/A'}</code></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Previous State</label>
+                        <pre class="bg-light p-3 rounded-3 border small" style="max-height: 220px; overflow: auto;">${JSON.stringify(data.previous_state || {}, null, 2)}</pre>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-muted small text-uppercase">New State / Changes</label>
+                        <pre class="bg-success bg-opacity-10 p-3 rounded-3 border border-success border-opacity-25 small" style="max-height: 220px; overflow: auto;">${JSON.stringify(data.new_state || {}, null, 2)}</pre>
+                    </div>
+                </div>`;
+        } catch (err) {
+            modalBody.innerHTML = `<div class="alert alert-danger mb-0">Error loading audit record details: ${err.message}</div>`;
+        }
+    }
+
+    async function triggerAuditorExport(domain, format) {
+        try {
+            const res = await fetch('/api/v1/audit/export/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': (document.cookie.match(/csrftoken=([\w-]+)/) || [])[1] || ''
+                },
+                body: JSON.stringify({ export_type: domain, export_format: format })
+            });
+
+            if (!res.ok) throw new Error('Export generation failed');
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `auditor_${domain}_export.${format}`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            alert('Export failed: ' + err.message);
+        }
+    }
+</script>
+{% endblock layout %}
+

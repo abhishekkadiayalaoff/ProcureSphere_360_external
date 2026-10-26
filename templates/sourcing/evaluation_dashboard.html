@@ -1,0 +1,79 @@
+{% extends base_layout|default:'base.html' %}
+
+{% block title %}Evaluation &amp; Award — ProcureSphere 360{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item"><a href="/manager/awards/" class="text-decoration-none text-muted">Awards</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Evaluation &amp; Award</li>
+{% endblock manager_breadcrumbs %}
+
+{% block mobile_page_title %}Evaluation & Award{% endblock mobile_page_title %}
+
+{% block content %}
+<div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-scale-balanced text-warning me-2"></i>Evaluation &amp; Award</h2>
+        <p class="text-muted small mb-0">Weighted technical scoring, commercial comparison, negotiation notes, award approval and decision audit.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        {% if user.role_code == 'PROC_MGR' %}
+        <a href="/manager/awards/" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back to Awards</a>
+        {% endif %}
+        <a href="{% url 'bid_portal_dashboard' %}" class="btn btn-outline-info rounded-pill px-3"><i class="fa-solid fa-envelope-open-text me-1"></i>Vendor Bid Portal</a>
+    </div>
+</div>
+
+{% include 'partials/messages.html' %}
+
+<div class="row g-3 mb-4">
+    {% with m=metrics %}
+    <div class="col-6 col-md"><a class="text-decoration-none" href="?status=TECHNICAL_REVIEW"><div class="stat-card h-100 border-start border-warning border-4"><div class="text-muted small fw-semibold">TECHNICAL REVIEW</div><div class="metric-value text-warning">{{ m.technical }}</div></div></a></div>
+    <div class="col-6 col-md"><a class="text-decoration-none" href="?status=COMMERCIAL_REVIEW"><div class="stat-card h-100 border-start border-primary border-4"><div class="text-muted small fw-semibold">COMMERCIAL REVIEW / NEGOTIATION</div><div class="metric-value text-primary">{{ m.commercial }}</div></div></a></div>
+    <div class="col-6 col-md"><a class="text-decoration-none" href="?status=AWARD_APPROVAL"><div class="stat-card h-100 border-start border-danger border-4"><div class="text-muted small fw-semibold">AWAITING AWARD APPROVAL</div><div class="metric-value text-danger">{{ m.approval }}</div></div></a></div>
+    <div class="col-6 col-md"><a class="text-decoration-none" href="?status=AWARDED"><div class="stat-card h-100 border-start border-success border-4"><div class="text-muted small fw-semibold">AWARDED</div><div class="metric-value text-success">{{ m.awarded }}</div></div></a></div>
+    <div class="col-6 col-md"><a class="text-decoration-none" href="?status=AWARDED"><div class="stat-card h-100 border-start border-dark border-4"><div class="text-muted small fw-semibold">AWARDED — NO PO YET</div><div class="metric-value text-dark">{{ m.awarded_without_po }}</div></div></a></div>
+    {% endwith %}
+</div>
+
+<div class="d-flex flex-wrap gap-2 mb-3 small">
+    <a href="?" class="btn btn-sm rounded-pill {% if not status %}btn-dark{% else %}btn-outline-secondary{% endif %}">All</a>
+    <a href="?status=TECHNICAL_REVIEW" class="btn btn-sm rounded-pill {% if status == 'TECHNICAL_REVIEW' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Technical review</a>
+    <a href="?status=COMMERCIAL_REVIEW" class="btn btn-sm rounded-pill {% if status == 'COMMERCIAL_REVIEW' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Commercial / negotiation</a>
+    <a href="?status=AWARD_APPROVAL" class="btn btn-sm rounded-pill {% if status == 'AWARD_APPROVAL' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Award approval</a>
+    <a href="?status=AWARDED" class="btn btn-sm rounded-pill {% if status == 'AWARDED' %}btn-dark{% else %}btn-outline-secondary{% endif %}">Awarded</a>
+</div>
+
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-3">Event</th>
+                    <th>Stage</th>
+                    <th>Weights (tech / comm)</th>
+                    <th>Bids</th>
+                    <th>Scores recorded</th>
+                    <th>Next step</th>
+                    <th class="text-end pe-3"></th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for e in events %}
+                <tr>
+                    <td class="ps-3"><a href="{% url 'evaluation_event' e.id %}" class="fw-semibold text-decoration-none text-dark">{{ e.title }}</a><div><code class="small">{{ e.event_number }}</code></div></td>
+                    <td>{% include 'sourcing/partials/status_badge.html' with status=e.status label=e.get_status_display %}</td>
+                    <td class="small">{{ e.technical_weight|floatformat:0 }}% / {{ e.commercial_weight|floatformat:0 }}%</td>
+                    <td>{{ e.submitted_bid_count }}</td>
+                    <td>{{ e.evaluation_count }}</td>
+                    <td class="small text-muted">{% if e.status == 'TECHNICAL_REVIEW' %}Score technical envelopes{% elif e.status == 'COMMERCIAL_REVIEW' %}Compare prices, negotiate, recommend{% elif e.status == 'AWARD_APPROVAL' %}Procurement Manager decision{% else %}Generate / track PO{% endif %}</td>
+                    <td class="text-end pe-3"><a href="{% url 'evaluation_event' e.id %}" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3">Open</a></td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="7" class="text-center py-5 text-muted"><i class="fa-solid fa-scale-balanced fa-2x mb-2 d-block"></i>No events in evaluation or award.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

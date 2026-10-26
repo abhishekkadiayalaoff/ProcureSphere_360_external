@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+
+{% block title %}{% block vendor_title %}Vendor Portal{% endblock %} — ProcureSphere 360{% endblock %}
+
+{% block navbar %}
+<!-- Top Navigation Bar for Vendor Portal -->
+<nav class="navbar navbar-dark bg-dark shadow-sm py-2 border-bottom border-secondary border-opacity-25 sticky-top">
+    <div class="container-fluid px-2 px-sm-3 px-lg-4 d-flex align-items-center justify-content-between flex-nowrap">
+        <div class="d-flex align-items-center overflow-hidden me-2">
+            <button class="navbar-toggler border-0 me-2 d-lg-none p-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#vendorSidebar" aria-controls="vendorSidebar" aria-label="Toggle navigation">
+                <i class="fa-solid fa-bars text-white fs-4"></i>
+            </button>
+            <a href="/vendor/" class="navbar-brand d-flex align-items-center text-white me-0 me-lg-4 text-truncate">
+                <div class="brand-icon-box me-2 flex-shrink-0" style="width: 32px; height: 32px; background: rgba(0, 176, 185, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-handshake text-cyan"></i>
+                </div>
+                <span class="fs-6 fs-sm-5 fw-bold tracking-tight text-truncate">ProcureSphere <span class="text-cyan">360</span></span>
+                <span class="badge bg-secondary bg-opacity-50 text-light ms-2 px-2 py-1 small rounded-pill d-none d-sm-inline-block">Vendor Portal</span>
+            </a>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 gap-sm-3 flex-shrink-0">
+            <!-- Vendor Entity Pill -->
+            {% if vendor %}
+            <div class="d-none d-md-flex align-items-center bg-dark bg-opacity-75 border border-secondary border-opacity-50 rounded-pill px-3 py-1 text-white">
+                <i class="fa-solid fa-building text-cyan me-2 fs-5"></i>
+                <div class="text-start lh-sm">
+                    <span class="fw-semibold small d-block mb-1">{{ vendor.legal_name|truncatechars:35 }}</span>
+                    <span class="text-muted d-block" style="font-size: 0.7rem; line-height: 1;">{{ vendor.vendor_number }} &bull; {{ vendor.tax_identification_number }}</span>
+                </div>
+                <span class="badge ms-2 rounded-pill {% if vendor.status == 'ACTIVE' %}bg-success{% elif vendor.status == 'KYC_REVIEW' or vendor.status == 'SUBMITTED' or vendor.status == 'CHANGES_REQUIRED' %}bg-warning text-dark{% elif vendor.status == 'APPROVED' %}bg-info text-dark{% elif vendor.status == 'SUSPENDED' or vendor.status == 'REJECTED' %}bg-danger{% else %}bg-secondary{% endif %}" style="font-size: 0.65rem;">
+                    {{ vendor.get_status_display }}
+                </span>
+            </div>
+            {% endif %}
+
+            <!-- Notifications Icon -->
+            <a href="/vendor/notifications/" class="btn btn-outline-secondary btn-sm position-relative text-white border-0 d-flex align-items-center justify-content-center p-0" style="width: 36px; height: 36px;" title="Notifications">
+                <i class="fa-solid fa-bell fs-5"></i>
+                {% if metrics.unread_notifications and metrics.unread_notifications > 0 %}
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                    {{ metrics.unread_notifications }}
+                </span>
+                {% endif %}
+            </a>
+
+            <!-- User Profile & Sign Out -->
+            {% if user.is_authenticated %}
+            <div class="d-flex align-items-center gap-2">
+                <div class="d-none d-lg-block text-end lh-sm me-1">
+                    <div class="fw-semibold text-white small mb-1">{{ user.email }}</div>
+                    <div class="text-muted d-block" style="font-size: 0.7rem; line-height: 1;">Authorized Representative</div>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-dark border border-secondary border-opacity-50 rounded-circle text-white d-flex align-items-center justify-content-center p-0" style="width: 36px; height: 36px;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fa-solid fa-user-tie text-cyan"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 bg-dark text-white">
+                        <li><a class="dropdown-item text-white py-2" href="/vendor/account/"><i class="fa-solid fa-shield-halved text-cyan me-2"></i> Account & Security</a></li>
+                        <li><a class="dropdown-item text-white py-2" href="/vendor/profile/"><i class="fa-solid fa-building text-info me-2"></i> Company Profile</a></li>
+                        <li><hr class="dropdown-divider border-secondary"></li>
+                        <li><a class="dropdown-item text-danger py-2" href="/logout/"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Sign Out</a></li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+{% endblock navbar %}
+
+{% block layout %}
+<style>
+    @media (min-width: 992px) {
+        .vendor-sidebar-desktop {
+            width: 260px !important;
+            flex-shrink: 0 !important;
+            position: sticky !important;
+            top: 58px !important;
+            height: calc(100vh - 58px) !important;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.15) transparent;
+            z-index: 1000;
+            align-self: flex-start;
+        }
+        .vendor-sidebar-desktop::-webkit-scrollbar {
+            width: 4px;
+        }
+        .vendor-sidebar-desktop::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+        }
+    }
+
+    /* Section label style */
+    .nav-section-label {
+        font-size: 0.63rem;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        padding: 0.6rem 0.75rem 0.2rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Subitem indented link */
+    .vendor-subitem {
+        display: flex;
+        align-items: center;
+        padding: 0.28rem 0.75rem 0.28rem 2.6rem;
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.6);
+        border-radius: 6px;
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+    }
+    .vendor-subitem:hover,
+    .vendor-subitem:focus {
+        background: rgba(255,255,255,0.07);
+        color: #00b0b9;
+    }
+    .vendor-subitem.active-sub {
+        color: #00b0b9;
+        background: rgba(0,176,185,0.1);
+        font-weight: 600;
+    }
+    .vendor-subitem::before {
+        content: '';
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        margin-right: 0.5rem;
+        flex-shrink: 0;
+        opacity: 0.6;
+    }
+
+    /* Top-level nav link */
+    .vendor-navlink {
+        display: flex;
+        align-items: center;
+        padding: 0.45rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(255,255,255,0.75);
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+    }
+    .vendor-navlink:hover,
+    .vendor-navlink:focus {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+    .vendor-navlink.active-nav-item {
+        background: #0d6efd;
+        color: #fff;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(13,110,253,0.35);
+    }
+    .vendor-navlink .nav-icon {
+        width: 20px;
+        text-align: center;
+        margin-right: 0.65rem;
+        flex-shrink: 0;
+    }
+</style>
+<div class="d-flex align-items-start w-100" style="min-height: calc(100vh - 58px); max-width: 100vw;">
+    <!-- Sidebar Navigation -->
+    <aside class="offcanvas-lg offcanvas-start bg-dark border-end border-secondary border-opacity-25 shadow-sm text-white vendor-sidebar-desktop" tabindex="-1" id="vendorSidebar" aria-labelledby="vendorSidebarLabel" style="max-width: 85vw;">
+        <div class="offcanvas-header d-lg-none border-bottom border-secondary border-opacity-25">
+            <h5 class="offcanvas-title fw-bold text-white" id="vendorSidebarLabel"><i class="fa-solid fa-handshake text-cyan me-2"></i>Vendor Portal</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#vendorSidebar" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body p-0 flex-column d-block">
+            <div class="px-2 py-3">
+
+                <div class="d-flex align-items-center justify-content-between px-2 mb-3 text-secondary text-uppercase fw-bold" style="font-size: 0.68rem; letter-spacing: 0.06em;">
+                    <span>Vendor Navigation</span>
+                    <i class="fa-solid fa-shield-check text-cyan" style="font-size:0.75rem;"></i>
+                </div>
+
+                <nav class="d-flex flex-column gap-1">
+
+                    <a href="/vendor/"
+                       class="vendor-navlink {% if active_nav == 'dashboard' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-gauge-high nav-icon text-cyan"></i>Dashboard
+                    </a>
+
+                    <a href="/vendor/profile/"
+                       class="vendor-navlink {% if active_nav == 'profile' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-id-card nav-icon text-info"></i>Company Profile
+                    </a>
+
+                    <a href="/vendor/sourcing/"
+                       class="vendor-navlink {% if active_nav == 'sourcing' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-gavel nav-icon text-warning"></i>Sourcing Events
+                    </a>
+
+                    <a href="/vendor/bids/"
+                       class="vendor-navlink {% if active_nav == 'bids' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-file-invoice-dollar nav-icon text-success"></i>My Bids
+                    </a>
+
+                    <a href="/vendor/clarifications/"
+                       class="vendor-navlink {% if active_nav == 'clarifications' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-circle-question nav-icon text-info"></i>Clarifications
+                    </a>
+
+                    <a href="/vendor/purchase-orders/"
+                       class="vendor-navlink {% if active_nav == 'orders' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-cart-shopping nav-icon text-cyan"></i>Purchase Orders
+                    </a>
+
+                    <a href="/vendor/invoices/"
+                       class="vendor-navlink {% if active_nav == 'invoices' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-file-invoice nav-icon" style="color:#a78bfa;"></i>Invoices
+                    </a>
+
+                    <a href="/vendor/contracts/"
+                       class="vendor-navlink {% if active_nav == 'contracts' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-file-contract nav-icon" style="color:#f97316;"></i>Contracts
+                    </a>
+
+                    <a href="/vendor/performance/"
+                       class="vendor-navlink {% if active_nav == 'performance' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-chart-line nav-icon text-success"></i>Supplier Performance
+                    </a>
+
+                    <a href="/vendor/documents/"
+                       class="vendor-navlink {% if active_nav == 'documents' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-folder-closed nav-icon text-info"></i>Documents
+                    </a>
+
+                    <a href="/vendor/notifications/"
+                       class="vendor-navlink d-flex justify-content-between {% if active_nav == 'notifications' %}active-nav-item{% endif %}">
+                        <span class="d-flex align-items-center">
+                            <i class="fa-solid fa-bell nav-icon text-warning"></i>Notifications
+                        </span>
+                        {% if metrics.unread_notifications and metrics.unread_notifications > 0 %}
+                        <span class="badge bg-danger rounded-pill" style="font-size:0.65rem;">{{ metrics.unread_notifications }}</span>
+                        {% endif %}
+                    </a>
+
+                    <a href="/vendor/reports/"
+                       class="vendor-navlink {% if active_nav == 'reports' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-clock-rotate-left nav-icon text-secondary"></i>Reports
+                    </a>
+
+                    <a href="/vendor/account/"
+                       class="vendor-navlink {% if active_nav == 'account' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-shield-halved nav-icon text-cyan"></i>Account &amp; Security
+                    </a>
+
+                    <a href="/vendor/profile/"
+                       class="vendor-navlink {% if active_nav == 'settings' %}active-nav-item{% endif %}">
+                        <i class="fa-solid fa-gear nav-icon text-secondary"></i>Profile Settings
+                    </a>
+
+                </nav>
+
+                <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 px-1">
+                    <div class="d-flex align-items-center text-muted small" style="font-size: 0.68rem;">
+                        <i class="fa-solid fa-lock text-success me-2"></i>
+                        <span>RBAC Backend Enforced &bull; Sealed Bids</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow-1 p-2 p-sm-3 p-md-4 bg-light w-100" style="min-width: 0; max-width: 100vw; overflow-x: hidden;">
+        <!-- Alert Messages -->
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show shadow-sm border-0 d-flex align-items-center py-2 px-3" role="alert">
+                <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check text-success{% elif message.tags == 'error' or message.tags == 'danger' %}fa-circle-exclamation text-danger{% else %}fa-circle-info text-primary{% endif %} me-2 fs-5"></i>
+                <div class="flex-grow-1">{{ message }}</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block vendor_content %}{% endblock %}
+    </main>
+</div>
+{% endblock layout %}

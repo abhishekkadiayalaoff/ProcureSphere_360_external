@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchase Requisitions — ProcureSphere 360 ERP{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-file-invoice-dollar text-primary me-2"></i> Purchase Requisitions</h2>
+        <p class="text-muted small mb-0">Multi-level approval workflows & real-time budget reservation tracking.</p>
+    </div>
+    {% if request.user.role_code == 'REQUESTER' or request.user.role.code == 'REQUESTER' or request.user.is_superuser %}
+    <a href="/requisitions/create/" class="btn btn-cyan rounded-pill px-4 fw-semibold shadow-sm">
+        <i class="fa-solid fa-plus me-1"></i> Create New PR
+    </a>
+    {% endif %}
+</div>
+
+<!-- Messages Alert -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Status Filter Pills -->
+<div class="mb-4">
+    <div class="btn-group border rounded-pill p-1 bg-white shadow-sm" role="group">
+        <a href="/requisitions/" class="btn btn-sm rounded-pill px-3 {% if not status_filter %}btn-primary{% else %}btn-light{% endif %}">All PRs</a>
+        <a href="/requisitions/?status=DRAFT" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'DRAFT' %}btn-primary{% else %}btn-light{% endif %}">Draft</a>
+        <a href="/requisitions/?status=SUBMITTED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'SUBMITTED' %}btn-primary{% else %}btn-light{% endif %}">Submitted</a>
+        <a href="/requisitions/?status=APPROVED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'APPROVED' %}btn-primary{% else %}btn-light{% endif %}">Approved</a>
+        <a href="/requisitions/?status=REJECTED" class="btn btn-sm rounded-pill px-3 {% if status_filter == 'REJECTED' %}btn-primary{% else %}btn-light{% endif %}">Rejected</a>
+    </div>
+</div>
+
+<!-- Requisition Register Table -->
+<div class="glass-card shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small text-uppercase text-muted">
+                    <th class="ps-4">PR Number</th>
+                    <th>Title & Justification</th>
+                    <th>Department</th>
+                    <th>Total Estimated</th>
+                    <th>Status</th>
+                    <th>Created Date</th>
+                    <th class="text-end pe-4">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pr in requisitions %}
+                    <tr>
+                        <td class="ps-4 fw-bold">
+                            <a href="/requisitions/{{ pr.id }}/" class="text-decoration-none text-navy">
+                                <code>{{ pr.pr_number }}</code>
+                            </a>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ pr.title }}</div>
+                            <div class="text-muted small text-truncate" style="max-width: 250px;">{{ pr.description }}</div>
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ pr.department.name }}</span></td>
+                        <td class="fw-bold text-navy">${{ pr.total_estimated_amount|floatformat:2 }} {{ pr.currency }}</td>
+                        <td>
+                            {% if pr.status == 'APPROVED' %}
+                                <span class="badge badge-status badge-status-approved"><i class="fa-solid fa-circle-check me-1"></i> APPROVED</span>
+                            {% elif pr.status == 'REJECTED' %}
+                                <span class="badge badge-status badge-status-rejected"><i class="fa-solid fa-circle-xmark me-1"></i> REJECTED</span>
+                            {% elif pr.status == 'DRAFT' %}
+                                <span class="badge badge-status badge-status-draft"><i class="fa-solid fa-pen me-1"></i> DRAFT</span>
+                            {% else %}
+                                <span class="badge badge-status badge-status-pending"><i class="fa-solid fa-clock me-1"></i> {{ pr.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">{{ pr.created_at|date:"M d, Y" }}</td>
+                        <td class="text-end pe-4">
+                            <a href="/requisitions/{{ pr.id }}/" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                View PR <i class="fa-solid fa-arrow-right ms-1"></i>
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-folder-open fa-3x mb-3 text-secondary"></i>
+                            <div>No Purchase Requisitions found matching the criteria.</div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -29,7 +29,7 @@ Legend: **C** = Create, **R** = Read, **U** = Update, **D** = Delete, **A** = Ap
 | User & System Config | C R U D | - | - | - | - | - | - | - | R | - |
 | Org, Dept & Cost Centers | C R U D | R | R | R | R | R | R | R | R | - |
 | Approval Policies | C R U D | R | R | R | R | R | - | - | R | - |
-| Vendor Onboarding & KYC | C R U | - | - | C R U A | C R U A | R | - | - | R | C R U (Self) |
+| Vendor Onboarding & KYC | C R U | - | - | C R U A | C R U A | R | - | R V (docs) | R | C R U (Self) |
 | Vendor Risk & Status | C R U | - | - | R U | C R U A | R | - | - | R | R (Self) |
 | Purchase Requisitions | R D | C R U (Dept) | R A (Dept) | R | R A | R | - | - | R | - |
 | Budget & Spend Ledger | C R U | R (Dept) | R (Dept) | R | R | C R U A | - | - | R | - |
@@ -50,3 +50,33 @@ Legend: **C** = Create, **R** = Read, **U** = Update, **D** = Delete, **A** = Ap
 - **Vendor User**: Enforced at database selector level (`Vendor.objects.filter(id=user.vendor_id)`). Bids from competing vendors return `403 Forbidden` / filtered out at ORM query level.
 - **Approver**: Restricted to requisitions/POs currently assigned in approval chain or department scope.
 - **Auditor**: Global read-only access; state-changing endpoints return `403 Forbidden`.
+
+---
+
+## 4. Procurement Executive — Sourcing & Vendor Governance (action level)
+
+Enforced server-side in `apps/sourcing/permissions.py`, `apps/vendors/permissions.py`, `apps/scorecards/permissions.py`, and re-checked in the services for governance status changes and risk assessments.
+
+| Action | Endpoint (UI / API) | PROC_EXEC | PROC_MGR | FINANCE_AP | AUDITOR | LEGAL_MGR | VENDOR_USER | Others |
+|---|---|---|---|---|---|---|---|---|
+| View RFQ/RFP register & event | `/sourcing-events/`, `GET /api/v1/sourcing-events/events/` | ✔ | ✔ | R | R | R | Invited & published only (API) | 403 |
+| Create / edit draft event | `/sourcing-events/create/`, `/edit/`, `POST/PATCH events/` | ✔ | ✔ | – | – | – | – | 403 |
+| Invite / publish / close / cancel / answer clarification | `/sourcing-events/{id}/actions/*`, `POST events/{id}/…` | ✔ | ✔ | – | – | – | – | 403 |
+| Read bids (after close only; commercial at COMMERCIAL_REVIEW) | event detail, `events/{id}/bids/`, `bids/` | ✔ | ✔ | – | R | – | Own bids only | none |
+| Technical / commercial scoring, negotiation notes | `actions/technical-score`, `commercial-score`, `negotiation-note` | ✔ | ✔ | – | – | – | – | 403 |
+| Recommend award | `actions/recommend-award` | ✔ | ✔ | – | – | – | – | 403 |
+| Approve / reject award | `actions/approve-award`, `reject-award` | **✘** | ✔ | – | – | – | – | 403 |
+| Generate PO from award | `actions/generate-po` | ✔ | ✔ | – | – | – | – | 403 |
+| Withdraw bid (before close) | `POST /api/v1/sourcing-events/bids/{id}/withdraw/` | – | – | – | – | – | Own bid | 403/404 |
+| Vendor governance pages | `/vendors/`, `/vendors/governance/`, `/vendors/onboarding/`, `/vendors/{id}/` | ✔ | ✔ | R | R | – | – (portal only) | 403 |
+| Register vendor | `/vendors/create/`, `/vendors/htmx/register/` | ✔ | ✔ | – | – | – | – | 403 |
+| Start KYC review; **activate vendor** (approve) | `/vendors/{id}/kyc/start-review/`, `/kyc/approve/`, `/vendors/{id}/htmx/kyc/*` | ✔ | ✔ | – | – | **403** | – | 403 |
+| Verify / reject KYC document (reason required); request corrections | `/vendors/{id}/kyc/verify-document/`, `/reject-document/`, `/request-changes/` | ✔ | ✔ | – | – | ✔ | – | 403 |
+| KYC activation gates (server-side, `approve_vendor_service`) | status SUBMITTED/KYC_REVIEW, ≥1 document, mandatory types present (`VENDOR_MANDATORY_KYC_DOC_TYPES`), every current document VERIFIED, none rejected/pending | applies to all roles |
+| Record risk assessment (level + flags) | `/vendors/{id}/risk/`, `POST /api/v1/vendors/{id}/risk/` | ✔ | ✔ | – | – | – | – | 403 |
+| Hold / release hold / reject registration | `/vendors/{id}/status/`, `POST …/set-status/` | ✔ | ✔ | – | – | – | – | 403 |
+| Suspend (blacklist) / reinstate | same | **✘** | ✔ | – | – | – | – | 403 |
+| Download vendor document | `/vendors/{id}/documents/{doc}/download/`, API `…/documents/{doc}/download/` | ✔ | ✔ | R | R | – | Own vendor only | 403/404 |
+| Supplier scorecards (view / calculate) | `/scorecards/`, `/scorecards/calculate/`, `/api/v1/scorecards/` | ✔ / ✔ | ✔ / ✔ | R | R | – | Own (API) | Stores R; others none |
+
+Object-level rules: vendor users are scoped by `user.vendor_id` in every queryset (cross-vendor IDs return 404). Draft events are never exposed to vendors, even invited ones. Status fields are read-only in every serializer; state changes go only through explicit POST actions backed by transition tables (`SOURCING_TRANSITIONS`, `VENDOR_GOVERNANCE_TRANSITIONS`).

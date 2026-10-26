@@ -1,0 +1,58 @@
+{% extends 'layouts/superadmin_base.html' %}
+
+{% block title %}Budget Allocations — Super Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-sack-dollar text-warning me-2"></i> Budget Allocations</h3>
+            <p class="text-muted mb-0">View financial limits and consumption per cost center for the active fiscal period.</p>
+        </div>
+        <button hx-get="/superadmin/budgets/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm">
+            <i class="fa-solid fa-plus me-2"></i> Add Budget
+        </button>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Cost Center</th>
+                        <th>Fiscal Period</th>
+                        <th class="text-end">Allocated</th>
+                        <th class="text-end text-warning">Reserved</th>
+                        <th class="text-end text-primary">Committed</th>
+                        <th class="text-end text-danger">Actual Spend</th>
+                        <th class="text-end text-success">Available</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in budgets %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ b.cost_center.code }} - {{ b.cost_center.name }}</td>
+                        <td>{{ b.fiscal_period.name }}</td>
+                        <td class="text-end fw-bold">${{ b.allocated_amount|floatformat:2 }}</td>
+                        <td class="text-end text-warning">${{ b.reserved_amount|floatformat:2 }}</td>
+                        <td class="text-end text-primary">${{ b.committed_amount|floatformat:2 }}</td>
+                        <td class="text-end text-danger fw-bold">${{ b.actual_amount|floatformat:2 }}</td>
+                        <td class="text-end text-success fw-bold">${{ b.available_amount|floatformat:2 }}</td>
+                        <td class="pe-4 text-end">
+                            <button hx-get="/superadmin/budgets/{{ b.pk }}/edit/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Edit</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">No budget allocations found in the system.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
