@@ -95,4 +95,4 @@ black --check .
 - [`docs/security_checklist.md`](docs/security_checklist.md): OWASP Top 10 Security Controls
 - [`docs/demo_scripts.md`](docs/demo_scripts.md): Day-90 Technical Acceptance Demonstrations
 - [`docs/architecture.md`](docs/architecture.md): Architecture & Data Model Topology
-- [`docs/PROGRESS.md`](docs/PROGRESS.md): Delivery Progress Tracker
+
