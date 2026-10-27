@@ -556,7 +556,18 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="acknowledge")
     def acknowledge(self, request, pk=None):
         po = self.get_object()
-        notes = request.data.get("acknowledgement_notes", request.data.get("notes", ""))
+        notes = str(request.data.get("acknowledgement_notes", request.data.get("notes", ""))).strip()
+        if not notes:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Acknowledgement notes are required.",
+                        "details": {"notes": ["This field is required."]},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             updated_po = acknowledge_purchase_order_service(
                 po=po, vendor_user=request.user, acknowledgement_notes=notes

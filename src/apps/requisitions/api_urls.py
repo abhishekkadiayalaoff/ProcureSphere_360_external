@@ -352,7 +352,11 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
             )
         from apps.requisitions.services import approve_purchase_requisition_service
 
-        comments = request.data.get("comments", "")
+        comments = str(request.data.get("comments", request.data.get("reason", ""))).strip()
+        if not comments:
+            raise serializers.ValidationError(
+                {"comments": "Approval comments / justification are mandatory."}
+            )
         updated_pr = approve_purchase_requisition_service(
             requisition=pr, approver=user, comments=comments
         )
@@ -397,11 +401,7 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
             raise permissions.exceptions.PermissionDenied(
                 "Only the original requester or a procurement manager can cancel this requisition."
             )
-        if pr.status in [
-            PurchaseRequisition.STATUS_PO_ISSUED,
-            PurchaseRequisition.STATUS_CANCELLED,
-            PurchaseRequisition.STATUS_SOURCING,
-        ]:
+        if pr.status != PurchaseRequisition.STATUS_DRAFT:
             raise serializers.ValidationError(
                 {"status": f"Cannot cancel requisition in '{pr.status}' status."}
             )

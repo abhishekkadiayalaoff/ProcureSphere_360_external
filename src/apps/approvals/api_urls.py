@@ -123,29 +123,49 @@ class ApprovalActionViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=["post"], url_path="reject")
     def reject(self, request, pk=None):
         action_obj = self.get_object()
-        reason = request.data.get("reason", request.data.get("comment", ""))
+        reason = str(
+            request.data.get("reason", request.data.get("comment", request.data.get("comments", "")))
+        ).strip()
+        if not reason:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Rejection comments are mandatory.",
+                        "details": {"reason": ["Rejection comments are mandatory."]},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         target_obj = None
         for model in apps.get_models():
             if model.__name__.lower() == action_obj.target_model_name.lower():
                 target_obj = model.objects.filter(id=action_obj.target_object_id).first()
                 break
 
-        if target_obj:
-            new_action = process_approval_action_service(
-                target_object=target_obj,
-                actor=request.user,
-                action=ApprovalAction.ACTION_REJECT,
-                comments=reason,
-            )
-        else:
-            new_action = record_approval_action_service(
-                target_object_id=action_obj.target_object_id,
-                target_model_name=action_obj.target_model_name,
-                actor=request.user,
-                action=ApprovalAction.ACTION_REJECT,
-                previous_state=action_obj.new_state,
-                new_state="REJECTED",
-                comments=reason,
+        try:
+            if target_obj:
+                new_action = process_approval_action_service(
+                    target_object=target_obj,
+                    actor=request.user,
+                    action=ApprovalAction.ACTION_REJECT,
+                    comments=reason,
+                )
+            else:
+                new_action = record_approval_action_service(
+                    target_object_id=action_obj.target_object_id,
+                    target_model_name=action_obj.target_model_name,
+                    actor=request.user,
+                    action=ApprovalAction.ACTION_REJECT,
+                    previous_state=action_obj.new_state,
+                    new_state="REJECTED",
+                    comments=reason,
+                )
+        except Exception as e:
+            return Response(
+                {"error": {"code": "VALIDATION_ERROR", "message": str(e)}},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if isinstance(new_action, ApprovalAction):

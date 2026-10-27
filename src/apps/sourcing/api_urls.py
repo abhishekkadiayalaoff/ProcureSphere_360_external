@@ -312,4 +312,7 @@ urlpatterns = [
     path(
         "events/<uuid:pk>/award-approve/", AwardApproveAPIView.as_view(), name="award-approve-api"
     ),
+    path(
+        "<uuid:pk>/award-approve/", AwardApproveAPIView.as_view(), name="award-approve-flat-api"
+    ),
 ] + router.urls

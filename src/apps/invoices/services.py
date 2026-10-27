@@ -126,6 +126,13 @@ def run_3_way_match_service(
     """
     from apps.invoices.models import MatchTolerancePolicy
 
+    if invoice.status in [
+        SupplierInvoice.STATUS_PAID,
+        SupplierInvoice.STATUS_REJECTED,
+        SupplierInvoice.STATUS_READY_FOR_PAYMENT,
+    ]:
+        raise ValidationError(f"Cannot run 3-way match on invoice in status '{invoice.status}'.")
+
     policy = MatchTolerancePolicy.get_current()
     if price_tolerance_pct is None:
         price_tolerance_pct = policy.price_tolerance_pct

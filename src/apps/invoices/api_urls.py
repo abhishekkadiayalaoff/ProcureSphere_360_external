@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
+from django.urls import path
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import SAFE_METHODS, BasePermission, IsAuthenticated
@@ -298,9 +299,21 @@ class MatchExceptionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, CanManageSupplierInvoice]
 
     @action(detail=True, methods=["post"], url_path="resolve")
-    def resolve_exception(self, request, pk=None):
+    def resolve_exception(self, request, pk=None, invoice_pk=None):
         exception = self.get_object()
-        notes = request.data.get("resolution_notes", "Resolved by Finance")
+        raw_notes = request.data.get("resolution_notes", request.data.get("notes", ""))
+        notes = str(raw_notes).strip() if raw_notes is not None else ""
+        if not notes:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Resolution notes are required.",
+                        "details": {"resolution_notes": ["This field is required."]},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         action_type = request.data.get("action", "RESOLVE")
         try:
             resolved = resolve_match_exception_service(
@@ -327,4 +340,10 @@ router = DefaultRouter()
 router.register(r"exceptions", MatchExceptionViewSet, basename="match-exception")
 router.register(r"", SupplierInvoiceViewSet, basename="invoice")
 
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        "<uuid:invoice_pk>/exceptions/<uuid:pk>/resolve/",
+        MatchExceptionViewSet.as_view({"post": "resolve_exception"}),
+        name="invoice-exception-resolve-nested",
+    ),
+] + router.urls
