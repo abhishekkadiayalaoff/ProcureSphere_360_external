@@ -249,7 +249,19 @@ class GoodsReceiptViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="handoff")
     def handoff(self, request, pk=None):
         receipt = self.get_object()
-        storage_location = request.data.get("storage_location", "MAIN-WH")
+        raw_location = request.data.get("storage_location")
+        storage_location = str(raw_location).strip() if raw_location is not None else ""
+        if not storage_location:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Storage location is required for stock handoff.",
+                        "details": {"storage_location": ["This field is required."]},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         notes = request.data.get("handoff_notes", request.data.get("notes", ""))
         try:
             from .services import handoff_goods_to_stock_service
