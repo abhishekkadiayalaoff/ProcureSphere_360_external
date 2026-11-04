@@ -1,0 +1,932 @@
+{% extends 'landing/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+/* =========================================================
+   About Page — Enterprise Sectioned Layout with Signature Blue Theme
+   - High Contrast, Large Readable Typography (Client Requirement: Big & Crisp Text)
+   - Signature Blue / Navy Gradient Backgrounds (Matching Homepage #roles & #faq)
+   - Every dropdown item has a dedicated section with matching heading
+   ========================================================= */
+
+.about-page-shell {
+  min-height: 100vh;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.about-page-main {
+  padding-top: 120px;
+  overflow-x: hidden;
+}
+
+/* ── Common Section Header Styling ── */
+.about-section {
+  scroll-margin-top: 115px;
+  margin-bottom: 76px;
+  position: relative;
+}
+
+.about-section:last-child {
+  margin-bottom: 30px;
+}
+
+.about-section-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.about-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #2456D6;
+  font: 800 14px/1.2 'DM Mono', monospace;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.about-eyebrow-line {
+  display: block;
+  width: 32px;
+  height: 2px;
+  background: #2456D6;
+}
+
+/* Section H2 — Large, prominent, Playfair Display */
+.about-section-h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(32px, 4.2vw, 46px);
+  font-weight: 700;
+  line-height: 1.22;
+  margin: 0 0 16px 0;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+
+/* Section Subtitle — Big, clear, dark & readable */
+.about-section-sub {
+  font-size: clamp(19px, 1.45vw, 22px);
+  color: #0b1329;
+  max-width: 880px;
+  margin: 0 auto;
+  line-height: 1.75;
+  font-weight: 600;
+}
+
+/* ── Body container ── */
+.about-body-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 24px 100px;
+}
+
+.about-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+
+/* =========================================================
+   01. ABOUT OVERVIEW — Royal Blue / Navy Gradient Card
+   (Matches Homepage #roles signature enterprise gradient)
+   ========================================================= */
+.about-overview-card {
+  background: linear-gradient(135deg, #102a6b 0%, #0d1e48 50%, #0a1128 100%);
+  border: 1.5px solid rgba(147, 197, 253, 0.35);
+  border-radius: 28px;
+  padding: clamp(36px, 5vw, 52px) clamp(26px, 4.2vw, 46px);
+  box-shadow: 0 26px 64px rgba(15, 27, 45, 0.35), 0 0 0 1px rgba(147, 197, 253, 0.15);
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+}
+
+.about-overview-card::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -20%;
+  width: 140%;
+  height: 160%;
+  background: radial-gradient(circle at 35% 25%, rgba(59, 130, 246, 0.28) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.about-overview-lead {
+  font-size: clamp(20px, 1.7vw, 24px);
+  line-height: 1.85;
+  color: #ffffff;
+  margin-bottom: 34px;
+  font-weight: 600;
+  position: relative;
+  z-index: 2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.about-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding-top: 32px;
+  position: relative;
+  z-index: 2;
+}
+
+.about-overview-item {
+  display: flex;
+  flex-direction: column;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1.5px solid rgba(147, 197, 253, 0.32);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 26px 24px;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.about-overview-item:hover {
+  transform: translateY(-3px);
+  border-color: #60a5fa;
+}
+
+.about-overview-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.3);
+  border: 1.5px solid rgba(147, 197, 253, 0.5);
+  color: #93c5fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 800;
+  font-size: 19px;
+  font-family: 'DM Mono', monospace;
+}
+
+.about-overview-item-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+}
+
+.about-overview-item-desc {
+  font-size: 16px;
+  color: #ffffff;
+  line-height: 1.65;
+  margin: 0;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   02. PLATFORM MISSION & PURPOSE — Crisp Light Enterprise Cards
+   ========================================================= */
+.about-mission-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 26px;
+}
+
+.about-mission-card {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 24px;
+  padding: 38px 34px;
+  box-shadow: 0 20px 48px rgba(15, 27, 45, 0.14), 0 8px 20px rgba(15, 27, 45, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.about-mission-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 28px 64px rgba(15, 27, 45, 0.22), 0 10px 24px rgba(15, 27, 45, 0.10);
+  border-color: #60a5fa;
+}
+
+.about-mission-tag {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+}
+
+.about-mission-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 25px;
+  color: #0f172a;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.about-mission-desc {
+  font-size: 19px;
+  color: #0b1329;
+  line-height: 1.75;
+  margin: 0;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   03. STRATEGIC SPEND PILLARS — Signature Deep Blue Section Shell
+   (Matches Homepage #faq dark blue aesthetic)
+   ========================================================= */
+.about-blue-shell {
+  background: linear-gradient(135deg, #0d1b3e 0%, #172554 50%, #0f172a 100%);
+  border: 1.5px solid rgba(147, 197, 253, 0.28);
+  border-radius: 30px;
+  padding: clamp(38px, 5vw, 54px) clamp(24px, 4vw, 44px);
+  box-shadow: 0 28px 70px rgba(15, 27, 45, 0.35), 0 0 0 1px rgba(147, 197, 253, 0.15);
+  position: relative;
+  overflow: hidden;
+  color: #ffffff;
+}
+
+.about-blue-shell::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.22) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.about-blue-shell .about-section-header {
+  position: relative;
+  z-index: 2;
+}
+
+.about-blue-shell .about-eyebrow {
+  color: #93c5fd;
+}
+
+.about-blue-shell .about-eyebrow-line {
+  background: #93c5fd;
+}
+
+.about-blue-shell .about-section-h2 {
+  color: #ffffff;
+}
+
+.about-blue-shell .about-section-sub {
+  color: #ffffff;
+  font-size: clamp(19px, 1.45vw, 22px);
+  font-weight: 550;
+}
+
+.about-pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 26px;
+  position: relative;
+  z-index: 2;
+}
+
+.about-pillar-card-blue {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid rgba(147, 197, 253, 0.3);
+  border-radius: 22px;
+  padding: 38px 32px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  backdrop-filter: blur(12px);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.about-pillar-card-blue:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.5);
+  border-color: #60a5fa;
+}
+
+.about-pillar-tag-blue {
+  font-size: 13px;
+  font-weight: 800;
+  color: #93c5fd;
+  letter-spacing: 0.14em;
+  display: inline-block;
+  margin-bottom: 18px;
+  background: rgba(30, 58, 138, 0.75);
+  border: 1px solid rgba(147, 197, 253, 0.45);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+}
+
+.about-pillar-title-blue {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 25px;
+  color: #ffffff;
+  margin: 0 0 16px 0;
+  font-weight: 700;
+  line-height: 1.32;
+}
+
+.about-pillar-desc-blue {
+  font-size: 19px;
+  color: #ffffff;
+  line-height: 1.75;
+  margin: 0;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   04. THE FOUR CONNECTED PILLARS — Sleek 2x2 Compact Cards
+   ========================================================= */
+.about-connected-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+}
+
+.about-connected-card {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 26px 28px;
+  box-shadow: 0 20px 48px rgba(15, 27, 45, 0.14), 0 8px 20px rgba(15, 27, 45, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.about-connected-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 28px 64px rgba(15, 27, 45, 0.22), 0 10px 24px rgba(15, 27, 45, 0.10);
+  border-color: #60a5fa;
+}
+
+.about-connected-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.about-connected-tag {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.08em;
+  display: inline-block;
+}
+
+.about-connected-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 23px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  line-height: 1.25;
+}
+
+.about-connected-subtitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2456D6;
+  margin-bottom: 10px;
+}
+
+.about-connected-desc {
+  font-size: 17px;
+  color: #0b1329;
+  line-height: 1.7;
+  margin: 0 0 14px 0;
+  font-weight: 600;
+}
+
+.about-connected-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 6px 14px;
+}
+
+.about-connected-features li {
+  font-size: 15px;
+  color: #0b1329;
+  font-weight: 700;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.about-connected-features li::before {
+  content: "✓";
+  color: #2456D6;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+
+/* =========================================================
+   05. ENTERPRISE CAPABILITIES — Sleek 2x2 Compact Cards
+   ========================================================= */
+.about-capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+}
+
+.about-capability-card {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 26px 28px;
+  box-shadow: 0 20px 48px rgba(15, 27, 45, 0.14), 0 8px 20px rgba(15, 27, 45, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.about-capability-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 28px 64px rgba(15, 27, 45, 0.22), 0 10px 24px rgba(15, 27, 45, 0.10);
+  border-color: #60a5fa;
+}
+
+.about-cap-tag {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  margin-bottom: 18px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+}
+.about-cap-tag--blue   { color: #2456D6; background: #2456D615; border: 1.5px solid #2456D635; }
+.about-cap-tag--green  { color: #059669; background: #10b98115; border: 1.5px solid #10b98135; }
+.about-cap-tag--amber  { color: #d97706; background: #f59e0b15; border: 1.5px solid #f59e0b35; }
+.about-cap-tag--purple { color: #7c3aed; background: #8b5cf615; border: 1.5px solid #8b5cf635; }
+
+.about-cap-title {
+  font-size: 23px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 14px 0;
+  line-height: 1.3;
+}
+
+.about-cap-desc {
+  font-size: 18px;
+  color: #0b1329;
+  line-height: 1.75;
+  margin: 0;
+  font-weight: 600;
+}
+
+
+/* =========================================================
+   06. DESIGN PHILOSOPHY & GOVERNANCE — Signature Navy Banner
+   (Matches Homepage core design philosophy banner)
+   ========================================================= */
+.about-governance-shell {
+  background: linear-gradient(135deg, #102a6b 0%, #0d1e48 50%, #0a1128 100%);
+  border: 1.5px solid rgba(147, 197, 253, 0.35);
+  border-radius: 30px;
+  padding: clamp(40px, 5.2vw, 56px) clamp(24px, 4.2vw, 48px);
+  color: #ffffff;
+  box-shadow: 0 28px 70px rgba(15, 27, 45, 0.4), 0 0 0 1px rgba(147, 197, 253, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.about-governance-shell::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -20%;
+  width: 140%;
+  height: 180%;
+  background: radial-gradient(circle at 35% 25%, rgba(59, 130, 246, 0.28) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.about-banner-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(30px, 4.2vw, 42px);
+  margin: 16px 0 18px 0;
+  color: #ffffff;
+  font-weight: 700;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+  line-height: 1.25;
+}
+
+.about-banner-text {
+  font-size: clamp(19px, 1.45vw, 22px);
+  color: #ffffff;
+  max-width: 900px;
+  margin: 0 auto 40px auto;
+  line-height: 1.85;
+  text-align: center;
+  font-weight: 550;
+  position: relative;
+  z-index: 2;
+}
+
+.about-governance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  padding-top: 36px;
+  position: relative;
+  z-index: 2;
+}
+
+.about-governance-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid rgba(147, 197, 253, 0.35);
+  border-radius: 18px;
+  padding: 26px 22px;
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.about-governance-card:hover {
+  transform: translateY(-3px);
+  border-color: #60a5fa;
+}
+
+.about-gov-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0 10px 0;
+  line-height: 1.35;
+}
+
+.about-gov-desc {
+  font-size: 16px;
+  color: #ffffff;
+  line-height: 1.65;
+  margin: 0;
+  font-weight: 500;
+}
+
+
+/* Dynamic Active Section Glow on Navigation */
+.section-active-highlight {
+  animation: sectionPulse 1.8s ease;
+}
+
+@keyframes sectionPulse {
+  0% { outline: 3px solid rgba(36, 86, 214, 0.85); outline-offset: 8px; border-radius: 26px; }
+  50% { outline: 3px solid rgba(36, 86, 214, 0.4); outline-offset: 8px; border-radius: 26px; }
+  100% { outline: 3px solid transparent; outline-offset: 8px; }
+}
+
+@media (max-width: 1080px) {
+  .about-governance-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .about-pillars-grid,
+  .about-connected-grid,
+  .about-capabilities-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-page-main {
+    padding-top: 96px;
+  }
+  .about-body-container {
+    padding: 0 16px 60px;
+  }
+  .about-overview-card {
+    padding: 28px 20px;
+  }
+  .about-blue-shell {
+    padding: 30px 18px;
+  }
+  .about-governance-shell {
+    padding: 32px 20px;
+  }
+  .about-section-h2 {
+    font-size: 28px;
+  }
+  .about-section-sub {
+    font-size: 17px;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="about-page-shell">
+  <main class="about-page-main">
+    <div class="about-body-container">
+      <div class="about-inner">
+
+        <!-- ========================================================
+             01. ABOUT OVERVIEW (Signature Royal Blue Gradient Card)
+             Target: /about/#about-overview
+             ======================================================== -->
+        <section class="about-section" id="about-overview">
+          <div class="about-section-header">
+            <div class="about-eyebrow">
+              <span class="about-eyebrow-line"></span>
+              {{ badge }}
+              <span class="about-eyebrow-line"></span>
+            </div>
+            <h1 class="about-section-h2">{{ overview_title }}</h1>
+            <p class="about-section-sub">{{ overview_subtitle }}</p>
+          </div>
+
+          <div class="about-overview-card">
+            <p class="about-overview-lead">{{ overview_summary }}</p>
+            <div class="about-overview-grid">
+              <div class="about-overview-item">
+                <h3 class="about-overview-item-title">Enterprise Spend Control</h3>
+                <p class="about-overview-item-desc">Validate department budgets prior to order commitments to eliminate silent overspend.</p>
+              </div>
+              <div class="about-overview-item">
+                <h3 class="about-overview-item-title">Autonomous 3-Way Match</h3>
+                <p class="about-overview-item-desc">Cross-reference PO lines, dock receipts, and supplier invoices with configurable tolerances.</p>
+              </div>
+              <div class="about-overview-item">
+                <h3 class="about-overview-item-title">Append-Only Auditability</h3>
+                <p class="about-overview-item-desc">Capture actor identity, state transitions, and timestamps on every business transaction.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ========================================================
+             02. PLATFORM MISSION & PURPOSE (Crisp Light Enterprise Cards)
+             Target: /about/#mission-purpose
+             ======================================================== -->
+        <section class="about-section" id="mission-purpose">
+          <div class="about-section-header">
+            <div class="about-eyebrow">
+              <span class="about-eyebrow-line"></span>
+              MISSION &amp; STRATEGY
+              <span class="about-eyebrow-line"></span>
+            </div>
+            <h2 class="about-section-h2">{{ mission_title }}</h2>
+            <p class="about-section-sub">{{ mission_subtitle }}</p>
+          </div>
+
+          <div class="about-mission-grid">
+            {% for item in mission_cards %}
+            <div class="about-mission-card">
+              <span class="about-mission-tag" style="color: {{ item.color }}; background: {{ item.color }}18; border: 1.5px solid {{ item.color }}40;">
+                {{ item.tag }}
+              </span>
+              <h3 class="about-mission-title">{{ item.title }}</h3>
+              <p class="about-mission-desc">{{ item.desc }}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+
+        <!-- ========================================================
+             03. FINANCIAL INTEGRITY & CONTROL (Signature Deep Blue Section Shell)
+             Target: /about/#financial-control
+             ======================================================== -->
+        <section class="about-section" id="financial-control">
+          <div class="about-blue-shell">
+            <div class="about-section-header">
+              <div class="about-eyebrow">
+                <span class="about-eyebrow-line"></span>
+                FINANCIAL INTEGRITY &amp; CONTROL
+                <span class="about-eyebrow-line"></span>
+              </div>
+              <h2 class="about-section-h2">{{ spend_pillars_title }}</h2>
+              <p class="about-section-sub">{{ spend_pillars_subtitle }}</p>
+            </div>
+
+            <div class="about-pillars-grid">
+              {% for p in pillars %}
+              <div class="about-pillar-card-blue">
+                <div>
+                  <span class="about-pillar-tag-blue">{{ p.tag }}</span>
+                  <h3 class="about-pillar-title-blue">{{ p.title }}</h3>
+                  <p class="about-pillar-desc-blue">{{ p.desc }}</p>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+
+        <!-- ========================================================
+             04. THE FOUR CONNECTED PILLARS (Crisp Light Cards)
+             Target: /about/#connected-pillars
+             ======================================================== -->
+        <section class="about-section" id="connected-pillars">
+          <div class="about-section-header">
+            <div class="about-eyebrow">
+              <span class="about-eyebrow-line"></span>
+              UNIFIED SYSTEM
+              <span class="about-eyebrow-line"></span>
+            </div>
+            <h2 class="about-section-h2">{{ connected_pillars_title }}</h2>
+            <p class="about-section-sub">{{ connected_pillars_subtitle }}</p>
+          </div>
+
+          <div class="about-connected-grid">
+            {% for cp in connected_pillars %}
+            <div class="about-connected-card">
+              <div>
+                <div class="about-connected-top">
+                  <span class="about-connected-tag">{{ cp.tag }}</span>
+                </div>
+                <h3 class="about-connected-title">{{ cp.title }}</h3>
+                <div class="about-connected-subtitle">{{ cp.subtitle }}</div>
+                <p class="about-connected-desc">{{ cp.desc }}</p>
+              </div>
+              <ul class="about-connected-features">
+                {% for feat in cp.features %}
+                <li>{{ feat }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+
+        <!-- ========================================================
+             05. ENTERPRISE CAPABILITIES (Crisp Light Cards)
+             Target: /about/#enterprise-capabilities
+             ======================================================== -->
+        <section class="about-section" id="enterprise-capabilities">
+          <div class="about-section-header">
+            <div class="about-eyebrow">
+              <span class="about-eyebrow-line"></span>
+              CORE CAPABILITIES
+              <span class="about-eyebrow-line"></span>
+            </div>
+            <h2 class="about-section-h2">{{ capabilities_title }}</h2>
+            <p class="about-section-sub">{{ capabilities_subtitle }}</p>
+          </div>
+
+          <div class="about-capabilities-grid">
+            {% for c in capabilities %}
+            <div class="about-capability-card">
+              {% if c.color == '#2456D6' %}
+                <span class="about-cap-tag about-cap-tag--blue">{{ c.tag }}</span>
+              {% elif c.color == '#10b981' %}
+                <span class="about-cap-tag about-cap-tag--green">{{ c.tag }}</span>
+              {% elif c.color == '#f59e0b' %}
+                <span class="about-cap-tag about-cap-tag--amber">{{ c.tag }}</span>
+              {% elif c.color == '#8b5cf6' %}
+                <span class="about-cap-tag about-cap-tag--purple">{{ c.tag }}</span>
+              {% else %}
+                <span class="about-cap-tag about-cap-tag--blue">{{ c.tag }}</span>
+              {% endif %}
+              <h3 class="about-cap-title">{{ c.title }}</h3>
+              <p class="about-cap-desc">{{ c.desc }}</p>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+
+        <!-- ========================================================
+             06. PLATFORM ARCHITECTURE & CONTROLS (Executive Navy Banner)
+             Target: /about/#platform-architecture
+             ======================================================== -->
+        <section class="about-section" id="platform-architecture">
+          <div class="about-governance-shell">
+            <div style="text-align:center;">
+              <span class="about-eyebrow" style="color: #93c5fd;">
+                <span class="about-eyebrow-line" style="background: #93c5fd;"></span>
+                PLATFORM ARCHITECTURE
+                <span class="about-eyebrow-line" style="background: #93c5fd;"></span>
+              </span>
+            </div>
+            <h2 class="about-banner-title">{{ philosophy_title }}</h2>
+            <p class="about-banner-text">
+              {{ philosophy_subtitle }} — Every critical procurement action captures the actor, state change, and timestamp. Business rules and validation are enforced by core domain services, guaranteeing uncompromised audit-readiness and enterprise reliability.
+            </p>
+
+            <div class="about-governance-grid">
+              {% for gov in governance_principles %}
+              <div class="about-governance-card">
+                <h4 class="about-gov-title">{{ gov.title }}</h4>
+                <p class="about-gov-desc">{{ gov.desc }}</p>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /.about-inner -->
+    </div><!-- /.about-body-container -->
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  'use strict';
+
+  function scrollToTarget(target) {
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.classList.remove('section-active-highlight');
+    void target.offsetWidth; // trigger reflow
+    target.classList.add('section-active-highlight');
+  }
+
+  function handleAboutHash() {
+    var hash = window.location.hash;
+    if (hash === '#spend-pillars' || hash === '#spend-governance') {
+      hash = '#financial-control';
+    }
+    if (hash === '#design-philosophy') {
+      hash = '#platform-architecture';
+    }
+    if (hash) {
+      var target = document.querySelector(hash);
+      if (target) {
+        setTimeout(function() {
+          scrollToTarget(target);
+        }, 100);
+      }
+    }
+  }
+
+  // Intercept dropdown clicks when already on the about page
+  document.addEventListener('click', function(e) {
+    var link = e.target.closest('a[href*="/about/#"]');
+    if (link && window.location.pathname.startsWith('/about')) {
+      var hash = link.hash;
+      if (hash === '#spend-pillars' || hash === '#spend-governance') hash = '#financial-control';
+      if (hash === '#design-philosophy') hash = '#platform-architecture';
+      if (hash) {
+        var target = document.querySelector(hash);
+        if (target) {
+          e.preventDefault();
+          history.pushState(null, '', link.href);
+          document.querySelectorAll('.nav-item.has-dropdown').forEach(function(item) {
+            item.setAttribute('data-state', 'closed');
+            item.classList.add('menu-closed');
+          });
+          document.querySelectorAll('.nav-dropdown-menu').forEach(function(m) {
+            m.style.display = 'none';
+            m.classList.add('menu-closed');
+            m.classList.remove('is-open');
+          });
+          document.querySelectorAll('.nav-chevron').forEach(function(c) {
+            c.style.transform = 'rotate(0deg)';
+          });
+          if (document.activeElement) {
+            document.activeElement.blur();
+          }
+          scrollToTarget(target);
+        }
+      }
+    }
+  });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', handleAboutHash);
+  } else {
+    handleAboutHash();
+  }
+  window.addEventListener('hashchange', handleAboutHash);
+})();
+</script>
+{% endblock %}

@@ -1,48 +1,151 @@
-{% extends 'layouts/finance_base.html' %}
+{% extends base_layout|default:'layouts/finance_base.html' %}
 
 {% block title %}Supplier Invoices — ProcureSphere 360{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
+<style>
+    /* Responsive table: under 768px transforms to stacked cards */
+    @media (max-width: 767.98px) {
+        .responsive-table thead { display: none; }
+        .responsive-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #dee2e6; border-radius: 0.5rem; background-color: #fff; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
+        .responsive-table tbody td { display: flex; justify-content: space-between; padding: 0.75rem 1rem; border: none; border-bottom: 1px solid #e9ecef; }
+        .responsive-table tbody td:last-child { border-bottom: none; justify-content: flex-start; }
+        .responsive-table tbody td .label { font-weight: bold; font-size: 0.875rem; color: #333; flex-shrink: 0; }
+        .responsive-table tbody td .value { flex-grow: 1; font-weight: normal; font-size: 0.875rem; text-align: right; color: #444; }
+        .responsive-table tbody tr:last-child td { border-bottom: none; }
+    }
+</style>
+<div class="container-fluid px-0">
+    <!-- Header Banner -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
         <div>
-            <h2 class="fw-bold text-dark mb-1">Supplier Invoices</h2>
-            <p class="text-muted mb-0">Live backend data from SupplierInvoice module.</p>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h3 class="fw-bold text-dark mb-0">Supplier Invoices</h3>
+                <span class="badge bg-primary rounded-pill">{{ items|length }} Record{{ items|length|pluralize }}</span>
+                {% if is_proc %}
+                <span class="badge bg-secondary rounded-pill"><i class="fa-solid fa-lock me-1"></i> Read-Only View</span>
+                {% elif is_finance %}
+                <span class="badge bg-success rounded-pill"><i class="fa-solid fa-shield-halved me-1"></i> Finance &amp; AP Desk</span>
+                {% endif %}
+            </div>
+            <p class="text-muted mb-0 small">
+                3-Way matching validation against Purchase Orders and Stores Goods Receipt Notes (GRN).
+            </p>
         </div>
-        <a href="{% url 'create_invoice' %}" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm"><i class="fa-solid fa-plus me-2"></i> Submit Invoice</a>
+        <div class="d-flex gap-2 align-items-center">
+            {% if is_finance %}
+            <a href="{% url 'create_invoice' %}" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
+                <i class="fa-solid fa-plus me-1"></i> Submit Invoice
+            </a>
+            <a href="{% url 'exceptions_list' %}" class="btn btn-outline-warning btn-sm rounded-pill px-3 text-dark fw-semibold">
+                <i class="fa-solid fa-triangle-exclamation me-1"></i> Match Exceptions
+            </a>
+            <a href="{% url 'ready_list' %}" class="btn btn-outline-success btn-sm rounded-pill px-3 fw-semibold">
+                <i class="fa-solid fa-credit-card me-1"></i> Ready for Payment
+            </a>
+            {% endif %}
+        </div>
     </div>
-</div>
 
-<div class="card shadow-sm border-0">
-    <div class="card-body p-0">
-        <table class="table table-hover table-striped align-middle mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th scope="col" class="ps-4">ID / Ref</th>
-                    <th scope="col">Summary</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" class="pe-4 text-end">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in items %}
-                <tr>
-                    <td class="ps-4 fw-semibold text-secondary">{{ item }}</td>
-                    <td class="fw-bold">Active Record</td>
-                    <td><span class="badge bg-primary">{{ item.status }}</span></td>
-                    <td class="pe-4 text-end">
-                        <a href="{% url 'invoice_detail' item.id %}" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-5 text-muted">
-                        <h5>No Records Found</h5>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Procurement Read-Only Notice -->
+    {% if is_proc %}
+    <div class="alert alert-secondary border border-secondary border-opacity-25 bg-secondary bg-opacity-10 d-flex align-items-center gap-2 mb-4 py-2 small">
+        <i class="fa-solid fa-circle-info text-secondary fs-5"></i>
+        <div>
+            <strong>Procurement Visibility:</strong> As Procurement Executive / Manager, you have cross-module audit visibility into vendor invoices. 3-way matching validation and payment disbursements are managed exclusively by Finance &amp; Accounts Payable.
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Invoices Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 responsive-table">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th scope="col" class="ps-4 py-3" data-label="Invoice Number">Invoice Number</th>
+                            <th scope="col" class="py-3" data-label="Vendor / Supplier">Vendor / Supplier</th>
+                            <th scope="col" class="py-3" data-label="PO Reference">PO Reference</th>
+                            <th scope="col" class="py-3 text-end" data-label="Total Amount">Total Amount</th>
+                            <th scope="col" class="py-3" data-label="Invoice Date">Invoice Date</th>
+                            <th scope="col" class="py-3" data-label="Due Date">Due Date</th>
+                            <th scope="col" class="py-3 text-center" data-label="Status">Status</th>
+                            <th scope="col" class="pe-4 text-end py-3" data-label="Action">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in items %}
+                        <tr>
+                            <td class="ps-4 py-3 font-monospace fw-bold">
+                                <a href="{% url 'invoice_detail' inv.id %}" class="text-primary text-decoration-none">
+                                    {{ inv.invoice_number }}
+                                </a>
+                            </td>
+                            <td class="py-3">
+                                <div class="fw-semibold text-dark">{{ inv.vendor.legal_name }}</div>
+                                <small class="text-muted">{{ inv.vendor.vendor_number|default:"" }}</small>
+                            </td>
+                            <td class="py-3">
+                                {% if inv.po %}
+                                <a href="{% url 'order_detail' inv.po.id %}" class="font-monospace text-decoration-none text-secondary fw-semibold">
+                                    {{ inv.po.po_number }}
+                                </a>
+                                {% else %}
+                                <span class="text-muted small">None</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3 text-end fw-bold text-dark font-monospace" data-label="Total Amount">
+                                ${{ inv.total_amount|floatformat:2 }}
+                            </td>
+                            <td class="py-3 small text-muted" data-label="Invoice Date">
+                                {{ inv.invoice_date|date:"M d, Y" }}
+                            </td>
+                            <td class="py-3 small text-muted" data-label="Due Date">
+                                {{ inv.due_date|date:"M d, Y" }}
+                            </td>
+                            <td class="py-3 text-center">
+                                {% if inv.status == 'PAID' %}
+                                <span class="badge bg-success py-2 px-3 rounded-pill">
+                                    <i class="fa-solid fa-check-circle me-1"></i> PAID
+                                </span>
+                                {% elif inv.status == 'READY_FOR_PAYMENT' %}
+                                <span class="badge bg-info text-dark py-2 px-3 rounded-pill">
+                                    <i class="fa-solid fa-hand-holding-dollar me-1"></i> READY TO PAY
+                                </span>
+                                {% elif inv.status == 'EXCEPTION' %}
+                                <span class="badge bg-danger py-2 px-3 rounded-pill">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> EXCEPTION
+                                </span>
+                                {% elif inv.status == 'MATCHING' or inv.status == 'VALIDATION' %}
+                                <span class="badge bg-warning text-dark py-2 px-3 rounded-pill">
+                                    <i class="fa-solid fa-rotate me-1"></i> MATCHING
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary py-2 px-3 rounded-pill">
+                                    {{ inv.get_status_display }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end py-3" data-label="Action">
+                                <a href="{% url 'invoice_detail' inv.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold">
+                                    View <i class="fa-solid fa-arrow-right ms-1"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                <i class="fa-solid fa-file-invoice text-secondary fs-2 mb-2 d-block opacity-50"></i>
+                                <h6 class="fw-bold text-dark mb-1">No supplier invoices found</h6>
+                                <p class="text-muted small mb-0">Invoices will appear here once submitted by approved suppliers against delivered purchase orders.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

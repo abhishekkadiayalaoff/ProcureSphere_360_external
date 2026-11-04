@@ -48,15 +48,39 @@ class SessionLoginView(views.APIView):
         tags=["Authentication"],
     )
     def post(self, request, *args, **kwargs):
-        email = request.data.get("email")
-        password = request.data.get("password")
-
-        if not email or not password:
+        if not isinstance(request.data, dict):
             return Response(
                 {
                     "error": {
                         "code": "VALIDATION_ERROR",
-                        "message": "Email and password are required.",
+                        "message": "Invalid request payload format. Expected a JSON object.",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Invalid email or password format.",
+                        "details": serializer.errors,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = serializer.validated_data.get("email")
+        password = serializer.validated_data.get("password")
+
+        if not isinstance(email, str) or not isinstance(password, str) or len(email) > 254:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Invalid email format or length exceeds allowable limit.",
                     }
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -194,11 +218,13 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        from .permissions import IsNotVendorUser, IsSuperAdmin
+        from .permissions import IsAuditorOrSuperAdmin, IsNotVendorUser, IsSuperAdmin
 
         if self.action == "me":
             return [IsAuthenticated()]
-        if self.action in ["list", "create", "update", "partial_update", "destroy"]:
+        if self.action in ["list", "retrieve"]:
+            return [IsAuthenticated(), IsAuditorOrSuperAdmin()]
+        if self.action in ["create", "update", "partial_update", "destroy"]:
             return [IsAuthenticated(), IsSuperAdmin()]
         return [IsAuthenticated(), IsNotVendorUser()]
 
@@ -206,7 +232,10 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user or not user.is_authenticated:
             return User.objects.none()
-        if user.is_superuser or getattr(user, "role_code", None) == Role.SUPER_ADMIN:
+        role_code = getattr(user, "role_code", None) or (
+            user.role.code if getattr(user, "role", None) else None
+        )
+        if user.is_superuser or role_code in [Role.SUPER_ADMIN, Role.AUDITOR]:
             return get_all_users()
         return User.objects.filter(id=user.id)
 

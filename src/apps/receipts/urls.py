@@ -9,6 +9,7 @@ from .views import (
     receipt_inspection_queue_view,
     receipt_line_correct_view,
     receipt_rejections_queue_view,
+    receipt_send_notification_view,
     receipt_stock_handoff_queue_view,
     receipt_stock_handoff_view,
     receipts_list_view,
@@ -67,5 +68,10 @@ urlpatterns = [
         "receipts/lines/<uuid:line_id>/correct/",
         receipt_line_correct_view,
         name="receipt_line_correct",
+    ),
+    path(
+        "receipts/<uuid:grn_id>/send/",
+        receipt_send_notification_view,
+        name="receipt_send_notifications",
     ),
 ]

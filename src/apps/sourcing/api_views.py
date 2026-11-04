@@ -3,6 +3,7 @@ from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 from . import services
@@ -45,6 +46,30 @@ def _require_manage(request):
         raise PermissionDenied("Only procurement users can perform this sourcing action.")
 
 
+class SourcingPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+    def get_paginated_response(self, data):
+        return Response(
+            {
+                "count": self.page.paginator.count,
+                "next": self.get_next_link(),
+                "previous": self.get_previous_link(),
+                "pagination": {
+                    "total_count": self.page.paginator.count,
+                    "page": self.page.number,
+                    "page_size": self.get_page_size(self.request),
+                    "total_pages": self.page.paginator.num_pages,
+                    "has_next": self.page.has_next(),
+                    "has_previous": self.page.has_previous(),
+                },
+                "results": data,
+            }
+        )
+
+
 class SourcingEventViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -58,6 +83,7 @@ class SourcingEventViewSet(
     """
 
     serializer_class = SourcingEventSerializer
+    pagination_class = SourcingPagination
     permission_classes = [SourcingEventPermission]
     search_fields = []  # search handled by search_sourcing_events (?q=)
     ordering_fields = ["created_at", "bid_end_date", "event_number"]

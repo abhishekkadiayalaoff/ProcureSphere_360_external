@@ -22,13 +22,8 @@ def _fixed_context_copy(self):
         return _original_context_copy(self)
     except AttributeError:
         duplicate = object.__new__(self.__class__)
+        duplicate.__dict__.update(self.__dict__)
         duplicate.dicts = [d.copy() if isinstance(d, dict) else d for d in self.dicts]
-        if hasattr(self, "_processors"):
-            duplicate._processors = self._processors
-        if hasattr(self, "_processors_index"):
-            duplicate._processors_index = self._processors_index
-        if hasattr(self, "request"):
-            duplicate.request = self.request
         return duplicate
 
 
@@ -38,20 +33,14 @@ django.template.context.BaseContext.__copy__ = _fixed_context_copy
 @pytest.fixture(autouse=True, scope="session")
 def verify_isolated_test_database():
     """
-    Safety gate: Ensure automated tests never connect to the shared or production Supabase database.
-    Verifies that SQLite is the active database backend and no remote Supabase host is configured.
+    Safety gate: Ensure automated tests never connect to the production Supabase database.
+    Allows both SQLite (local) and PostgreSQL (CI) backends; blocks only Supabase hosts.
     """
     from django.conf import settings
 
     db_config = settings.DATABASES["default"]
-    engine = db_config.get("ENGINE", "")
     host = str(db_config.get("HOST", ""))
 
-    if "sqlite3" not in engine:
-        raise RuntimeError(
-            f"SAFETY VIOLATION: Automated tests must run on an isolated SQLite database, "
-            f"but active ENGINE is '{engine}'."
-        )
     if "supabase" in host.lower():
         raise RuntimeError(
             f"SAFETY VIOLATION: Automated tests must never connect to Supabase! Host is '{host}'."
@@ -130,7 +119,11 @@ def procurement_world(db, db_roles, settings, tmp_path):
             email=f"{tin.lower()}@example.com",
             address="1 Test Street",
         )
-        Vendor.objects.filter(pk=v.pk).update(status=status)
+        update_fields = {"status": status}
+        if status == Vendor.STATUS_ACTIVE:
+            update_fields["is_event_eligible"] = True
+            update_fields["event_eligibility_status"] = Vendor.ELIGIBILITY_ELIGIBLE
+        Vendor.objects.filter(pk=v.pk).update(**update_fields)
         v.refresh_from_db()
         return v
 

@@ -23,6 +23,11 @@ urlpatterns = [
     # My Bids & Preparation
     path("bids/", views.vendor_bids_list_view, name="vendor_bids_list"),
     path("bids/create/<uuid:event_id>/", views.vendor_bid_create_view, name="vendor_bid_create"),
+    path(
+        "sourcing/<uuid:event_id>/bid/",
+        views.vendor_bid_create_view,
+        name="vendor_sourcing_bid",
+    ),
     path("bids/<uuid:bid_id>/", views.vendor_bid_detail_view, name="vendor_bid_detail"),
     path(
         "bids/<uuid:bid_id>/validate/", views.vendor_bid_validate_view, name="vendor_bid_validate"
@@ -51,6 +56,16 @@ urlpatterns = [
         views.vendor_purchase_order_acknowledge_view,
         name="vendor_purchase_order_acknowledge",
     ),
+    path(
+        "purchase-orders/<uuid:po_id>/deliver/",
+        views.vendor_purchase_order_deliver_view,
+        name="vendor_purchase_order_deliver",
+    ),
+    path(
+        "receipts/<uuid:grn_id>/",
+        views.vendor_grn_detail_view,
+        name="vendor_grn_detail",
+    ),
     # Supplier Performance
     path("performance/", views.vendor_performance_view, name="vendor_performance"),
     # Invoices & Payments
@@ -71,7 +86,7 @@ urlpatterns = [
     path(
         "documents/download/<str:doc_type>/<uuid:doc_id>/",
         views.vendor_document_download_view,
-        name="vendor_document_download",
+        name="vendor_portal_document_download",
     ),
     # Notifications
     path("notifications/", views.vendor_notifications_view, name="vendor_notifications"),

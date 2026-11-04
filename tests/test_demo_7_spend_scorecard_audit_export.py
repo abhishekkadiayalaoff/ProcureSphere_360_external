@@ -17,7 +17,7 @@ from apps.reports.services import (
 )
 from apps.requisitions.services import create_purchase_requisition_service
 from apps.scorecards.services import calculate_vendor_scorecard_service
-from apps.vendors.models import VendorCategory
+from apps.vendors.models import Vendor, VendorCategory
 from apps.vendors.services import register_vendor_service
 
 
@@ -66,6 +66,8 @@ def test_demo_7_spend_scorecard_and_audited_report_export():
         email="accounts@omnicloud.com",
         address="300 Cloud Way",
     )
+    vendor.status = Vendor.STATUS_ACTIVE
+    vendor.save(update_fields=["status", "updated_at"])
 
     pr = create_purchase_requisition_service(
         title="High Performance Switches",

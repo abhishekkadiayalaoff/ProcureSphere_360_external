@@ -38,14 +38,14 @@
                             {% endfor %}
                         {% endif %}
 
-                        <form id="loginForm" method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}" autocomplete="off">
+                        <form id="loginForm" method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
                             {% csrf_token %}
                             
                             <div class="mb-3">
                                 <label for="email" class="form-label fw-semibold text-secondary small">Work Email Address</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-envelope"></i></span>
-                                    <input type="email" class="form-control fs-6" id="email" name="email" value="{{ email|default:'' }}" placeholder="name@company.com" required autofocus>
+                                    <input type="email" class="form-control fs-6" id="email" name="email" value="{{ email|default:'' }}" placeholder="name@company.com" autocomplete="email" required autofocus>
                                 </div>
                             </div>
 
@@ -53,7 +53,7 @@
                                 <label for="password" class="form-label fw-semibold text-secondary small">Password</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
-                                    <input type="password" class="form-control fs-6" id="password" name="password" placeholder="••••••••••••" required>
+                                    <input type="password" class="form-control fs-6" id="password" name="password" placeholder="••••••••••••" autocomplete="current-password" required>
                                 </div>
                             </div>
 
@@ -68,7 +68,7 @@
                         <div class="border-top pt-3 text-center">
                             <p class="small text-muted fw-semibold mb-2"><i class="fa-solid fa-bolt text-warning me-1"></i> Quick 1-Click Role Logins (Password: <code>Password123!</code>)</p>
                             <div class="d-flex flex-wrap justify-content-center gap-1">
-                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('admin@hpe.com')">Super Admin</button>
+                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('admin@hpe.com')">Admin</button>
                                 <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('requester@hpe.com')">Requester</button>
                                 <button type="button" class="btn btn-outline-warning btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('approver@hpe.com')">Dept Approver</button>
                                 <button type="button" class="btn btn-outline-info btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('procexec@hpe.com')">Proc Exec</button>

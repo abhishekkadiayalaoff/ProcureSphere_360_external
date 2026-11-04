@@ -14,6 +14,7 @@ from apps.budgets.services import (
     release_budget_reservation_service,
 )
 from apps.core.validators import validate_pr_attachment
+from apps.notifications.models import Notification
 from apps.organization.models import CostCenter, Department
 
 from .models import PRAttachment, PRLine, PurchaseRequisition
@@ -40,6 +41,11 @@ def create_purchase_requisition_service(
     if getattr(requester, "cost_center", None) and requester.cost_center != cost_center:
         raise ValidationError(
             f"Requester '{requester.email}' is only authorized to create requisitions for Cost Center '{requester.cost_center.code}'."
+        )
+
+    if cost_center.department_id != department.id:
+        raise ValidationError(
+            f"Cost Center '{cost_center.code}' ({cost_center.name}) does not belong to Department '{department.name}'."
         )
 
     if requested_delivery_date:
@@ -194,11 +200,20 @@ def submit_purchase_requisition_service(
     from apps.accounts.models import Role, User
     from apps.notifications.models import Notification
 
-    approvers = User.objects.filter(role__code=Role.DEPT_APPROVER)
+    approvers = User.objects.filter(role__code=Role.DEPT_APPROVER, is_active=True)
     if requisition.department:
         dept_approvers = approvers.filter(department=requisition.department)
         if dept_approvers.exists():
             approvers = dept_approvers
+        elif requisition.department.organization:
+            org_approvers = approvers.filter(organization=requisition.department.organization)
+            if org_approvers.exists():
+                approvers = org_approvers
+
+    approver_list = list(approvers)
+    if requisition.cost_center and requisition.cost_center.manager:
+        if requisition.cost_center.manager not in approver_list:
+            approver_list.append(requisition.cost_center.manager)
 
     if requisition.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
         finance_users = User.objects.filter(role__code=Role.FINANCE_AP)
@@ -210,7 +225,7 @@ def submit_purchase_requisition_service(
                 message=f"Requisition {requisition.pr_number} (${requisition.total_amount:,.2f}) exceeds available budget for Cost Center {requisition.cost_center.code} and requires budget exception approval.",
                 target_url=f"/requisitions/{requisition.id}/",
             )
-        for approver in approvers:
+        for approver in approver_list:
             Notification.objects.create(
                 recipient=approver,
                 notification_type=Notification.TYPE_APPROVAL_REQUIRED,
@@ -219,7 +234,7 @@ def submit_purchase_requisition_service(
                 target_url=f"/requisitions/{requisition.id}/",
             )
     else:
-        for approver in approvers:
+        for approver in approver_list:
             Notification.objects.create(
                 recipient=approver,
                 notification_type=Notification.TYPE_APPROVAL_REQUIRED,
@@ -245,6 +260,11 @@ def approve_purchase_requisition_service(
         PurchaseRequisition.STATUS_MANAGER_REVIEW,
         PurchaseRequisition.STATUS_BUDGET_REVIEW,
     ]
+    requisition = (
+        PurchaseRequisition.objects.select_for_update()
+        .select_related("department", "cost_center", "requester")
+        .get(id=requisition.id)
+    )
     if requisition.status not in allowed_statuses:
         raise ValidationError(f"Cannot approve requisition in status '{requisition.status}'.")
 
@@ -293,7 +313,7 @@ def approve_purchase_requisition_service(
             approver_role_code = getattr(approver.role, "code", None)
             if (getattr(approver, "role_id", None) == required_role.id) or (approver_role_code == required_role.code):
                 if required_role.code == Role.DEPT_APPROVER and requisition.department and approver.department:
-                    if approver.department == requisition.department:
+                    if approver.department == requisition.department or (requisition.cost_center and approver == requisition.cost_center.manager):
                         is_authorized = True
                     else:
                         raise ValidationError("Department Approver can only approve requisitions for their own department.")
@@ -339,6 +359,17 @@ def approve_purchase_requisition_service(
     )
 
     if requisition.status == PurchaseRequisition.STATUS_APPROVED:
+        if requisition.requester:
+            try:
+                Notification.objects.create(
+                    recipient=requisition.requester,
+                    notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+                    title=f"Requisition Approved: {requisition.pr_number}",
+                    message=f"Your requisition {requisition.pr_number} has been fully approved and is progressing to sourcing/PO execution.",
+                    target_url=f"/requisitions/{requisition.id}/",
+                )
+            except Exception:
+                pass
         try:
             proc_execs = User.objects.filter(role__code=Role.PROC_EXEC, is_active=True)
             for pe in proc_execs:
@@ -363,12 +394,16 @@ def approve_purchase_requisition_service(
                     dept_users = [u for u in target_users if u.department == requisition.department]
                     if dept_users:
                         target_users = dept_users
+                elif next_role.code == Role.PROC_MGR and requisition.department and getattr(requisition.department, "organization", None):
+                    org_mgrs = [u for u in target_users if u.organization == requisition.department.organization]
+                    if org_mgrs:
+                        target_users = org_mgrs
 
             for u in target_users:
                 Notification.objects.create(
                     recipient=u,
                     notification_type=Notification.TYPE_APPROVAL_REQUIRED,
-                    title=f"Approval Required: PR {requisition.pr_number} (Step {next_step['step_number']})",
+                    title=f"Approval Required: {requisition.pr_number} (Step {next_step['step_number']})",
                     message=f"Requisition {requisition.pr_number} requires your approval for Step {next_step['step_number']} ({next_role.name}).",
                     target_url=f"/requisitions/{requisition.id}/",
                 )
@@ -387,11 +422,25 @@ def reject_purchase_requisition_service(
         PurchaseRequisition.STATUS_MANAGER_REVIEW,
         PurchaseRequisition.STATUS_BUDGET_REVIEW,
     ]
+    requisition = PurchaseRequisition.objects.select_for_update().get(id=requisition.id)
     if requisition.status not in allowed_statuses:
         raise ValidationError(f"Cannot reject requisition in status '{requisition.status}'.")
 
     if not comments or not comments.strip():
         raise ValidationError("Rejection justification comments are mandatory.")
+
+    from apps.accounts.models import Role
+    if requisition.requester_id == approver.id and not approver.is_superuser:
+        raise ValidationError("Self-rejection is prohibited: Requesters cannot reject their own Purchase Requisitions via approver workflow.")
+
+    role_code = getattr(approver, "role_code", None) or (
+        approver.role.code if getattr(approver, "role", None) else None
+    )
+    if not (
+        approver.is_superuser
+        or role_code in [Role.SUPER_ADMIN, Role.DEPT_APPROVER, Role.PROC_MGR, Role.FINANCE_AP]
+    ):
+        raise ValidationError(f"User '{approver.email}' is not authorized to reject purchase requisitions.")
 
     previous_status = requisition.status
     requisition.status = PurchaseRequisition.STATUS_REJECTED
@@ -411,5 +460,17 @@ def reject_purchase_requisition_service(
         new_state=requisition.status,
         comments=comments,
     )
+
+    if requisition.requester:
+        try:
+            Notification.objects.create(
+                recipient=requisition.requester,
+                notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+                title=f"Requisition Rejected: {requisition.pr_number}",
+                message=f"Your requisition {requisition.pr_number} was rejected by {approver.email}. Reason: {comments}",
+                target_url=f"/requisitions/{requisition.id}/",
+            )
+        except Exception:
+            pass
 
     return requisition

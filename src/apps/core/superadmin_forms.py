@@ -1,11 +1,21 @@
 from django import forms
 from django.contrib.auth import password_validation
+from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.accounts.password_utils import generate_secure_password
 from apps.approvals.models import ApprovalPolicy
 from apps.budgets.models import Budget
-from apps.organization.models import CostCenter, Department, Organization
+from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
+
+
+def _get_form_scoped_org(request):
+    if not request or not getattr(request, "user", None) or not request.user.is_authenticated:
+        return None
+    effective_org = getattr(request.user, "effective_organization", None)
+    if effective_org:
+        return effective_org
+    return None
 
 
 class UserAdminForm(forms.ModelForm):
@@ -22,6 +32,19 @@ class UserAdminForm(forms.ModelForm):
         ),
     )
 
+    send_welcome_email = forms.BooleanField(
+        label="Send Login Credentials Email",
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "form-check-input",
+                "id": "id_send_welcome_email",
+            }
+        ),
+        help_text="Send email with login credentials (email & password) to the user via Brevo.",
+    )
+
     class Meta:
         model = User
         fields = ["email", "phone_number", "role", "department", "cost_center", "is_active"]
@@ -34,20 +57,26 @@ class UserAdminForm(forms.ModelForm):
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
         super().__init__(*args, **kwargs)
+        scoped_org = _get_form_scoped_org(request)
+
         self.fields["email"].required = True
         self.fields["role"].queryset = Role.objects.all().order_by("name")
         self.fields["role"].empty_label = "-- Select Role --"
-        self.fields["department"].queryset = (
-            Department.objects.select_related("organization").all().order_by("name")
-        )
+
+        dept_qs = Department.objects.select_related("organization").all().order_by("name")
+        cc_qs = CostCenter.objects.select_related("department").all().order_by("name")
+        if scoped_org:
+            dept_qs = dept_qs.filter(organization=scoped_org)
+            cc_qs = cc_qs.filter(department__organization=scoped_org)
+
+        self.fields["department"].queryset = dept_qs
         self.fields["department"].empty_label = "-- Select Department (Optional) --"
         self.fields["department"].required = False
 
-        self.fields["cost_center"].queryset = (
-            CostCenter.objects.select_related("department").all().order_by("name")
-        )
+        self.fields["cost_center"].queryset = cc_qs
         self.fields["cost_center"].empty_label = "-- Select Cost Center --"
         self.fields["cost_center"].required = False
 
@@ -55,16 +84,19 @@ class UserAdminForm(forms.ModelForm):
         # On bound POST submission, keep all cost centers in queryset so clean() can catch cross-department
         # and duplicate assignments with descriptive domain error messages.
         if not self.is_bound and self.instance and self.instance.pk and self.instance.department_id:
-            self.fields["cost_center"].queryset = CostCenter.objects.filter(
-                department_id=self.instance.department_id
-            ).order_by("name")
+            edit_cc_qs = CostCenter.objects.filter(department_id=self.instance.department_id)
+            if scoped_org:
+                edit_cc_qs = edit_cc_qs.filter(department__organization=scoped_org)
+            self.fields["cost_center"].queryset = edit_cc_qs.order_by("name")
 
         if not self.instance.pk or getattr(self.instance, "_state", None) and self.instance._state.adding:
             self.initial.setdefault("is_active", True)
+            self.initial.setdefault("send_welcome_email", True)
             self.fields["password"].help_text = (
                 "Must contain at least 12 characters, including uppercase, lowercase, numbers, and special characters."
             )
         else:
+            self.initial.setdefault("send_welcome_email", True)
             self.fields["password"].help_text = "Leave blank to keep existing password."
 
     def clean_email(self):
@@ -155,20 +187,93 @@ class UserAdminForm(forms.ModelForm):
         elif not user.password:
             temp_pwd = generate_secure_password()
             user.set_password(temp_pwd)
+        scoped_org = _get_form_scoped_org(self.request)
+        if scoped_org:
+            user.organization = scoped_org
         if commit:
             user.save()
         return user
 
 
 class OrganizationAdminForm(forms.ModelForm):
+    admin_email = forms.EmailField(
+        label="Admin Email",
+        required=False,
+        widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "admin@organization.com"}),
+        help_text="Primary administrator user email for this organization.",
+    )
+    admin_first_name = forms.CharField(
+        label="Admin First Name",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "First name"}),
+    )
+    admin_last_name = forms.CharField(
+        label="Admin Last Name",
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Last name"}),
+    )
+    admin_password = forms.CharField(
+        label="Temporary Password",
+        required=False,
+        widget=forms.PasswordInput(attrs={"class": "form-control", "id": "id_admin_password", "placeholder": "Leave blank to auto-generate"}),
+        help_text="Leave blank to generate a secure temporary password.",
+    )
+    send_welcome_email = forms.BooleanField(
+        label="Send Welcome Email",
+        required=False,
+        initial=True,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_send_welcome_email"}),
+        help_text="Send email with login credentials (email & password) to the administrator via Brevo.",
+    )
+
     class Meta:
         model = Organization
-        fields = ["code", "name", "is_active"]
+        fields = ["code", "name", "tax_identifier", "address", "is_active", "admin_user"]
         widgets = {
-            "code": forms.TextInput(attrs={"class": "form-control"}),
-            "name": forms.TextInput(attrs={"class": "form-control"}),
+            "code": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. HPE-GLOBAL"}),
+            "name": forms.TextInput(attrs={"class": "form-control", "placeholder": "e.g. Hewlett Packard Enterprise"}),
+            "tax_identifier": forms.TextInput(attrs={"class": "form-control", "placeholder": "Tax ID / EIN"}),
+            "address": forms.Textarea(attrs={"class": "form-control", "rows": 2, "placeholder": "Registered address"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+            "admin_user": forms.Select(attrs={"class": "form-select"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        is_create = not self.instance or not self.instance.pk
+        self.fields["admin_user"].required = False
+        self.fields["admin_user"].empty_label = "-- Select Existing Admin (Optional) --"
+        self.fields["admin_user"].queryset = User.objects.filter(
+            role__code=Role.SUPER_ADMIN, is_active=True
+        ).order_by("email")
+        self.fields["admin_email"].required = False
+        self.fields["send_welcome_email"].initial = is_create
+        if not is_create and self.instance and self.instance.admin_user:
+            self.fields["admin_email"].initial = self.instance.admin_user.email
+            self.fields["admin_first_name"].initial = self.instance.admin_user.first_name
+            self.fields["admin_last_name"].initial = self.instance.admin_user.last_name
+
+    def clean(self):
+        cleaned_data = super().clean()
+        admin_user = cleaned_data.get("admin_user")
+        admin_email = (cleaned_data.get("admin_email") or "").strip()
+        is_create = not self.instance or not self.instance.pk
+        if is_create and not admin_user and not admin_email:
+            self.add_error("admin_email", "Please provide an Admin Email for the organization administrator.")
+        return cleaned_data
+
+    def clean_code(self):
+        code = self.cleaned_data.get("code", "").strip().upper()
+        if not code:
+            raise forms.ValidationError("Organization code is required.")
+        qs = Organization.objects.filter(code=code)
+        if self.instance and self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError(f"Organization code '{code}' already exists.")
+        return code
 
 
 class DepartmentAdminForm(forms.ModelForm):
@@ -184,10 +289,24 @@ class DepartmentAdminForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
         super().__init__(*args, **kwargs)
-        self.fields["organization"].queryset = Organization.objects.filter(is_active=True).order_by("name")
-        self.fields["organization"].empty_label = "-- Select Organization --"
+        scoped_org = _get_form_scoped_org(request)
+        if scoped_org:
+            self.fields["organization"].queryset = Organization.objects.filter(id=scoped_org.id)
+            self.fields["organization"].initial = scoped_org
+            self.fields["organization"].empty_label = None
+        else:
+            self.fields["organization"].queryset = Organization.objects.filter(is_active=True).order_by("name")
+            self.fields["organization"].empty_label = "-- Select Organization --"
+
+    def clean_organization(self):
+        org = self.cleaned_data.get("organization")
+        scoped_org = _get_form_scoped_org(self.request)
+        if scoped_org and org and org.id != scoped_org.id:
+            raise forms.ValidationError("You cannot assign a department to another organization.")
+        return org
 
     def clean_code(self):
         code = self.cleaned_data.get("code", "").strip().upper()
@@ -222,14 +341,24 @@ class CostCenterAdminForm(forms.ModelForm):
             "department": forms.Select(attrs={"class": "form-select"}),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
         super().__init__(*args, **kwargs)
-        self.fields["department"].queryset = (
-            Department.objects.select_related("organization").all().order_by("name")
-        )
+        scoped_org = _get_form_scoped_org(request)
+        dept_qs = Department.objects.select_related("organization").all().order_by("name")
+        if scoped_org:
+            dept_qs = dept_qs.filter(organization=scoped_org)
+        self.fields["department"].queryset = dept_qs
         self.fields["department"].empty_label = "-- Select Department --"
         if self.instance.pk and self.instance.manager_id and not self.is_bound:
             self.initial["manager"] = self.instance.manager.email
+
+    def clean_department(self):
+        dept = self.cleaned_data.get("department")
+        scoped_org = _get_form_scoped_org(self.request)
+        if scoped_org and dept and dept.organization_id != scoped_org.id:
+            raise forms.ValidationError("You cannot assign a cost center to another organization's department.")
+        return dept
 
     def clean_manager(self):
         raw = (self.cleaned_data.get("manager") or "").strip()
@@ -237,7 +366,30 @@ class CostCenterAdminForm(forms.ModelForm):
             return None
         user = User.objects.filter(email__iexact=raw, is_active=True).first()
         if user is None:
-            raise forms.ValidationError("No active user exists with this email.")
+            user = User.objects.filter(email__iexact=raw).first()
+            if user:
+                user.is_active = True
+                user.save(update_fields=["is_active"])
+            else:
+                role, _ = Role.objects.get_or_create(code=Role.DEPT_APPROVER, defaults={"name": "Department Approver"})
+                dept = self.cleaned_data.get("department") or (self.instance.department if self.instance.pk else None)
+                scoped_org = _get_form_scoped_org(self.request) or (dept.organization if dept else None)
+                temp_pwd = generate_secure_password()
+                user = User.objects.create_user(
+                    email=raw.lower(),
+                    password=temp_pwd,
+                    role=role,
+                    organization=scoped_org,
+                    department=dept,
+                    is_active=True,
+                )
+                user.must_change_password = True
+                user.save(update_fields=["must_change_password"])
+                try:
+                    from apps.notifications.email_service import send_user_welcome_email
+                    send_user_welcome_email(user=user, temporary_password=temp_pwd, request=self.request)
+                except Exception:
+                    pass
         return user
 
     def save(self, commit=True):
@@ -271,6 +423,104 @@ class BudgetAdminForm(forms.ModelForm):
             "allow_overspend": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
 
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+        scoped_org = _get_form_scoped_org(request)
+        cc_qs = CostCenter.objects.select_related("department").all().order_by("name")
+        fp_qs = FiscalPeriod.objects.all().order_by("-year", "period_number")
+        if scoped_org:
+            cc_qs = cc_qs.filter(department__organization=scoped_org)
+            fp_qs = fp_qs.filter(organization=scoped_org)
+        self.fields["cost_center"].queryset = cc_qs
+        self.fields["fiscal_period"].queryset = fp_qs
+        self.fields["fiscal_period"].label_from_instance = (
+            lambda period: f"{period.name} ({period.start_date} to {period.end_date})"
+        )
+        if fp_qs.exists():
+            # Drop the blank "---------" option so the period name and dates are visible.
+            self.fields["fiscal_period"].empty_label = None
+            if not getattr(self.instance, "pk", None) and not self.is_bound:
+                today = timezone.localdate()
+                active = fp_qs.filter(
+                    is_closed=False, start_date__lte=today, end_date__gte=today
+                ).first()
+                self.initial["fiscal_period"] = (active or fp_qs.first()).pk
+        else:
+            self.fields["fiscal_period"].empty_label = "No fiscal period yet — add one first"
+
+
+class FiscalPeriodAdminForm(forms.ModelForm):
+    class Meta:
+        model = FiscalPeriod
+        fields = [
+            "organization",
+            "name",
+            "year",
+            "period_number",
+            "start_date",
+            "end_date",
+            "is_closed",
+        ]
+        widgets = {
+            "organization": forms.Select(attrs={"class": "form-select"}),
+            "name": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "e.g. FY2026-Q1"}
+            ),
+            "year": forms.NumberInput(attrs={"class": "form-control", "placeholder": "2026"}),
+            "period_number": forms.NumberInput(attrs={"class": "form-control", "min": "1"}),
+            "start_date": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"
+            ),
+            "end_date": forms.DateInput(
+                attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"
+            ),
+            "is_closed": forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        }
+
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+        self.fields["start_date"].input_formats = ["%Y-%m-%d"]
+        self.fields["end_date"].input_formats = ["%Y-%m-%d"]
+        scoped_org = _get_form_scoped_org(request)
+        if scoped_org:
+            self.fields["organization"].queryset = Organization.objects.filter(id=scoped_org.id)
+            self.fields["organization"].initial = scoped_org
+            self.fields["organization"].empty_label = None
+        else:
+            self.fields["organization"].queryset = Organization.objects.filter(is_active=True).order_by("name")
+            self.fields["organization"].empty_label = "-- Select Organization --"
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "End date must be on or after the start date.")
+        org = cleaned.get("organization")
+        year = cleaned.get("year")
+        period_number = cleaned.get("period_number")
+        if org and year and period_number:
+            qs = FiscalPeriod.objects.filter(
+                organization=org, year=year, period_number=period_number
+            )
+            if self.instance and self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                self.add_error(
+                    "period_number",
+                    "This organization already has a fiscal period with that year and period number.",
+                )
+        return cleaned
+
+    def clean_organization(self):
+        org = self.cleaned_data.get("organization")
+        scoped_org = _get_form_scoped_org(self.request)
+        if scoped_org and org and org.id != scoped_org.id:
+            raise forms.ValidationError("You cannot add a fiscal period for another organization.")
+        return org
+
 
 class PolicyAdminForm(forms.ModelForm):
     class Meta:
@@ -284,3 +534,56 @@ class PolicyAdminForm(forms.ModelForm):
             "max_amount": forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
             "is_active": forms.CheckboxInput(attrs={"class": "form-check-input"}),
         }
+
+    def __init__(self, *args, request=None, **kwargs):
+        self.request = request
+        super().__init__(*args, **kwargs)
+        scoped_org = _get_form_scoped_org(request)
+        dept_qs = Department.objects.all().order_by("name")
+        if scoped_org:
+            dept_qs = dept_qs.filter(organization=scoped_org)
+        self.fields["department"].queryset = dept_qs
+
+    def save(self, commit=True):
+        instance = super().save(commit=commit)
+        if commit:
+            self._ensure_policy_steps(instance)
+        return instance
+
+    def _ensure_policy_steps(self, policy):
+        if policy.steps.exists():
+            return
+        from apps.accounts.models import Role
+        from apps.approvals.models import ApprovalStep
+
+        dept_role = Role.objects.filter(code=Role.DEPT_APPROVER).first()
+        proc_role = Role.objects.filter(code=Role.PROC_MGR).first()
+
+        if policy.module == ApprovalPolicy.MODULE_PR:
+            if dept_role:
+                ApprovalStep.objects.get_or_create(
+                    policy=policy,
+                    step_number=1,
+                    defaults={
+                        "approver_role": dept_role,
+                        "description": "Department Manager Approval",
+                    },
+                )
+            if proc_role:
+                ApprovalStep.objects.get_or_create(
+                    policy=policy,
+                    step_number=2,
+                    defaults={
+                        "approver_role": proc_role,
+                        "description": "Procurement Manager Approval",
+                    },
+                )
+        elif policy.module == ApprovalPolicy.MODULE_PO_AMENDMENT and proc_role:
+            ApprovalStep.objects.get_or_create(
+                policy=policy,
+                step_number=1,
+                defaults={
+                    "approver_role": proc_role,
+                    "description": "Procurement Manager Approval",
+                },
+            )

@@ -388,6 +388,25 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        if request.data.get("async") or request.query_params.get("async") == "true":
+            from apps.audit.tasks import generate_auditor_export_task
+            task = generate_auditor_export_task.delay(
+                export_type=data["export_type"],
+                export_format=data["export_format"],
+                filters=data.get("filters", {}),
+                actor_id=str(request.user.id) if request.user else None,
+            )
+            return Response(
+                {
+                    "task_id": str(task.id),
+                    "status": "PENDING",
+                    "message": "Auditor report export queued for asynchronous background generation.",
+                    "export_type": data["export_type"],
+                    "export_format": data["export_format"],
+                },
+                status=status.HTTP_202_ACCEPTED,
+            )
+
         export_res = export_auditor_data_service(
             export_type=data["export_type"],
             export_format=data["export_format"],
@@ -401,6 +420,9 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             content_type=export_res["content_type"],
         )
         response["Content-Disposition"] = f'attachment; filename="{export_res["filename"]}"'
+        response["X-Export-Ref-ID"] = export_res["export_ref_id"]
+        response["X-Export-Checksum"] = export_res["checksum"]
+        response["X-Export-Algorithm"] = export_res["algorithm"]
         return response
 
 
@@ -582,6 +604,25 @@ def auditor_export_api_view(request):
     serializer.is_valid(raise_exception=True)
     data = serializer.validated_data
 
+    if request.data.get("async") or request.GET.get("async") == "true":
+        from apps.audit.tasks import generate_auditor_export_task
+        task = generate_auditor_export_task.delay(
+            export_type=data["export_type"],
+            export_format=data["export_format"],
+            filters=data.get("filters", {}),
+            actor_id=str(request.user.id) if request.user else None,
+        )
+        return Response(
+            {
+                "task_id": str(task.id),
+                "status": "PENDING",
+                "message": "Auditor report export queued for asynchronous background generation.",
+                "export_type": data["export_type"],
+                "export_format": data["export_format"],
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
+
     export_res = export_auditor_data_service(
         export_type=data["export_type"],
         export_format=data["export_format"],
@@ -595,4 +636,7 @@ def auditor_export_api_view(request):
         content_type=export_res["content_type"],
     )
     response["Content-Disposition"] = f'attachment; filename="{export_res["filename"]}"'
+    response["X-Export-Ref-ID"] = export_res["export_ref_id"]
+    response["X-Export-Checksum"] = export_res["checksum"]
+    response["X-Export-Algorithm"] = export_res["algorithm"]
     return response

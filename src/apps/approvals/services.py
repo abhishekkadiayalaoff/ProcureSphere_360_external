@@ -71,10 +71,15 @@ def resolve_active_delegate(approver: User) -> User:
     return approver
 
 
-def evaluate_approval_chain(*, module: str, amount: Decimal, department=None):
+
+def evaluate_approval_chain(
+    *, module: str, amount: Decimal, department=None, cost_center=None
+):
     """
     Evaluates server-side approval routing policies for a module & amount threshold.
+    Supports cost-center routing, department routing, and global fallback policies.
     Returns list of tuples: [(step, target_approver_role, effective_approver_user)]
+
     """
     policies = ApprovalPolicy.objects.filter(
         models.Q(max_amount__isnull=True) | models.Q(max_amount__gte=amount),
@@ -83,20 +88,74 @@ def evaluate_approval_chain(*, module: str, amount: Decimal, department=None):
         min_amount__lte=amount,
     ).order_by("-min_amount")
 
-    if department:
-        # Filter policy matching department or fallback to global policy
-        dept_policy = policies.filter(department=department).first()
-        selected_policy = dept_policy or policies.filter(department__isnull=True).first()
-    else:
-        selected_policy = policies.filter(department__isnull=True).first()
+    selected_policy = None
+    if cost_center:
+        selected_policy = policies.filter(cost_center=cost_center).first()
+
+
+    if not selected_policy and department:
+        selected_policy = policies.filter(
+            department=department, cost_center__isnull=True
+        ).first()
+
+    if not selected_policy:
+        selected_policy = policies.filter(
+            department__isnull=True, cost_center__isnull=True
+        ).first()
+
 
     if not selected_policy:
         return []
 
-    chain = []
-    steps = selected_policy.steps.select_related("approver_role", "specific_approver").order_by(
-        "step_number"
+    steps = list(
+        selected_policy.steps.select_related("approver_role", "specific_approver").order_by(
+            "step_number"
+        )
     )
+    if not steps:
+        from apps.accounts.models import Role
+        from apps.approvals.models import ApprovalStep
+
+        dept_role = Role.objects.filter(code=Role.DEPT_APPROVER).first()
+        proc_role = Role.objects.filter(code=Role.PROC_MGR).first()
+
+        if selected_policy.module == ApprovalPolicy.MODULE_PR:
+            if dept_role:
+                ApprovalStep.objects.get_or_create(
+                    policy=selected_policy,
+                    step_number=1,
+                    defaults={
+                        "approver_role": dept_role,
+                        "description": "Department Manager Approval",
+                    },
+                )
+            if proc_role:
+                ApprovalStep.objects.get_or_create(
+                    policy=selected_policy,
+                    step_number=2,
+                    defaults={
+                        "approver_role": proc_role,
+                        "description": "Procurement Manager Approval",
+                    },
+                )
+        elif selected_policy.module == ApprovalPolicy.MODULE_PO_AMENDMENT and proc_role:
+            ApprovalStep.objects.get_or_create(
+                policy=selected_policy,
+                step_number=1,
+                defaults={
+                    "approver_role": proc_role,
+                    "description": "Procurement Manager Approval",
+                },
+            )
+
+        steps = list(
+            selected_policy.steps.select_related("approver_role", "specific_approver").order_by(
+                "step_number"
+            )
+        )
+
+    chain = []
+
     for step in steps:
         effective_user = None
         if step.specific_approver:
@@ -181,7 +240,9 @@ def set_approval_delegate_service(
 
 
 @transaction.atomic
-def process_approval_action_service(*, target_object, actor: User, action: str, comments: str = ""):
+def process_approval_action_service(
+    *, target_object, actor: User, action: str, comments: str = ""
+):
     """
     Processes an approval action (APPROVE or REJECT) on a target object (e.g. PurchaseRequisition).
     Always returns the persisted ApprovalAction record.

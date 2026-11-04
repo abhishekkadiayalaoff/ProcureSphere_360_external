@@ -185,7 +185,7 @@ def receipt_rejection_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsNotVendorUser])
 def receipt_delivery_summary_view(request):
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -207,7 +207,7 @@ def invoice_exception_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsNotVendorUser])
 def contract_expiry_report_view(request):
     status_param = request.GET.get("status")
     days_param = request.GET.get("days")
@@ -226,7 +226,7 @@ def contract_expiry_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsNotVendorUser])
 def contract_obligation_report_view(request):
     due_status = request.GET.get("due_status")
     responsible_party = request.GET.get("responsible_party")
@@ -250,8 +250,20 @@ def supplier_performance_report_view(request):
     return Response(get_supplier_performance_report(), status=status.HTTP_200_OK)
 
 
+class IsAuditorOrSuperAdmin(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        role_code = getattr(request.user, "role_code", None) or (
+            request.user.role.code if getattr(request.user, "role", None) else None
+        )
+        return role_code in [Role.SUPER_ADMIN, Role.AUDITOR]
+
+
 @api_view(["GET"])
-@permission_classes([IsAuthenticated, IsNotVendorUser])
+@permission_classes([IsAuthenticated, IsAuditorOrSuperAdmin])
 def audit_log_report_view(request):
     return Response(get_audit_log_report(), status=status.HTTP_200_OK)
 

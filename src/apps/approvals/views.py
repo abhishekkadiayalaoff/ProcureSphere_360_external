@@ -1,12 +1,28 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Q
 from django.shortcuts import redirect, render
+from django.utils import timezone
 
-from apps.accounts.models import Role
+from apps.accounts.models import Role, User
 from apps.requisitions.models import PurchaseRequisition
 
+
+
 from .services import process_approval_action_service
+
+
+from .models import ApprovalDelegate
+from .services import process_approval_action_service, set_approval_delegate_service
+
+from .models import ApprovalAction
+from .services import process_approval_action_service
+
+
+from .models import ApprovalDelegate
+from .services import process_approval_action_service, set_approval_delegate_service
+
 
 
 def _get_approval_querysets(user, role_code):
@@ -20,14 +36,57 @@ def _get_approval_querysets(user, role_code):
             PurchaseRequisition.objects.filter(requester=user, status__in=history_statuses),
         )
 
+    user_approved_pr_ids = ApprovalAction.objects.filter(
+        actor=user,
+        target_model_name="PurchaseRequisition",
+        action=ApprovalAction.ACTION_APPROVE,
+    ).values_list("target_object_id", flat=True)
+
     if role_code == Role.DEPT_APPROVER:
         user_dept = getattr(user, "department", None)
         if not user_dept:
-            return PurchaseRequisition.objects.none(), PurchaseRequisition.objects.none()
-        return (
-            PurchaseRequisition.objects.filter(department=user_dept, status__in=pending_statuses),
-            PurchaseRequisition.objects.filter(department=user_dept, status__in=history_statuses),
-        )
+            from apps.organization.models import CostCenter, Department
+
+            managed_cc = (
+                CostCenter.objects.filter(manager=user)
+                .select_related("department")
+                .first()
+            )
+            if managed_cc and managed_cc.department:
+                user_dept = managed_cc.department
+            elif getattr(user, "organization", None):
+                user_dept = Department.objects.filter(
+                    organization=user.organization
+                ).first()
+
+        if user_dept:
+            q = Q(department=user_dept) | Q(cost_center__manager=user)
+            pending_qs = PurchaseRequisition.objects.filter(
+                q, status__in=pending_statuses
+            ).exclude(id__in=user_approved_pr_ids).distinct()
+            history_qs = PurchaseRequisition.objects.filter(
+                q & (Q(status__in=history_statuses) | Q(id__in=user_approved_pr_ids))
+            ).distinct()
+            return pending_qs, history_qs
+        elif getattr(user, "organization", None):
+            q = Q(department__organization=user.organization) | Q(
+                cost_center__manager=user
+            )
+            pending_qs = PurchaseRequisition.objects.filter(
+                q, status__in=pending_statuses
+            ).exclude(id__in=user_approved_pr_ids).distinct()
+            history_qs = PurchaseRequisition.objects.filter(
+                q & (Q(status__in=history_statuses) | Q(id__in=user_approved_pr_ids))
+            ).distinct()
+            return pending_qs, history_qs
+        else:
+            pending_qs = PurchaseRequisition.objects.filter(
+                status__in=pending_statuses
+            ).exclude(id__in=user_approved_pr_ids)
+            history_qs = PurchaseRequisition.objects.filter(
+                Q(status__in=history_statuses) | Q(id__in=user_approved_pr_ids)
+            )
+            return pending_qs, history_qs
 
     return (
         PurchaseRequisition.objects.filter(status__in=pending_statuses),
@@ -35,12 +94,24 @@ def _get_approval_querysets(user, role_code):
     )
 
 
-def _get_base_layout(role_code):
+def _get_base_layout(user, role_code):
     """Determine layout template based on user role."""
+    if (user and getattr(user, "is_superuser", False)) or role_code in [
+        Role.SUPER_ADMIN,
+        "SUPER_ADMIN",
+        "ADMIN",
+    ]:
+        return "layouts/superadmin_base.html"
     if role_code in [Role.LEGAL_MGR, "LEGAL_MGR"]:
         return "layouts/legal_base.html"
-    if role_code in [Role.DEPT_APPROVER, Role.PROC_MGR]:
+    if role_code in [Role.DEPT_APPROVER, Role.PROC_MGR, "DEPT_APPROVER", "PROC_MGR"]:
         return "layouts/approver_base.html"
+    if role_code in [Role.FINANCE_AP, "FINANCE_AP"]:
+        return "layouts/finance_base.html"
+    if role_code in [Role.AUDITOR, "AUDITOR"]:
+        return "audit/base_auditor.html"
+    if role_code in [Role.STORES_RECEIVER, "STORES_RECEIVER"]:
+        return "layouts/stores_base.html"
     return "layouts/requester_base.html"
 
 
@@ -111,19 +182,52 @@ def approvals_inbox_view(request):
         pending_prs = pending_prs.filter(q_filter)
         history_prs = history_prs.filter(q_filter)
 
+    valid_pending_statuses = ["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"]
+    valid_history_statuses = ["APPROVED", "REJECTED", "SOURCING", "PO_ISSUED"]
+
     if status_filter:
-        pending_prs = pending_prs.filter(status=status_filter)
-        history_prs = history_prs.filter(status=status_filter)
+        if tab == "history":
+            if status_filter in valid_history_statuses:
+                history_prs = history_prs.filter(status=status_filter)
+            else:
+                status_filter = ""
+        else:
+            if status_filter in valid_pending_statuses:
+                pending_prs = pending_prs.filter(status=status_filter)
+            else:
+                status_filter = ""
 
     pending_prs = pending_prs.order_by("-updated_at")
     history_prs = history_prs.order_by("-updated_at")
 
-    base_layout = _get_base_layout(role_code)
+    pending_count = pending_prs.count()
     has_budget_overrun = pending_prs.filter(status="BUDGET_REVIEW").exists()
 
+    query_params = request.GET.copy()
+    if "page" in query_params:
+        query_params.pop("page")
+    querystring = query_params.urlencode()
+
+    page_number = request.GET.get("page")
+    if tab == "history":
+        history_paginator = Paginator(history_prs, 10)
+        page_obj = history_paginator.get_page(page_number)
+        history_display = page_obj
+        pending_display = pending_prs
+    else:
+        pending_paginator = Paginator(pending_prs, 10)
+        page_obj = pending_paginator.get_page(page_number)
+        pending_display = page_obj
+        history_display = history_prs
+
+    base_layout = _get_base_layout(request.user, role_code)
+
     context = {
-        "pending_prs": pending_prs,
-        "history_prs": history_prs,
+        "pending_prs": pending_display,
+        "history_prs": history_display,
+        "page_obj": page_obj,
+        "querystring": querystring,
+        "pending_count": pending_count,
         "active_tab": tab,
         "role_code": role_code,
         "base_layout": base_layout,
@@ -136,3 +240,52 @@ def approvals_inbox_view(request):
 
 # Alias for URL route compatibility
 inbox_view = approvals_inbox_view
+
+
+@login_required(login_url="/login/")
+def delegation_view(request):
+    """
+    Allows approvers to set a temporary delegate for their approval responsibilities.
+    """
+    user = request.user
+    role_code = getattr(user, "role_code", None) or (
+        user.role.code if hasattr(user, "role") and user.role else ""
+    )
+
+    if request.method == "POST":
+        delegate_id = request.POST.get("delegate_id")
+        start_date = request.POST.get("start_date")
+        end_date = request.POST.get("end_date")
+        reason = request.POST.get("reason", "").strip()
+
+        try:
+            delegate_user = User.objects.get(pk=delegate_id)
+            set_approval_delegate_service(
+                approver=user,
+                delegate=delegate_user,
+                start_date=start_date,
+                end_date=end_date,
+                reason=reason,
+            )
+            messages.success(request, f"Delegation to {delegate_user.email} set successfully.")
+        except User.DoesNotExist:
+            messages.error(request, "Selected delegate user not found.")
+        except Exception as e:
+            messages.error(request, f"Error setting delegation: {str(e)}")
+        return redirect("approvals_delegation")
+
+    active_delegates = ApprovalDelegate.objects.filter(
+        approver=user, is_active=True, end_date__gte=timezone.now().date()
+    ).order_by("-start_date")
+
+    eligible_delegates = User.objects.filter(
+        role__code__in=[Role.DEPT_APPROVER, Role.PROC_MGR, Role.PROC_EXEC]
+    ).exclude(pk=user.pk).select_related("role")
+
+    base_layout = _get_base_layout(role_code)
+    return render(request, "pages/approvals/delegation.html", {
+        "active_delegates": active_delegates,
+        "eligible_delegates": eligible_delegates,
+        "base_layout": base_layout,
+        "role_code": role_code,
+    })

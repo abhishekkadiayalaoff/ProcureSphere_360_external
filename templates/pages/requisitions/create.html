@@ -1,4 +1,4 @@
-{% extends 'layouts/requester_base.html' %}
+{% extends base_layout|default:'layouts/requester_base.html' %}
 
 {% block title %}Create Requisition — ProcureSphere 360{% endblock %}
 
@@ -198,7 +198,10 @@
                     </div>
                     <hr>
                     <div class="d-grid gap-2">
-                        <button type="submit" name="submit_action" value="draft" class="btn btn-primary rounded-pill fw-bold py-2 shadow-sm">
+                        <button type="submit" name="action_type" value="submit" class="btn btn-success rounded-pill fw-bold py-2 shadow-sm">
+                            <i class="fa-solid fa-paper-plane me-2"></i>Submit for Approval
+                        </button>
+                        <button type="submit" name="action_type" value="save_draft" class="btn btn-outline-primary rounded-pill fw-bold py-2">
                             <i class="fa-solid fa-floppy-disk me-2"></i>Save as Draft
                         </button>
                         <a href="{% url 'requisitions_list' %}" class="btn btn-light rounded-pill fw-bold py-2 text-muted">

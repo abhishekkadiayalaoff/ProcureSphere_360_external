@@ -10,8 +10,11 @@ from django.urls import reverse
 
 from apps.accounts.models import Role, User
 from apps.audit.models import AuditLog
-from apps.vendors.models import Vendor, VendorCredentialDispatch
-from apps.vendors.services import issue_vendor_credentials_service
+from apps.vendors.models import Vendor, VendorCredentialDispatch, VendorDocument
+from apps.vendors.services import (
+    issue_vendor_credentials_service,
+    legal_validate_vendor_credentials_service,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -76,6 +79,7 @@ def test_register_via_dashboard_modal_then_issue_credentials(client, procurement
     dispatch = VendorCredentialDispatch.objects.get(vendor=vendor)
     assert dispatch.status == VendorCredentialDispatch.STATUS_SENT
     assert dispatch.created_by == w["exec"]
+    assert dispatch.legal_verification_status == VendorCredentialDispatch.LEGAL_STATUS_PENDING
     # the temporary password must never be persisted in audit evidence
     pwd = _temp_password(msg.body)
     assert not any(pwd in str(a.new_state) for a in AuditLog.objects.filter(target_model="Vendor"))
@@ -83,10 +87,11 @@ def test_register_via_dashboard_modal_then_issue_credentials(client, procurement
 
 def test_vendor_logs_in_and_is_forced_to_change_password(client, procurement_world):
     w = procurement_world
-    issue_vendor_credentials_service(vendor=w["vendor_draft"], issued_by=w["exec"])
+    dispatch = issue_vendor_credentials_service(vendor=w["vendor_draft"], issued_by=w["exec"])
     temp = _temp_password(mail.outbox[0].body)
     vendor_user = User.objects.get(vendor=w["vendor_draft"])
 
+    # Newly created vendor can log in immediately without waiting for Legal Manager approval
     _login(client, vendor_user, temp)
     resp = client.get("/")
     assert resp.status_code == 302 and resp.url in (reverse("password_change"), "/accounts/change-password/")
@@ -117,6 +122,11 @@ def test_vendor_logs_in_and_is_forced_to_change_password(client, procurement_wor
     assert vendor_user.must_change_password is False
     assert vendor_user.check_password("BrandNew#Pass2026")
     assert client.get("/").status_code != 302 or client.get("/").url != reverse("password_change")
+
+    # Vendor can access the vendor dashboard to complete profile & upload KYC documents
+    dash_resp = client.get("/vendor/")
+    assert dash_resp.status_code == 200
+    assert w["vendor_draft"].legal_name in dash_resp.content.decode()
 
 
 def test_resend_resets_password_and_keeps_single_user(procurement_world):

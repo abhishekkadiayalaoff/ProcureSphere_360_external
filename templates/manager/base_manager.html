@@ -17,19 +17,10 @@
     <!-- ========================================================================= -->
     <aside id="managerSidebar" class="manager-sidebar bg-dark text-white border-end border-secondary border-opacity-25 d-flex flex-column flex-shrink-0 shadow-sm" style="width: 268px;">
         
-        <!-- Sidebar Brand Header -->
-        <div class="sidebar-brand-box px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
-            <a href="/manager/" class="d-flex align-items-center text-white text-decoration-none" id="managerSidebarLabel">
-                <i class="fa-solid fa-layer-group text-primary fa-xl me-2"></i>
-                <div>
-                    <div class="brand-title fw-bold font-heading lh-1 text-white fs-6">ProcureSphere <span class="text-primary fw-light">360</span></div>
-                    <span class="badge bg-info text-dark rounded-pill fw-bold" style="font-size: 0.62rem; letter-spacing: 0.04em;">
-                        PROCUREMENT MANAGER
-                    </span>
-                </div>
-            </a>
-            <!-- Mobile/Tablet Close Button -->
-            <button class="btn btn-link text-white-50 p-1 d-lg-none" type="button" aria-label="Close Navigation" onclick="toggleManagerSidebar()">
+        <!-- Mobile Drawer Header (Hidden on Desktop) -->
+        <div class="d-flex d-lg-none align-items-center justify-content-between px-3 py-2.5 border-bottom border-secondary border-opacity-25">
+            <span class="fw-bold text-white small" id="managerSidebarLabel"><i class="fa-solid fa-layer-group text-primary me-2"></i>Manager Desk</span>
+            <button class="btn btn-link text-white-50 p-1" type="button" aria-label="Close Navigation" onclick="toggleManagerSidebar()">
                 <i class="fa-solid fa-xmark fs-5"></i>
             </button>
         </div>
@@ -52,6 +43,17 @@
                 <!-- PROCUREMENT SECTION -->
                 <li class="nav-section-label text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">
                     PROCUREMENT
+                </li>
+                <li class="nav-item">
+                    <a href="/approvals/inbox/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small d-flex align-items-center justify-content-between {% if '/approvals/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
+                        <span class="d-flex align-items-center">
+                            <i class="fa-solid fa-square-check me-2"></i>
+                            <span>Pending Approvals</span>
+                        </span>
+                        {% if pending_approvals_count and pending_approvals_count > 0 %}
+                        <span class="badge bg-warning text-dark rounded-pill fw-bold ms-auto" style="font-size: 0.68rem;">{{ pending_approvals_count }}</span>
+                        {% endif %}
+                    </a>
                 </li>
                 <li class="nav-item">
                     <a href="/manager/pipeline/" class="nav-link manager-nav-link rounded-3 py-2 px-3 small {% if '/manager/pipeline/' in request.path %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}">
@@ -132,15 +134,14 @@
 
         <!-- Sidebar Footer -->
         <div class="sidebar-footer border-top border-secondary border-opacity-25 px-3 py-3 mt-auto">
-            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                <div class="d-flex align-items-center" style="min-width: 0;">
-                    <i class="fa-solid fa-circle-user text-info fs-4 me-2"></i>
-                    <div style="min-width: 0;">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-2 w-100">
+                <div class="d-flex align-items-center overflow-hidden me-2" style="min-width: 0; flex: 1 1 auto;">
+                    <i class="fa-solid fa-circle-user text-info fs-4 me-2 flex-shrink-0"></i>
+                    <div class="overflow-hidden" style="min-width: 0; flex: 1 1 auto;">
                         <div class="small fw-semibold text-white text-truncate" title="{{ user.email }}">{{ user.email }}</div>
                         <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Procurement Manager</div>
                     </div>
                 </div>
-                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill" title="Sign out"><i class="fa-solid fa-arrow-right-from-bracket"></i><span class="visually-hidden">Sign out</span></a>
             </div>
             <div class="d-flex align-items-center justify-content-between small text-white-50 pt-2 border-top border-secondary border-opacity-25">
                 <span class="d-flex align-items-center text-truncate me-2" title="Organization: {{ user_org_name|default:'Global Enterprise' }}">
@@ -194,9 +195,11 @@
                 <!-- Notifications Quick Indicator -->
                 <a href="/manager/notifications/" class="btn btn-sm btn-light border rounded-circle d-flex align-items-center justify-content-center position-relative shadow-2xs" style="width: 36px; height: 36px;" title="Notifications & Escalations">
                     <i class="fa-solid fa-bell text-secondary"></i>
-                    <span id="topbarNotificationBadge" class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle d-none">
-                        <span class="visually-hidden">New alerts</span>
+                    {% if unread_notifications_count and unread_notifications_count > 0 %}
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size: 0.6rem;">
+                        {{ unread_notifications_count }}
                     </span>
+                    {% endif %}
                 </a>
 
                 <!-- User Profile Pill -->
@@ -294,6 +297,21 @@
         -webkit-backdrop-filter: blur(12px) !important;
         border-bottom: 1px solid #E2E8F0 !important;
         box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
+    }
+
+    /* Modal stabilization: prevent background jump & layout shift */
+    body.modal-open {
+        overflow-y: hidden !important;
+        padding-right: 0px !important;
+    }
+    .modal {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
     }
 
     .manager-main-content {

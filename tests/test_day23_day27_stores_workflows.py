@@ -820,7 +820,7 @@ def test_day27_stores_receipt_data_used_in_finance_3way_match_success(batch5_set
     assert matched_invoice.status == SupplierInvoice.STATUS_READY_FOR_PAYMENT
 
     # 4. Finance disburses payment
-    paid_invoice = mark_invoice_paid_service(invoice=matched_invoice, user=finance)
+    paid_invoice = mark_invoice_paid_service(invoice=matched_invoice, user=finance, payment_reference="PAY-2026-002")
     assert paid_invoice.status == SupplierInvoice.STATUS_PAID
 
 
@@ -1153,7 +1153,7 @@ def test_day27_finance_exception_resolution_and_payment_disbursement(batch5_setu
     assert matched_invoice.status == SupplierInvoice.STATUS_READY_FOR_PAYMENT
 
     # Disburse payment
-    paid_inv = mark_invoice_paid_service(invoice=matched_invoice, user=finance)
+    paid_inv = mark_invoice_paid_service(invoice=matched_invoice, user=finance, payment_reference="PAY-2026-003")
     assert paid_inv.status == SupplierInvoice.STATUS_PAID
 
 

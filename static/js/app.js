@@ -153,8 +153,27 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }, false);
 
+    // Intercept logout links to trigger session termination and redirect directly to /login/
+    document.addEventListener('click', function (e) {
+        const logoutLink = e.target.closest('a[href="/logout/"], a[href^="/logout"]');
+        if (logoutLink) {
+            e.preventDefault();
+            const targetUrl = logoutLink.getAttribute('href') || '/logout/';
+            fetch(targetUrl, {
+                method: 'GET',
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).finally(function () {
+                window.location.replace('/login/');
+            });
+        }
+    });
+
     // Restore buttons on page show (e.g. back/forward navigation or browser cache)
     window.addEventListener('pageshow', function (event) {
+        if (event.persisted) {
+            window.location.reload();
+        }
         document.querySelectorAll('form[data-submitting="true"]').forEach(function (form) {
             delete form.dataset.submitting;
             const buttons = form.querySelectorAll('.btn-loading');

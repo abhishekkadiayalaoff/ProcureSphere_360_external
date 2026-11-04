@@ -1,3 +1,4 @@
+import hashlib
 import json
 import uuid
 from typing import Any, Dict, List, Optional
@@ -1186,6 +1187,13 @@ def export_auditor_data_service(  # noqa: C901
         content_type = "application/json"
         file_extension = "json"
 
+    # Immutable reference ID and cryptographic checksum calculation
+    export_ref_id = str(uuid.uuid4())
+    if isinstance(content, str):
+        checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    else:
+        checksum = hashlib.sha256(content).hexdigest()
+
     # Immutable export audit log creation
     ip_addr = request.META.get("REMOTE_ADDR") if request else None
     req_id = getattr(request, "request_id", None) or (
@@ -1195,11 +1203,14 @@ def export_auditor_data_service(  # noqa: C901
         actor=actor,
         action=AuditLog.ACTION_EXPORT,
         target_model="AuditorExport",
-        target_object_id=export_type,
+        target_object_id=export_ref_id,
         new_state={
+            "export_ref_id": export_ref_id,
             "export_type": export_type,
             "export_format": export_format,
             "record_count": len(data_payload),
+            "checksum": checksum,
+            "algorithm": "SHA-256",
             "filters": {k: str(v) for k, v in filters.items()},
         },
         ip_address=ip_addr,
@@ -1207,6 +1218,9 @@ def export_auditor_data_service(  # noqa: C901
     )
 
     return {
+        "export_ref_id": export_ref_id,
+        "checksum": checksum,
+        "algorithm": "SHA-256",
         "filename": f"{filename}.{file_extension}",
         "content_type": content_type,
         "content": content,

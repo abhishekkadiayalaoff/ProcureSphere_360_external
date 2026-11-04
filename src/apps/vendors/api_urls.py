@@ -32,6 +32,7 @@ from apps.vendors.permissions import (
 from apps.vendors.selectors import get_vendor_change_history
 from apps.vendors.services import (
     allowed_governance_transitions,
+    approve_vendor_service,
     record_vendor_risk_assessment_service,
     set_vendor_status_governance_service,
 )
@@ -334,6 +335,15 @@ class VendorViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(id=user.vendor.id)
             else:
                 return qs.none()
+        elif not user.is_superuser:
+            scoped_org = getattr(user, "effective_organization", None)
+            if scoped_org:
+                qs = qs.filter(
+                    Q(organization=scoped_org)
+                    | Q(organization__isnull=True)
+                    | Q(created_by__organization=scoped_org)
+                    | Q(created_by__department__organization=scoped_org)
+                )
 
         filterset = VendorFilter(self.request.query_params, queryset=qs)
         if not filterset.is_valid():
@@ -388,7 +398,13 @@ class VendorViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        vendor = serializer.save()
+        user = self.request.user if self.request.user.is_authenticated else None
+        scoped_org = (
+            getattr(user, "effective_organization", None)
+            if user and not user.is_superuser
+            else None
+        )
+        vendor = serializer.save(created_by=user, organization=scoped_org)
         from apps.audit.models import AuditLog
 
         AuditLog.objects.create(
@@ -588,9 +604,40 @@ class VendorViewSet(viewsets.ModelViewSet):
             for po in pos
         ]
 
+        from .selectors import get_vendor_open_transactions
+        from .services import allowed_governance_transitions
+
+        exposure_data = get_vendor_open_transactions(vendor)
         data = serializer.data
         data["recent_purchase_orders"] = recent_pos_data
+        data["exposure"] = exposure_data["summary"]
+        data["allowed_transitions"] = allowed_governance_transitions(vendor, request.user)
         return Response(data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["get"], url_path="exposure")
+    def exposure(self, request, pk=None):
+        """
+        GET /api/v1/vendors/<uuid:pk>/exposure/
+        Returns open transaction counts and allowed transitions for governance status changes.
+        """
+        vendor = self.get_object()
+        from .selectors import get_vendor_open_transactions
+        from .services import allowed_governance_transitions
+
+        exposure_data = get_vendor_open_transactions(vendor)
+        return Response(
+            {
+                "vendor_id": str(vendor.id),
+                "legal_name": vendor.legal_name,
+                "vendor_number": vendor.vendor_number,
+                "status": vendor.status,
+                "status_display": vendor.get_status_display(),
+                "status_notes": vendor.status_notes,
+                "exposure": exposure_data["summary"],
+                "allowed_transitions": allowed_governance_transitions(vendor, request.user),
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class VendorCategoryViewSet(viewsets.ModelViewSet):
@@ -632,13 +679,16 @@ class VendorAssessRiskAPIView(APIView):
     Records a new VendorRiskRecord and optionally updates vendor status (ACTIVE, ON_HOLD, SUSPENDED).
     """
 
-    permission_classes = [IsAuthenticated, IsProcurementManager]
+    permission_classes = [IsAuthenticated, GovernanceOperatePermission]
 
     def post(self, request, pk):
         vendor = get_object_or_404(Vendor, pk=pk)
 
         risk_level = str(request.data.get("risk_level", VendorRiskRecord.RISK_LEVEL_LOW)).upper()
-        assessment_notes = str(request.data.get("assessment_notes", "")).strip()
+        assessment_notes = str(
+            request.data.get("notes", request.data.get("assessment_notes", ""))
+        ).strip()
+        risk_flags = request.data.get("risk_flags", [])
         governance_status = request.data.get("governance_status")
 
         valid_levels = [
@@ -663,6 +713,7 @@ class VendorAssessRiskAPIView(APIView):
         risk_record = VendorRiskRecord.objects.create(
             vendor=vendor,
             risk_level=risk_level,
+            risk_flags=risk_flags,
             assessment_notes=assessment_notes,
             assessed_by=request.user,
         )
@@ -692,19 +743,17 @@ class VendorAssessRiskAPIView(APIView):
                     Vendor.STATUS_DRAFT,
                     Vendor.STATUS_SUBMITTED,
                     Vendor.STATUS_KYC_REVIEW,
+                    Vendor.STATUS_CHANGES_REQUIRED,
                 ]:
-                    previous_status = vendor.status
-                    vendor.status = Vendor.STATUS_ACTIVE
-                    vendor.status_notes = assessment_notes
-                    vendor.save(update_fields=["status", "status_notes", "updated_at"])
-                    create_audit_log_service(
-                        actor=request.user,
-                        action=AuditLog.ACTION_APPROVE,
-                        target_model="Vendor",
-                        target_object_id=str(vendor.id),
-                        previous_state={"status": previous_status},
-                        new_state={"status": vendor.status, "notes": assessment_notes},
-                    )
+                    try:
+                        approve_vendor_service(vendor=vendor, manager=request.user, notes=assessment_notes)
+                        vendor.refresh_from_db()
+                    except (DjangoValidationError, Exception) as e:
+                        msg = getattr(e, "messages", None) or [str(e)]
+                        return Response(
+                            {"detail": f"KYC verification failed: {msg[0]}"},
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
                 elif gov_status_upper == Vendor.STATUS_REJECTED and vendor.status in [
                     Vendor.STATUS_DRAFT,
                     Vendor.STATUS_SUBMITTED,
@@ -767,19 +816,17 @@ class VendorGovernanceStatusAPIView(APIView):
                 Vendor.STATUS_DRAFT,
                 Vendor.STATUS_SUBMITTED,
                 Vendor.STATUS_KYC_REVIEW,
+                Vendor.STATUS_CHANGES_REQUIRED,
             ]:
-                previous_status = vendor.status
-                vendor.status = Vendor.STATUS_ACTIVE
-                vendor.status_notes = notes
-                vendor.save(update_fields=["status", "status_notes", "updated_at"])
-                create_audit_log_service(
-                    actor=request.user,
-                    action=AuditLog.ACTION_APPROVE,
-                    target_model="Vendor",
-                    target_object_id=str(vendor.id),
-                    previous_state={"status": previous_status},
-                    new_state={"status": vendor.status, "notes": notes},
-                )
+                try:
+                    approve_vendor_service(vendor=vendor, manager=request.user, notes=notes)
+                    vendor.refresh_from_db()
+                except (DjangoValidationError, Exception) as e:
+                    msg = getattr(e, "messages", None) or [str(e)]
+                    return Response(
+                        {"detail": f"KYC verification failed: {msg[0]}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             elif new_status == Vendor.STATUS_REJECTED and vendor.status in [
                 Vendor.STATUS_DRAFT,
                 Vendor.STATUS_SUBMITTED,

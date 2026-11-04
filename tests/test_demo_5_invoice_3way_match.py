@@ -17,7 +17,7 @@ from apps.orders.services import acknowledge_purchase_order_service, generate_pu
 from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
 from apps.receipts.services import create_goods_receipt_service
 from apps.requisitions.services import create_purchase_requisition_service
-from apps.vendors.models import VendorCategory
+from apps.vendors.models import Vendor, VendorCategory
 from apps.vendors.services import register_vendor_service
 
 
@@ -70,6 +70,8 @@ def test_demo_5_invoice_3way_match_and_exception_resolution():
         email="billing@apex.com",
         address="100 Apex St",
     )
+    vendor.status = Vendor.STATUS_ACTIVE
+    vendor.save(update_fields=["status"])
 
     pr = create_purchase_requisition_service(
         title="Server Racks Purchase",
@@ -148,7 +150,7 @@ def test_demo_5_invoice_3way_match_and_exception_resolution():
     assert invoice.status == SupplierInvoice.STATUS_READY_FOR_PAYMENT
 
     # 7. Execute payment and verify Spend Ledger actual spend transition
-    paid_invoice = mark_invoice_paid_service(invoice=invoice, user=finance_user)
+    paid_invoice = mark_invoice_paid_service(invoice=invoice, user=finance_user, payment_reference="UTR-2026-00110")
     assert paid_invoice.status == SupplierInvoice.STATUS_PAID
 
     budget.refresh_from_db()

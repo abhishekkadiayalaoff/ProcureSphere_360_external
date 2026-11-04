@@ -1,6 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
@@ -321,12 +321,20 @@ def _invitation_errors(event: SourcingEvent) -> list:
     invites = list(event.invitations.select_related("vendor"))
     if not invites:
         return ["Invite at least one eligible vendor before publishing."]
-    return [
-        f"Invited vendor '{invite.vendor.legal_name}' is no longer eligible "
-        f"(status {invite.vendor.status}); remove the invitation."
-        for invite in invites
-        if invite.vendor.status not in ELIGIBLE_VENDOR_STATUSES
-    ]
+    errors = []
+    for invite in invites:
+        v = invite.vendor
+        if v.status not in ELIGIBLE_VENDOR_STATUSES:
+            errors.append(
+                f"Invited vendor '{v.legal_name}' is no longer eligible "
+                f"(status {v.status}); remove the invitation."
+            )
+        elif not bool(getattr(v, "is_event_eligible", False)):
+            errors.append(
+                f"Invited vendor '{v.legal_name}' is not legally eligible for events "
+                f"(eligibility: {getattr(v, 'event_eligibility_status', 'INELIGIBLE')}); remove the invitation."
+            )
+    return errors
 
 
 def _notify_invited_vendor(event: SourcingEvent, vendor: Vendor):
@@ -372,6 +380,7 @@ def sync_event_window_status(*, event: SourcingEvent, now=None) -> SourcingEvent
     """
     now = now or timezone.now()
     with transaction.atomic():
+        _lock_and_refresh(event)
         if event.status == SourcingEvent.STATUS_PUBLISHED and event.bid_start_date <= now:
             _transition_event(
                 event=event,
@@ -379,12 +388,19 @@ def sync_event_window_status(*, event: SourcingEvent, now=None) -> SourcingEvent
                 actor=None,
                 extra={"trigger": "bid_start_reached"},
             )
-        if event.status == SourcingEvent.STATUS_BID_WINDOW and event.bid_end_date < now:
+        if event.status == SourcingEvent.STATUS_BID_WINDOW and event.bid_end_date <= now:
             _transition_event(
                 event=event,
                 to_status=SourcingEvent.STATUS_TECHNICAL_REVIEW,
                 actor=None,
                 extra={"trigger": "bid_deadline_passed"},
+            )
+            notify_role_users(
+                role_codes=[Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN],
+                notification_type=Notification.TYPE_BID_DEADLINE,
+                title=f"Bid Deadline Passed: {event.event_number}",
+                message=f"Bidding window has closed for {event.event_number} ({event.title}). Sourcing event is now in Technical Review.",
+                target_url=f"/sourcing-events/{event.id}/",
             )
     return event
 
@@ -394,7 +410,7 @@ def sync_all_event_windows(now=None) -> int:
     now = now or timezone.now()
     due = SourcingEvent.objects.filter(
         status=SourcingEvent.STATUS_PUBLISHED, bid_start_date__lte=now
-    ) | SourcingEvent.objects.filter(status=SourcingEvent.STATUS_BID_WINDOW, bid_end_date__lt=now)
+    ) | SourcingEvent.objects.filter(status=SourcingEvent.STATUS_BID_WINDOW, bid_end_date__lte=now)
     changed = 0
     for event in due:
         before = event.status
@@ -407,23 +423,34 @@ def sync_all_event_windows(now=None) -> int:
 @transaction.atomic
 def close_bid_window_service(*, event: SourcingEvent, user: User) -> SourcingEvent:
     """
-    Bid closure (BID_WINDOW -> TECHNICAL_REVIEW). Only permitted once the server-side deadline
-    has passed; early closure is not supported (docs/assumptions.md ASSUMP-010).
+    Bid closure (BID_WINDOW -> TECHNICAL_REVIEW).
+    Can be manually closed by authorized users (e.g. Procurement Executive/Manager)
+    at any time while the bid window is open, or automatically when the deadline passes.
     """
     _lock_and_refresh(event)
     if event.status != SourcingEvent.STATUS_BID_WINDOW:
         raise ValidationError(f"Bid window is not open (current: {event.status}).")
-    if timezone.now() <= event.bid_end_date:
-        raise ValidationError(
-            f"Bid window cannot be closed before the deadline "
-            f"({event.bid_end_date:%Y-%m-%d %H:%M})."
-        )
-    return _transition_event(
+
+    now = timezone.now()
+    early_close = now < event.bid_end_date
+    if early_close:
+        event.bid_end_date = now
+        event.save(update_fields=["bid_end_date", "updated_at"])
+
+    res = _transition_event(
         event=event,
         to_status=SourcingEvent.STATUS_TECHNICAL_REVIEW,
         actor=user,
-        extra={"trigger": "manual_close_after_deadline"},
+        extra={"trigger": "manual_close_early" if early_close else "manual_close"},
     )
+    notify_role_users(
+        role_codes=[Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN],
+        notification_type=Notification.TYPE_BID_DEADLINE,
+        title=f"Bid Window Closed: {event.event_number}",
+        message=f"Bidding window has been closed for {event.event_number} ({event.title}) by {user.get_full_name() or user.username}. Sourcing event is now in Technical Review.",
+        target_url=f"/sourcing-events/{event.id}/",
+    )
+    return res
 
 
 def _invite_error(event: SourcingEvent, vendor_id, vendor):
@@ -433,6 +460,11 @@ def _invite_error(event: SourcingEvent, vendor_id, vendor):
         return (
             f"Vendor '{vendor.legal_name}' is not eligible for invitation "
             f"(status: {vendor.get_status_display()})."
+        )
+    if not bool(getattr(vendor, "is_event_eligible", False)):
+        return (
+            f"Vendor '{vendor.legal_name}' is not legally eligible to participate in events "
+            f"(eligibility: {getattr(vendor, 'event_eligibility_status', 'INELIGIBLE')})."
         )
     if BidInvite.objects.filter(event=event, vendor=vendor).exists():
         return f"Vendor '{vendor.legal_name}' is already invited to this event."
@@ -544,6 +576,12 @@ def withdraw_vendor_bid_service(*, bid: VendorBid, user: User, reason: str) -> V
     """
     _lock_and_refresh(bid)
     _assert_bid_window_open(bid.event, "withdraw bid")
+    if user and getattr(user, "vendor_id", None):
+        if user.vendor_id != bid.vendor_id:
+            raise PermissionDenied(
+                f"Unauthorized: User {user.email} from vendor '{user.vendor.legal_name}' "
+                f"cannot withdraw bids for vendor '{bid.vendor.legal_name}'."
+            )
     if bid.status == VendorBid.STATUS_WITHDRAWN:
         raise ValidationError("Bid is already withdrawn.")
     if not (reason or "").strip():
@@ -608,6 +646,11 @@ def validate_bid_service(*, bid: VendorBid) -> dict:
     if bid.vendor.status == Vendor.STATUS_SUSPENDED:
         errors.append(
             "Vendor account is currently suspended and cannot participate in procurement."
+        )
+
+    if not bool(getattr(bid.vendor, "is_event_eligible", False)):
+        errors.append(
+            f"Vendor account is not legally eligible to participate in events (Status: {getattr(bid.vendor, 'event_eligibility_status', 'INELIGIBLE')})."
         )
 
     if not bid.technical_proposal.strip() and not bid.proposal_summary.strip():
@@ -678,6 +721,18 @@ def save_draft_bid_service(
 
     if vendor.status == Vendor.STATUS_SUSPENDED:
         raise ValidationError(f"Vendor '{vendor.legal_name}' is suspended and cannot prepare bids.")
+
+    if user and getattr(user, "vendor_id", None):
+        if user.vendor_id != vendor.id:
+            raise PermissionDenied(
+                f"Unauthorized: User {user.email} from vendor '{user.vendor.legal_name}' "
+                f"cannot save draft bids for vendor '{vendor.legal_name}'."
+            )
+
+    if not bool(getattr(vendor, "is_event_eligible", False)):
+        raise ValidationError(
+            f"Vendor '{vendor.legal_name}' is not legally eligible to participate in events."
+        )
 
     if not BidInvite.objects.filter(event=event, vendor=vendor).exists():
         raise ValidationError("Vendor does not have a valid invitation to this sourcing event.")
@@ -753,6 +808,7 @@ def submit_vendor_bid_service(
     Submits a sealed bid for a vendor during the BID_WINDOW.
     Enforces server-side deadline, authorization, atomic transaction, versioning, and audit log.
     """
+    _lock_and_refresh(event)
     _reject_if_deadline_passed(event)
     sync_event_window_status(event=event)
     if event.status != SourcingEvent.STATUS_BID_WINDOW:
@@ -771,11 +827,23 @@ def submit_vendor_bid_service(
     if vendor.status == Vendor.STATUS_SUSPENDED:
         raise ValidationError(f"Vendor '{vendor.legal_name}' is suspended and cannot submit bids.")
 
+    if submitted_by_user and getattr(submitted_by_user, "vendor_id", None):
+        if submitted_by_user.vendor_id != vendor.id:
+            raise PermissionDenied(
+                f"Unauthorized: User {submitted_by_user.email} from vendor '{submitted_by_user.vendor.legal_name}' "
+                f"cannot submit bids for vendor '{vendor.legal_name}'."
+            )
+
+    if not bool(getattr(vendor, "is_event_eligible", False)):
+        raise ValidationError(
+            f"Vendor '{vendor.legal_name}' is not legally eligible to participate in events."
+        )
+
     # Verify vendor has invitation
     if not BidInvite.objects.filter(event=event, vendor=vendor).exists():
         raise ValidationError(f"Vendor '{vendor.legal_name}' has not been invited to this event.")
 
-    bid = VendorBid.objects.filter(event=event, vendor=vendor).first()
+    bid = VendorBid.objects.select_for_update().filter(event=event, vendor=vendor).first()
     created = False
     if not bid:
         created = True
@@ -901,6 +969,8 @@ def amend_vendor_bid_service(
     Rejects amendment if deadline has passed or event is not in BID_WINDOW.
     """
     event = bid.event
+    _lock_and_refresh(bid)
+    _lock_and_refresh(event)
     _reject_if_deadline_passed(event)
     sync_event_window_status(event=event)
     if event.status != SourcingEvent.STATUS_BID_WINDOW:
@@ -915,6 +985,13 @@ def amend_vendor_bid_service(
 
     if bid.status not in (VendorBid.STATUS_SUBMITTED, VendorBid.STATUS_AMENDED):
         raise ValidationError(f"Only submitted bids can be amended (current: {bid.status}).")
+
+    if vendor_user and getattr(vendor_user, "vendor_id", None):
+        if vendor_user.vendor_id != bid.vendor_id:
+            raise PermissionDenied(
+                f"Unauthorized: User {vendor_user.email} from vendor '{vendor_user.vendor.legal_name}' "
+                f"cannot amend bids for vendor '{bid.vendor.legal_name}'."
+            )
 
     if not amendment_reason or not amendment_reason.strip():
         raise ValidationError("Amendment justification/reason is required for bid amendment.")
@@ -960,6 +1037,14 @@ def amend_vendor_bid_service(
     for item in line_items:
         qty = Decimal(str(item["quantity"]))
         unit_price = Decimal(str(item["quoted_unit_price"]))
+        if qty <= Decimal("0.00"):
+            raise ValidationError(
+                f"Quantity for line item '{item.get('item_description', '')}' must be greater than zero."
+            )
+        if unit_price < Decimal("0.00"):
+            raise ValidationError(
+                f"Quoted unit price for line item '{item.get('item_description', '')}' cannot be negative."
+            )
         line = BidLine.objects.create(
             bid=bid,
             pr_line=item.get("pr_line"),
@@ -1301,6 +1386,10 @@ def _assert_vendor_awardable(vendor: Vendor):
         raise ValidationError(
             f"Vendor '{vendor.legal_name}' is {vendor.get_status_display()} and cannot be awarded."
         )
+    if not bool(getattr(vendor, "is_event_eligible", False)):
+        raise ValidationError(
+            f"Vendor '{vendor.legal_name}' is not legally eligible to participate in events."
+        )
 
 
 @transaction.atomic
@@ -1382,6 +1471,12 @@ def approve_award_service(
     decision = _pending_decision(event)
     _assert_vendor_awardable(decision.winning_bid.vendor)
 
+    if decision.recommended_by_id and decision.recommended_by_id == approver.id:
+        if not getattr(approver, "is_superuser", False):
+            raise ValidationError(
+                "Separation of duties violation: Award recommender cannot approve their own recommendation."
+            )
+
     decision.status = AwardDecision.STATUS_APPROVED
     decision.approved_by = approver
     decision.decided_at = timezone.now()
@@ -1407,6 +1502,18 @@ def approve_award_service(
         actor=approver,
         action=AuditLog.ACTION_APPROVE,
         extra={"winner": decision.winning_bid.vendor.legal_name},
+    )
+    from apps.notifications.services import notify_vendor_users
+
+    notify_vendor_users(
+        vendor=decision.winning_bid.vendor,
+        notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+        title=f"Award Confirmed: {event.event_number} — {event.title}",
+        message=(
+            f"Congratulations! Your proposal for {event.event_number} has been approved and awarded "
+            f"by the Procurement Board."
+        ),
+        target_url=f"/vendor/sourcing/{event.id}/",
     )
     return decision
 
@@ -1455,7 +1562,12 @@ def reject_award_service(*, event: SourcingEvent, approver: User, comments: str)
 
 @transaction.atomic
 def evaluate_and_award_sourcing_event_service(
-    *, event: SourcingEvent, winning_bid: VendorBid, award_reason: str, approved_by_user: User
+    *,
+    event: SourcingEvent,
+    winning_bid: VendorBid,
+    award_reason: str,
+    approved_by_user: User,
+    recommended_by: User = None,
 ) -> AwardDecision:
     """
     Direct award by an approver (Procurement Manager): records the recommendation and its
@@ -1470,14 +1582,20 @@ def evaluate_and_award_sourcing_event_service(
     if not (award_reason or "").strip():
         raise ValidationError("Award justification is required.")
 
+    recommender = recommended_by or event.created_by or approved_by_user
+    if recommender.id == approved_by_user.id and not getattr(approved_by_user, "is_superuser", False):
+        raise ValidationError(
+            "Separation of duties violation: Award approver cannot be the same user who recommended or created the event without independent recommendation."
+        )
+
     if event.status == SourcingEvent.STATUS_COMMERCIAL_REVIEW:
         decision = AwardDecision.objects.create(
             event=event,
             winning_bid=winning_bid,
             award_reason=award_reason.strip(),
             status=AwardDecision.STATUS_PENDING,
-            recommended_by=approved_by_user,
-            created_by=approved_by_user,
+            recommended_by=recommender,
+            created_by=recommender,
         )
         _transition_event(
             event=event, to_status=SourcingEvent.STATUS_AWARD_APPROVAL, actor=approved_by_user

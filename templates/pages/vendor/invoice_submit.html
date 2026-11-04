@@ -238,5 +238,21 @@ function recalcTotals() {
     if (taxEl) taxEl.textContent = '$' + tax.toFixed(2);
     if (totEl) totEl.textContent = '$' + total.toFixed(2);
 }
+
+// Submit guard: disable button and show spinner on form submit to prevent duplicate submissions
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('invoiceForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                setTimeout(function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Submitting...';
+                }, 0);
+            }
+        });
+    }
+});
 </script>
 {% endblock %}

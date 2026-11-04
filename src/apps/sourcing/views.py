@@ -518,6 +518,9 @@ def sourcing_action_view(request, event_id, action):
         messages.success(request, handler(event, request))
     except ValidationError as exc:
         messages.error(request, " ".join(exc.messages))
+    next_url = request.POST.get("next")
+    if next_url and next_url.startswith("/"):
+        return redirect(next_url)
     url_name, anchor = ACTION_REDIRECTS.get(action, ("sourcing_detail", ""))
     response = redirect(url_name, event_id=event.id)
     if anchor:

@@ -1,0 +1,987 @@
+{% extends 'landing/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="preload" as="image" href="{% static 'landing/images/hero_poster.webp' %}?v=1" type="image/webp" />
+<script>
+// Prevent modern browsers from restoring old scroll position on page refresh
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+</script>
+<style>
+/* ── Hero Stat 13,000+ Deep Obsidian Navy Accent ── */
+.hero-stat,
+.hero-stat > strong,
+#hero-stat-num,
+.hero-stat > span,
+.hero-stat-caption {
+  color: #0f172a !important;
+}
+
+/* ── Mobile View: Remove Intro Video Completely ── */
+@media (max-width: 768px) {
+  .intro-screen,
+  #intro-screen {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    z-index: -9999 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+  }
+  .intro-video,
+  #intro-video {
+    display: none !important;
+  }
+}
+
+/* ── Core Design Philosophy Banner (Matching Screenshot & About Page) ── */
+.home-philosophy-banner {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+  border-radius: 26px;
+  padding: clamp(38px, 5.2vw, 56px) clamp(24px, 4.2vw, 46px);
+  color: #ffffff;
+  text-align: center;
+  box-shadow: 0 24px 60px rgba(15, 27, 45, 0.35), 0 0 0 1px rgba(147, 197, 253, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+.home-philosophy-banner::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  left: -20%;
+  width: 140%;
+  height: 180%;
+  background: radial-gradient(circle at 35% 25%, rgba(59, 130, 246, 0.28) 0%, transparent 65%);
+  pointer-events: none;
+}
+.home-philosophy-eyebrow {
+  font-size: 14px;
+  font-weight: 800;
+  color: #93c5fd;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 2;
+}
+.home-philosophy-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(28px, 3.2vw, 40px);
+  margin: 14px 0 18px 0;
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.22;
+  position: relative;
+  z-index: 2;
+}
+.home-philosophy-text {
+  font-size: clamp(16px, 1.3vw, 20px);
+  color: #f1f5f9;
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.75;
+  font-weight: 500;
+  position: relative;
+  z-index: 2;
+}
+
+/* ── Upgraded Blue Background: Roles Section (#roles) ── */
+#roles.roles {
+  background: linear-gradient(135deg, #102a6b 0%, #0d1e48 50%, #0a1128 100%) !important;
+  color: #ffffff !important;
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(147, 197, 253, 0.15);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.15);
+}
+#roles::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+#roles .roles-top,
+#roles #role-interface-wrapper {
+  position: relative;
+  z-index: 2;
+}
+#roles .roles-badge {
+  background: rgba(30, 58, 138, 0.75) !important;
+  color: #93c5fd !important;
+  border: 1.5px solid rgba(147, 197, 253, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+#roles .roles-badge span {
+  background: #60a5fa !important;
+  box-shadow: 0 0 10px #60a5fa !important;
+}
+#roles .roles-title {
+  color: #ffffff !important;
+}
+#roles .roles-desc {
+  color: #cbd5e1 !important;
+}
+#roles .role-avatar-btn span {
+  color: #94a3b8 !important;
+  transition: all 0.3s ease;
+}
+#roles .role-avatar-btn.is-active span {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 0 16px rgba(147, 197, 253, 0.6);
+}
+#roles .role-avatar-circle {
+  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.3s ease !important;
+}
+#roles .role-avatar-circle.is-active {
+  background: rgba(30, 58, 138, 0.85) !important;
+  border: 2px solid #60a5fa !important;
+  box-shadow: 0 0 28px rgba(59, 130, 246, 0.6), inset 0 0 14px rgba(59, 130, 246, 0.3) !important;
+  transform: scale(1.05);
+}
+#roles .role-scroll-track {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+#roles .role-scroll-thumb {
+  background: #3b82f6 !important;
+}
+#roles .role-interface {
+  border: 1.5px solid rgba(147, 197, 253, 0.28) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ── Upgraded Blue Background: FAQ Section (#faq) ── */
+#faq.faq {
+  background: linear-gradient(135deg, #0d1b3e 0%, #172554 50%, #0f172a 100%) !important;
+  color: #ffffff !important;
+  position: relative;
+  border-top: 1px solid rgba(147, 197, 253, 0.15);
+  border-bottom: 1px solid rgba(147, 197, 253, 0.15);
+}
+#faq::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 100%, rgba(59, 130, 246, 0.18) 0%, transparent 65%);
+  pointer-events: none;
+}
+#faq .faq-badge {
+  background: rgba(30, 58, 138, 0.75) !important;
+  color: #93c5fd !important;
+  border: 1.5px solid rgba(147, 197, 253, 0.4) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+#faq .faq-badge span {
+  background: #60a5fa !important;
+  box-shadow: 0 0 10px #60a5fa !important;
+}
+#faq .faq-title {
+  color: #ffffff !important;
+}
+#faq .faq-desc {
+  color: #cbd5e1 !important;
+}
+#faq .home-faq-item {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1.5px solid rgba(147, 197, 253, 0.22) !important;
+  backdrop-filter: blur(14px) !important;
+  -webkit-backdrop-filter: blur(14px) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35) !important;
+}
+#faq .home-faq-item.is-open {
+  border-color: #3b82f6 !important;
+  background: rgba(15, 23, 42, 0.95) !important;
+  box-shadow: 0 20px 50px rgba(30, 58, 138, 0.5), 0 0 0 1px rgba(96, 165, 250, 0.4) !important;
+}
+#faq .home-faq-toggle {
+  color: #ffffff !important;
+}
+#faq .home-faq-icon {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+  border: 1px solid rgba(147, 197, 253, 0.3) !important;
+}
+#faq .home-faq-item.is-open .home-faq-icon {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+}
+#faq .home-faq-answer-inner {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+#faq .home-faq-answer-content {
+  color: #e2e8f0 !important;
+  line-height: 1.7 !important;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .home-philosophy-banner {
+    padding: 36px 20px !important;
+    border-radius: 20px !important;
+  }
+  .home-philosophy-title {
+    font-size: 26px !important;
+  }
+  .home-philosophy-text {
+    font-size: 15px !important;
+  }
+}
+
+/* Hide card-tap-cue on cards as requested */
+.card-tap-cue,
+.uiverse-card .card-tap-cue,
+.uiverse-card.is-active .card-tap-cue {
+  display: none !important;
+}
+</style>
+{% endblock %}
+
+{% block intro_screen %}
+{% if not request.GET.logged_out and not request.GET.logout and not request.COOKIES.ps360_just_logged_out %}
+<!-- Intro Video Screen -->
+<div class="intro-screen" id="intro-screen">
+  <video
+    id="intro-video"
+    src="{% static 'landing/videos/intro.mp4' %}?v=4"
+    autoplay
+    muted
+    playsinline
+    preload="auto"
+    class="intro-video"
+  ></video>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- ===== HERO SECTION ===== -->
+<div class="slides-deck">
+  <section class="hero section-pad slide-hero" aria-labelledby="hero-heading" id="hero">
+    <div class="hero-copy">
+      <h1 id="hero-heading" class="hero-title">
+        <span style="color:inherit;white-space:nowrap;">The Intelligent</span><br>
+        Enterprise<br>
+        Procurement<br>
+        <span>Platform</span>
+      </h1>
+      <p class="hero-lede">Connect requests, approvals, suppliers, sourcing, purchase orders, invoices, contracts and financial control in one intelligent procurement platform.</p>
+      <div class="hero-actions">
+        <a class="button button-primary" href="#modules">
+          Discover more
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 7v10H7"/></svg>
+        </a>
+      </div>
+      <div class="hero-proof">
+        <div>
+          <span class="proof-mark">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
+          </span>
+          <span><strong>One connected system</strong><small>for every procurement decision</small></span>
+        </div>
+        <div class="proof-rule"></div>
+        <small class="proof-caption">SCROLL TO ENTER THE SYSTEM
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>
+        </small>
+      </div>
+    </div>
+
+    <div class="hero-visual">
+      <video
+        id="hero-video"
+        autoplay
+        muted
+        loop
+        playsinline
+        preload="auto"
+        poster="{% static 'landing/images/hero_poster.webp' %}?v=1"
+        class="hero-video"
+        style="width:100%;max-width:920px;height:auto;object-fit:contain;mask-image:linear-gradient(to bottom,#000 82%,rgba(0,0,0,0.2) 87%,transparent 91%),linear-gradient(135deg,#000 78%,rgba(0,0,0,0.2) 84%,transparent 88%);-webkit-mask-image:linear-gradient(to bottom,#000 82%,rgba(0,0,0,0.2) 87%,transparent 91%),linear-gradient(135deg,#000 78%,rgba(0,0,0,0.2) 84%,transparent 88%);mask-composite:intersect;-webkit-mask-composite:destination-in;mix-blend-mode:multiply;"
+      >
+        <source src="{% static 'landing/videos/hero-video-matched.mp4' %}" type="video/mp4" />
+      </video>
+
+      <div class="hero-stat">
+        <strong id="hero-stat-num" style="color:#0f172a !important;">13,000+</strong>
+        <span class="hero-stat-caption" style="color:#0f172a !important;opacity:1;">ENTERPRISES USE OUR PROCUREMENT PLATFORM</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== SOLUTION / ABOUT PLATFORM ===== -->
+  <div class="solution-slide" id="solution">
+
+    <!-- About Platform Section -->
+    <div style="position:relative;background:#ffffff;width:100%;">
+      <section class="about-platform-section" style="position:relative;padding:clamp(44px,5.5vh,68px) 0 clamp(44px,5.5vh,68px);max-width:1440px;margin:0 auto;width:100%;box-sizing:border-box;">
+
+        <div style="padding:0 clamp(24px,4vw,56px);margin-bottom:22px;">
+          <div style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:12px;text-transform:uppercase;">
+            <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+            ABOUT PLATFORM
+          </div>
+          <h2 style="display:flex;flex-wrap:wrap;gap:0 8px;font-family:'Playfair Display','Georgia',serif;font-size:clamp(26px,2.8vw,38px);line-height:1.2;margin-top:0;margin-bottom:8px;color:#0F1B2D;font-weight:700;">
+            Replacing chaos with a controlled
+            <span style="color:#2858e8;text-decoration:none;">source-to-pay</span>
+            workflow.
+          </h2>
+          <p style="font-size:15px;color:#334155;line-height:1.55;margin:0;max-width:780px;font-weight:500;">
+            ProcureSphere 360 eliminates disconnected emails, spreadsheets, and manual approvals, bringing total traceability to every transaction across your enterprise.
+          </p>
+        </div>
+
+        <!-- Interactive Module Cards -->
+        <div id="about-platform-grid" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(380px,0.95fr);gap:clamp(24px,3vw,40px);align-items:stretch;padding:0 clamp(24px,4vw,56px);">
+          <div style="display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:13px;color:#475569;font-weight:650;">
+              <span>Select or hover on any module below:</span>
+              <span id="active-module-label" style="color:#0052cc;font-weight:750;">Purchase and Approvals selected →</span>
+            </div>
+            <div class="cinematic-cards-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+              {% for mod in platform_modules %}
+              <div class="stat-card-wrap-{{ mod.id }}">
+                <div
+                  class="uiverse-card card-theme-{{ mod.id }} {% if forloop.first %}is-active is-inspecting{% endif %}"
+                  data-module="{{ mod.id }}"
+                  data-name="{{ mod.name }}"
+                  data-color="{{ mod.theme_color }}"
+                  data-accent="{{ mod.accent_light }}"
+                  data-summary="{{ mod.summary }}"
+                  onclick="selectPlatformModule({{ mod.id }}, true)"
+                  onmouseenter="selectPlatformModule({{ mod.id }}, false)"
+                  role="button"
+                  tabindex="0"
+                  style="cursor:pointer;height:178px;min-height:178px;border-radius:16px;outline:{% if forloop.first %}3.5px solid {{ mod.accent_light }}{% else %}1.5px solid rgba(15,27,45,0.12){% endif %};outline-offset:2px;transform:{% if forloop.first %}scale(1.025){% else %}none{% endif %};box-shadow:{% if forloop.first %}0 22px 48px -8px {{ mod.theme_color }}66,0 8px 22px rgba(15,27,45,0.22){% else %}0 12px 30px -6px rgba(15,27,45,0.24),0 4px 14px rgba(15,27,45,0.12){% endif %};transition:all 0.25s cubic-bezier(0.16,1,0.3,1);"
+                >
+                  <div class="logo" style="top:14px;left:16px;width:28px;height:28px;">
+                    {% include 'landing/partials/icon.html' with name=mod.icon size=22 %}
+                  </div>
+                  <div class="title" style="font-size:clamp(1.2rem,1.35vw,1.45rem);top:50%;font-weight:800;">{{ mod.name_html|default:mod.name|safe }}</div>
+                  <div class="box box3"></div>
+                  <div class="box box2"></div>
+                  <div class="box box1">
+                    <div class="content" style="padding:1rem;">
+                      <span class="box-title" style="font-size:1.1rem;margin-bottom:6px;">{{ mod.name_html|default:mod.name|safe }}</span>
+                      <span class="box-text" style="font-size:0.85rem;line-height:1.4;">{{ mod.short_desc }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Module Details Panel -->
+          <div id="module-detail-panel" style="position:relative;width:100%;height:100%;min-height:515px;border-radius:18px;overflow:hidden;background:#ffffff;border:2px solid #94a3b8;box-shadow:0 24px 60px -12px rgba(15,27,45,0.22),0 8px 24px -4px rgba(15,27,45,0.1);display:flex;flex-direction:column;box-sizing:border-box;">
+            <div id="module-accent-stripe" style="height:5px;width:100%;background:linear-gradient(90deg,#0052cc,#00d2ff);transition:background 0.4s ease;"></div>
+            <div class="module-detail-stage" id="module-detail-stage">
+              {% for mod in platform_modules %}
+              <div class="module-detail-content {% if forloop.first %}is-active{% endif %}" id="module-detail-{{ mod.id }}">
+                <div style="width:100%;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                      <div style="width:42px;height:42px;border-radius:11px;background:{{ mod.theme_color }}18;color:{{ mod.theme_color }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        {% include 'landing/partials/icon.html' with name=mod.icon size=24 %}
+                      </div>
+                      <h3 style="margin:0;font-size:25px;font-weight:800;font-family:'Playfair Display','Georgia',serif;color:#0F1B2D;line-height:1.2;">{{ mod.name_html|default:mod.name|safe }}</h3>
+                    </div>
+                    <span style="font-size:11.5px;font-weight:750;color:{{ mod.theme_color }};background:{{ mod.theme_color }}14;padding:5px 11px;border-radius:6px;font-family:'DM Mono',monospace;letter-spacing:0.04em;">ENTERPRISE CAPABILITY</span>
+                  </div>
+                  <p style="margin:0 0 16px 0;font-size:16px;color:#0F1B2D;line-height:1.55;font-weight:600;">{{ mod.summary }}</p>
+                  <div style="display:flex;flex-direction:column;gap:11px;">
+                    {% for pt in mod.points %}
+                    <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 16px;border-radius:12px;background:#f8fafc;border:1.5px solid #cbd5e1;box-shadow:0 4px 14px -2px rgba(15,27,45,0.08),0 2px 6px rgba(15,27,45,0.04);">
+                      <div style="width:32px;height:32px;border-radius:8px;background:{{ mod.theme_color }}20;color:{{ mod.theme_color }};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
+                        {% include 'landing/partials/icon.html' with name=pt.icon size=16 %}
+                      </div>
+                      <div style="display:flex;flex-direction:column;">
+                        <span style="font-size:16.5px;font-weight:800;color:#0a101d;line-height:1.3;">{{ pt.title }}</span>
+                        <span style="font-size:14.5px;color:#1e293b;line-height:1.5;margin-top:3px;font-weight:500;">{{ pt.desc }}</span>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Section Divider -->
+    <div style="width:100%;display:flex;align-items:center;justify-content:center;position:relative;background:#ffffff;">
+      <div style="width:100%;max-width:1360px;height:1px;background:linear-gradient(90deg,transparent 0%,#cbd5e1 20%,#94a3b8 50%,#cbd5e1 80%,transparent 100%);"></div>
+    </div>
+
+    <!-- Trust Stats + Cards -->
+    <section class="trust-stats-section" style="position:relative;padding-top:clamp(64px,7vh,88px);padding-bottom:0px;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 60%,#ffffff 100%);border-top:1px solid #e2e8f0;">
+      <div class="trust-stats-header animate-on-scroll">
+        <div>
+          <div style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:16px;text-transform:uppercase;">
+            <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+            PROVEN AT SCALE
+          </div>
+          <h2 style="font-family:'Playfair Display','Georgia',serif;font-size:clamp(32px,4vw,44px);line-height:1.1;margin-top:0;margin-bottom:20px;color:#0F1B2D;font-weight:700;">
+            The Standard for <span class="highlight-underline" style="color:#0052cc;">Enterprises</span> That Expect More
+          </h2>
+          <p style="font-size:20px;color:#334155;line-height:1.6;margin:0;font-weight:450;">
+            Delivering frictionless sourcing, automated billing, and seamless procurement for over 500+ global enterprises.
+          </p>
+        </div>
+        <div class="trust-animation-container" style="max-width: 410px;">
+          <img src="{% static 'landing/images/enterprise_collaboration.png' %}?v=2" alt="Enterprise Procurement Collaboration" />
+        </div>
+      </div>
+
+      <!-- Executive Metric Showcase (Clean, Instant, Interactive Bento Grid) -->
+      <div id="trust-cards-container" class="enterprise-metrics-section" style="position:relative;width:100%;padding:40px 0 54px;background:#ffffff;">
+        <div class="metrics-inner" style="max-width:1380px;margin:0 auto;padding:0 clamp(20px, 3.5vw, 44px);box-sizing:border-box;">
+          <div class="bento-metrics-grid">
+            {% for card in trust_cards %}
+            <div
+              class="metric-bento-card"
+              id="trust-card-{{ forloop.counter0 }}"
+              data-card-index="{{ forloop.counter0 }}"
+              style="--card-accent: {{ card.color }};"
+            >
+              <!-- Top Row: Icon + Business Metric Tag -->
+              <div class="mb-top-row">
+                <div class="mb-icon-box" style="background: {{ card.color }}18; color: {{ card.color }};">
+                  {% if card.icon == 'building' or card.icon == 'badge' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2v-2zm0 4h-2v2h2v-2z"/></svg>
+                  {% elif card.icon == 'chart' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                  {% elif card.icon == 'receipt' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 17H6v-2h12v2zm0-4H6v-2h12v2zm0-4H6V7h12v2zM3 22l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20z"/></svg>
+                  {% elif card.icon == 'savings' %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>
+                  {% else %}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                  {% endif %}
+                </div>
+                <div class="mb-pill-chip" style="color: {{ card.color }}; border-color: {{ card.color }}35; background: {{ card.color }}10;">
+                  {{ card.tag|default:"METRIC" }}
+                </div>
+              </div>
+
+              <!-- Metric Number & Title -->
+              <div class="mb-stat-wrap">
+                <div class="mb-stat-number" data-target="{{ card.stat }}">{{ card.stat }}</div>
+                <div class="mb-stat-label">{{ card.label }}</div>
+              </div>
+
+              <!-- Description -->
+              <p class="mb-stat-desc">{{ card.desc }}</p>
+
+              <!-- Interactive Progress Sparkline -->
+              <div class="mb-progress-track">
+                <div class="mb-progress-bar" style="background: linear-gradient(90deg, {{ card.color }}, {{ card.color }}aa);"></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+          <!-- Trusted Brands -->
+          <div class="trusted-brands animate-on-scroll" style="margin-top:0;position:relative;padding-top:10px;padding-bottom:20px;">
+            <div style="position:absolute;top:55%;left:50%;transform:translate(-50%,-50%);z-index:0;opacity:0.20;width:280px;height:280px;background-image:url('{% static "landing/images/handshake.gif" %}');background-size:contain;background-repeat:no-repeat;background-position:center;pointer-events:none;"></div>
+            <div class="trusted-label" style="justify-content:flex-start;position:relative;z-index:2;">
+              <span class="green-dot"></span> TRUSTED BY GLOBAL ENTERPRISES &amp; PROCUREMENT TEAMS
+            </div>
+            <div class="brand-pills-wrapper" style="position:relative;z-index:2;">
+              <div class="brand-pills-track">
+                <div class="brand-pills">
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Apex Global</strong><span>Manufacturing</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Nova Systems</strong><span>Technology</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Meridian</strong><span>Logistics</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Vanguard</strong><span>Financial</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Horizon</strong><span>Healthcare</span></div></div>
+                </div>
+                <div class="brand-pills" aria-hidden="true">
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Apex Global</strong><span>Manufacturing</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Nova Systems</strong><span>Technology</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Meridian</strong><span>Logistics</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Vanguard</strong><span>Financial</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Horizon</strong><span>Healthcare</span></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+    </section>
+
+    <!-- ── Core Design Philosophy Banner (Matching Screenshot & About Page) ── -->
+    <div class="home-philosophy-wrap animate-on-scroll" style="width:100%;max-width:1300px;margin:50px auto 40px;padding:0 clamp(20px, 3.5vw, 40px);box-sizing:border-box;">
+      <div class="home-philosophy-banner" id="design-philosophy">
+        <span class="home-philosophy-eyebrow">CORE DESIGN PHILOSOPHY</span>
+        <h2 class="home-philosophy-title">Built for clarity. Designed for control.</h2>
+        <p class="home-philosophy-text">
+          Every critical action captures the actor, state change, and timestamp — ensuring audit-readiness and enterprise governance without slowing down daily business operations.
+        </p>
+      </div>
+    </div>
+
+    <!-- Modules Stack Section -->
+    <div id="modules">
+      {% include 'landing/partials/modules_stack.html' %}
+    </div>
+  </div>
+</div><!-- end slides-deck -->
+
+<!-- ===== BENEFITS SECTION (Dark) ===== -->
+{% include 'landing/partials/benefits_section.html' %}
+
+<!-- ===== BENEFITS COMPARISON ===== -->
+{% include 'landing/partials/benefits_comparison.html' %}
+
+<!-- ===== ROLES SECTION ===== -->
+<section class="roles section-pad role-requester" id="roles" style="padding-top:clamp(40px,4.5vh,54px);">
+  <div class="roles-top" style="flex-direction:column;align-items:center;text-align:center;gap:48px;">
+    <div style="text-align:center;margin-bottom:0;" class="animate-on-scroll">
+      <div class="roles-badge" style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:14px;text-transform:uppercase;">
+        <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+        WHO IS IT FOR
+      </div>
+      <h2 class="roles-title" style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(30px,3.8vw,44px);color:#0F1B2D;font-weight:700;margin:0 0 14px 0;line-height:1.2;">
+        One platform. Every team.
+      </h2>
+      <p class="roles-desc" style="color:#334155;font-size:18px;max-width:780px;margin:0 auto;line-height:1.6;font-weight:500;">
+        One connected system adapts to the decisions each team owns.
+      </p>
+    </div>
+
+    <div class="role-avatar-wrapper" style="position:relative;width:100%;display:flex;flex-direction:column;align-items:center;">
+      <div style="position:relative;width:100%;max-width:100%;">
+        <div class="role-avatar-selector" id="role-selector" role="tablist" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:16px;justify-content:center;max-width:100%;-webkit-overflow-scrolling:touch;">
+          {% for role_item in roles %}
+          <button
+            onclick="selectRole('{{ role_item.key }}')"
+            role="tab"
+            aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+            aria-label="Open {{ role_item.key }} dashboard"
+            id="role-btn-{{ role_item.key }}"
+            class="role-avatar-btn {% if forloop.first %}is-active{% endif %}"
+            style="background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:12px;opacity:{% if forloop.first %}1{% else %}0.7{% endif %};transition:opacity 0.3s ease;min-width:140px;padding:8px;"
+          >
+            <div class="role-avatar-circle {% if forloop.first %}is-active{% endif %}" style="width:140px;height:140px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:{% if forloop.first %}#f0f4ff{% else %}transparent{% endif %};margin-bottom:8px;transition:all 0.4s ease;">
+              <img
+                src="{% static 'landing/roles/' %}{{ role_item.key|lower }}/{% if forloop.first %}active{% else %}idle{% endif %}.webp"
+                alt="{{ role_item.key }} avatar"
+                id="role-img-{{ role_item.key }}"
+                style="width:100%;height:100%;object-fit:contain;"
+              />
+            </div>
+            <span id="role-label-{{ role_item.key }}" style="font-size:16px;font-weight:{% if forloop.first %}600{% else %}500{% endif %};color:{% if forloop.first %}#0f1b2d{% else %}#64748b{% endif %};text-transform:capitalize;">{{ role_item.key|lower }}</span>
+          </button>
+          {% endfor %}
+        </div>
+        <div class="role-scroll-track"><div class="role-scroll-thumb" id="role-scroll-thumb"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Role Interface (changes on selection) -->
+  <div id="role-interface-wrapper">
+    {% for role_item in roles %}
+    <div class="role-interface role-{{ role_item.key|lower }}" id="role-interface-{{ role_item.key }}" style="display:{% if forloop.first %}grid{% else %}none{% endif %};">
+      <div class="role-sidebar">
+        <a class="brand brand-compact" href="/" aria-label="ProcureSphere 360 home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="12"/><ellipse cx="16" cy="16" rx="12" ry="5.5"/><path d="M4.5 16h23"/><path d="M16 4v24"/><circle cx="24.8" cy="11" r="2.1"/><circle cx="9.5" cy="21.5" r="2.1"/></svg>
+          </span>
+          <span class="brand-text"><strong>ProcureSphere</strong><em>360</em></span>
+        </a>
+        <span class="sidebar-label">WORKSPACE</span>
+        {% for item in role_item.items %}
+        <div class="sidebar-item {% if forloop.first %}selected{% endif %}">
+          {% if forloop.first %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+          {% elif forloop.last %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
+          {% else %}<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg>
+          {% endif %}
+          {{ item }}
+        </div>
+        {% endfor %}
+        <span class="sidebar-label bottom">ACCOUNT</span>
+        <div class="sidebar-item"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>Controls</div>
+      </div>
+      <div class="role-main">
+        <div class="role-toolbar">
+          <div><small>{{ role_item.key }} WORKSPACE</small><strong>{{ role_item.title }}</strong></div>
+          <span class="toolbar-avatar">{{ role_item.key|first }}</span>
+        </div>
+        <div class="role-insights">
+          <div class="role-stat"><small>OPEN ITEMS</small><strong>{{ role_item.open_items }}</strong><span>Illustrative view</span></div>
+          <div class="role-stat"><small>ON TRACK</small><strong>84<em>%</em></strong><span>Illustrative view</span></div>
+          <div class="role-stat"><small>NEXT ACTION</small><strong>06</strong><span>needs your review</span></div>
+        </div>
+        <div class="role-table">
+          <div class="table-head"><span>WORK ITEM</span><span>OWNER</span><span>STATUS</span><span>VALUE</span></div>
+          {% for row in role_item.table %}
+          <div class="table-row">
+            <span><i class="table-file"></i>{{ row.item }}</span>
+            <span>{{ row.owner }}</span>
+            <span><b class="table-status {{ row.status_class }}"></b>{{ row.status }}</span>
+            <span>{{ row.value }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="app-bottom-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>
+          This is illustrative demo content — not live company performance.
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+</section>
+
+<!-- ===== TESTIMONIALS ===== -->
+<section class="testimonials section-pad" id="testimonials" style="padding-top:40px;padding-bottom:60px;">
+  <div style="text-align:center;margin-bottom:44px;" class="animate-on-scroll">
+    <div style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:14px;text-transform:uppercase;">
+      <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+      ILLUSTRATIVE PERSPECTIVES
+    </div>
+    <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(30px,3.8vw,44px);color:#0F1B2D;font-weight:700;margin:0 0 14px 0;line-height:1.2;">
+      Perspectives from every side of procurement.
+    </h2>
+    <p style="color:#334155;font-size:18px;max-width:780px;margin:0 auto;line-height:1.6;font-weight:500;">
+      One connected experience for procurement teams, finance stakeholders and suppliers.
+    </p>
+  </div>
+  {% include 'landing/partials/testimonials.html' %}
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="faq section-pad" id="faq" style="padding-top:60px;padding-bottom:100px;">
+  <div style="text-align:center;margin-bottom:44px;" class="animate-on-scroll">
+    <div class="faq-badge" style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:14px;text-transform:uppercase;">
+      <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+      FAQ
+    </div>
+    <h2 class="faq-title" style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(30px,3.8vw,44px);color:#0F1B2D;font-weight:700;margin:0 0 14px 0;line-height:1.2;">
+      Clarity before the first conversation.
+    </h2>
+    <p class="faq-desc" style="color:#334155;font-size:18px;max-width:780px;margin:0 auto;line-height:1.6;font-weight:500;">
+      A few practical answers for teams evaluating a connected procurement operating system.
+    </p>
+  </div>
+  <div class="home-faq-accordion" style="max-width:820px;margin:60px auto 0;display:flex;flex-direction:column;gap:16px;">
+    {% for faq in faqs %}
+    <div
+      class="home-faq-item animate-on-scroll{% if forloop.first %} is-open{% endif %}"
+      id="home-faq-item-{{ forloop.counter0 }}"
+      data-faq="{{ forloop.counter0 }}"
+    >
+      <button
+        class="home-faq-toggle"
+        onclick="toggleFAQ({{ forloop.counter0 }})"
+        aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}"
+        aria-controls="home-faq-panel-{{ forloop.counter0 }}"
+        id="home-faq-btn-{{ forloop.counter0 }}"
+      >
+        <span>{{ faq.question }}</span>
+        <div class="home-faq-icon" id="home-faq-icon-{{ forloop.counter0 }}">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 1v12M1 7h12"/></svg>
+        </div>
+      </button>
+      <div class="home-faq-answer-wrapper" id="home-faq-panel-{{ forloop.counter0 }}">
+        <div class="home-faq-answer-inner">
+          <div class="home-faq-answer-content">{{ faq.answer }}</div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+
+<!-- ===== CONTACT ===== -->
+<section class="contact section-pad" id="contact">
+  <div class="contact-copy animate-on-scroll">
+    <div class="section-title align-left" style="margin-bottom:20px;">
+      <div style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:14px;text-transform:uppercase;">
+        <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+        CONTACT / RFP
+      </div>
+      <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(28px,3.2vw,38px);color:#0F1B2D;font-weight:700;margin:0;line-height:1.2;">
+        Bring us the workflow you want to connect.
+      </h2>
+    </div>
+    <div style="margin-top:-40px;max-width:300px;display:flex;justify-content:center;">
+      <img
+        id="contact-vendor-img"
+        src="{% static 'landing/roles/vendor/idle.webp' %}"
+        alt="Vendor Status"
+        style="width:100%;height:auto;transition:all 0.4s ease;clip-path:inset(0 0 20% 0);margin-bottom:-20%;border-radius:16px;"
+      />
+    </div>
+  </div>
+
+  <!-- HTMX Contact Form -->
+  <div id="contact-form-wrapper">
+    <form
+      class="rfp-form"
+      id="contact-form"
+      hx-post="{% url 'contact_submit' %}"
+      hx-target="#contact-form-wrapper"
+      hx-swap="innerHTML"
+      hx-on::after-request="onContactFormResponse(event)"
+    >
+      {% csrf_token %}
+      <div class="form-grid">
+        <label><span>Name</span><input required name="name" placeholder="Your name" /></label>
+        <label><span>Email</span><input required type="email" name="email" placeholder="yourname@gmail.com" /></label>
+        <label><span>Company</span><input required name="company" placeholder="Company name" /></label>
+        <label><span>Procurement scope</span>
+          <select required name="scope">
+            <option value="" disabled selected>Select a scope</option>
+            <option>Source-to-pay</option>
+            <option>Supplier management</option>
+            <option>Invoice and financial control</option>
+            <option>Contract lifecycle</option>
+            <option>Vendor participation</option>
+          </select>
+        </label>
+      </div>
+      <label><span>Message</span><textarea required name="message" rows="5" placeholder="Tell us what you want to connect..."></textarea></label>
+      <div class="form-actions">
+        <button class="button button-primary" type="submit">
+          Request a Demo
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Prevent modern browsers from restoring old scroll position on page refresh
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
+// Home page specific JS
+document.addEventListener('DOMContentLoaded', function() {
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+
+  // Intro screen handling: plays EVERY TIME on desktop refresh, skips when clicking Home or logging out
+  const introScreen = document.getElementById('intro-screen');
+  const introVideo  = document.getElementById('intro-video');
+  const siteShell   = document.querySelector('.site-shell');
+  const heroVideo   = document.getElementById('hero-video');
+
+  // Detect reload (F5 / Ctrl+R / browser reload button)
+  let isReload = false;
+  try {
+    const navEntries = performance.getEntriesByType('navigation');
+    if (navEntries && navEntries.length > 0) {
+      isReload = (navEntries[0].type === 'reload');
+    } else if (window.performance && window.performance.navigation) {
+      isReload = (window.performance.navigation.type === 1);
+    }
+  } catch (e) {
+    isReload = false;
+  }
+
+  // 1. LOGOUT DETECTION: Normal production behavior - never show intro video on logout
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasLogoutParam = urlParams.has('logged_out') || urlParams.get('logout') === 'success';
+  const hasLogoutCookie = document.cookie.split(';').some(c => c.trim().startsWith('ps360_just_logged_out=1'));
+  const hasLogoutSession = sessionStorage.getItem('ps360_logged_out') === 'true';
+  const referrer = document.referrer || '';
+  const cameFromDashboard = referrer.includes('/logout') ||
+                            referrer.includes('/superadmin') ||
+                            referrer.includes('/manager') ||
+                            referrer.includes('/vendor') ||
+                            referrer.includes('/admin') ||
+                            referrer.includes('/approvals') ||
+                            referrer.includes('/requisitions') ||
+                            referrer.includes('/orders') ||
+                            referrer.includes('/receipts') ||
+                            referrer.includes('/invoices') ||
+                            referrer.includes('/contracts') ||
+                            referrer.includes('/reports');
+
+  const isAfterLogout = hasLogoutParam || hasLogoutCookie || hasLogoutSession || (cameFromDashboard && !isReload);
+
+  if (isAfterLogout || !introScreen || !introVideo) {
+    // Clear logout storage & cookies
+    try {
+      sessionStorage.removeItem('ps360_logged_out');
+      sessionStorage.removeItem('ps360_clicked_home');
+      document.cookie = "ps360_just_logged_out=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } catch (e) {}
+
+    // Clean URL bar via replaceState so user sees clean '/'
+    if (window.history && window.history.replaceState && (urlParams.has('logged_out') || urlParams.has('logout'))) {
+      urlParams.delete('logged_out');
+      urlParams.delete('logout');
+      const cleanQuery = urlParams.toString();
+      const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
+      window.history.replaceState(null, '', cleanUrl || '/');
+    }
+
+    if (introScreen) {
+      introScreen.style.display = 'none';
+      introScreen.classList.add('slide-up');
+      if (introVideo) {
+        try {
+          introVideo.pause();
+          introVideo.removeAttribute('src');
+        } catch (e) {}
+      }
+    }
+    if (siteShell) { siteShell.classList.add('intro-finished'); }
+    if (heroVideo) { heroVideo.play().catch(() => {}); }
+    return; // Exit immediately - no intro video after logout or when screen is omitted
+  }
+
+  if (introScreen && introVideo) {
+    // 0. MOBILE ONLY: Completely disable and remove intro video on mobile screens (<= 768px)
+    const isMobileDevice = (window.innerWidth <= 768) || (window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+    if (isMobileDevice) {
+      introScreen.style.display = 'none';
+      introScreen.classList.add('slide-up');
+      try {
+        introVideo.pause();
+        introVideo.removeAttribute('src');
+        introVideo.load();
+      } catch (e) {}
+      if (siteShell) { siteShell.classList.add('intro-finished'); }
+      if (heroVideo) { heroVideo.play().catch(() => {}); }
+      return; // Exit immediately - no intro video on mobile!
+    }
+
+    // Check if arrived via clicking an internal "Home" link
+    const clickedHome = sessionStorage.getItem('ps360_clicked_home') === 'true';
+    sessionStorage.removeItem('ps360_clicked_home'); // consume the flag
+
+    // Skip intro ONLY if user explicitly clicked "Home" from within the site
+    // On refresh (isReload), intro MUST play every time!
+    const shouldSkip = !isReload && clickedHome;
+
+    if (shouldSkip) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+      introScreen.style.display = 'none';
+      if (siteShell) { siteShell.classList.add('intro-finished'); }
+      if (heroVideo) { heroVideo.play().catch(() => {}); }
+      return;
+    }
+
+    // Play intro video
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    if (siteShell) { siteShell.classList.remove('intro-finished'); }
+    introScreen.style.display = 'flex';
+    introScreen.classList.remove('slide-up');
+
+    introVideo.setAttribute('muted', '');
+    introVideo.defaultMuted = true;
+    introVideo.muted = true;
+    introVideo.playsInline = true;
+    introVideo.currentTime = 0;
+
+    let isFinished = false;
+    const finishIntro = () => {
+      if (isFinished) return;
+      isFinished = true;
+
+      // Always reset scroll to the very top when intro finishes
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      introScreen.classList.add('slide-up');
+      if (siteShell) { siteShell.classList.add('intro-finished'); }
+
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      });
+
+      setTimeout(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        introScreen.style.display = 'none';
+        if (heroVideo) { heroVideo.play().catch(() => {}); }
+      }, 750);
+    };
+
+    introVideo.onended = finishIntro;
+    introVideo.onerror = () => setTimeout(finishIntro, 500);
+
+    // Transition when video reaches its 3.7s cut
+    introVideo.addEventListener('timeupdate', () => {
+      if (introVideo.currentTime >= 3.7) {
+        finishIntro();
+      }
+    });
+
+    // Allow user to tap/click anywhere on intro screen to skip
+    introScreen.addEventListener('click', finishIntro, { once: true });
+
+    const playIntro = () => {
+      const p = introVideo.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          introVideo.addEventListener('canplay', () => introVideo.play().catch(() => {}), { once: true });
+        });
+      }
+    };
+
+    if (introVideo.readyState >= 2) {
+      playIntro();
+    } else {
+      introVideo.addEventListener('loadeddata', playIntro, { once: true });
+      introVideo.addEventListener('canplay', playIntro, { once: true });
+      playIntro();
+    }
+
+    // Safety fallback: intro.mp4 is 3.5s; fallback at 4s if stalls
+    setTimeout(() => {
+      if (!isFinished) {
+        finishIntro();
+      }
+    }, 4000);
+  }
+});
+
+// Contact form response handler
+function onContactFormResponse(event) {
+  const contactVendorImg = document.getElementById('contact-vendor-img');
+  if (contactVendorImg && event.detail.successful) {
+    contactVendorImg.src = '{% static "landing/roles/vendor/active.webp" %}';
+    contactVendorImg.style.transform = 'scale(1.02)';
+    contactVendorImg.style.filter = 'drop-shadow(0 12px 24px rgba(36,86,214,0.2))';
+  }
+}
+</script>
+{% endblock %}

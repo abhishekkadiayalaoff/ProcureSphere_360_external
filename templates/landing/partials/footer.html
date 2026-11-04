@@ -1,0 +1,770 @@
+{% load static %}
+<footer class="footer ps-footer" id="site-footer" role="contentinfo">
+  <!-- Background Video Layer (anchored to bottom so particle waves rise across footer, matching Image 1) -->
+  <video
+    id="footer-bg-video"
+    class="footer-video ps-footer-video"
+    src="{% static 'landing/videos/footer-video.mp4' %}"
+    poster="{% static 'landing/images/footer-video-poster.jpg' %}"
+    autoplay
+    loop
+    muted
+    playsinline
+    preload="auto"
+    aria-hidden="true"
+    tabindex="-1"
+    style="position: absolute !important; left: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; min-height: 100% !important; object-fit: cover !important; object-position: bottom !important; z-index: 0 !important; pointer-events: none !important; display: block !important; opacity: 0.68 !important; filter: brightness(0.85) contrast(0.92) !important;"
+  >
+    <source src="{% static 'landing/videos/footer-video.mp4' %}" type="video/mp4" />
+  </video>
+
+  <!-- Video Overlay (precisely balanced tone so waves look elegant and not overpowering) -->
+  <div class="ps-footer-overlay" aria-hidden="true" style="position: absolute !important; inset: 0 !important; background: linear-gradient(180deg, rgba(6, 12, 24, 0.72) 0%, rgba(6, 12, 24, 0.36) 45%, rgba(6, 12, 24, 0.24) 75%, rgba(6, 12, 24, 0.48) 100%) !important; pointer-events: none !important; z-index: 1 !important;"></div>
+
+  <!-- Main Content Layer -->
+  <div class="ps-footer-inner">
+
+    <!-- Main Navigation Grid -->
+    <div class="ps-footer-grid">
+
+      <!-- Column 1: Brand & Identity -->
+      <div class="ps-footer-col ps-footer-brand-col">
+        <!-- Prominent Logo with Clean White Background Badge for Crystal-Clear Visibility -->
+        <a class="ps-footer-brand-badge" href="/" aria-label="ProcureSphere 360 Home">
+          <img
+            src="{% static 'landing/images/procuresphere_360_nav_brand.png' %}"
+            alt="ProcureSphere 360"
+            class="ps-footer-brand-logo-img"
+            width="280"
+            height="70"
+          />
+        </a>
+
+        <!-- High-Contrast, Clear Platform Description -->
+        <p class="ps-footer-brand-desc">
+          An integrated procurement platform connecting people, processes, and partners to simplify enterprise purchasing and improve operational efficiency.
+        </p>
+
+        <!-- Social Channels -->
+        <div class="ps-footer-socials" aria-label="ProcureSphere 360 Social Links">
+          <a href="https://x.com" target="_blank" rel="noopener noreferrer" class="ps-footer-social-btn" aria-label="X (formerly Twitter)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+          </a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" class="ps-footer-social-btn" aria-label="LinkedIn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.46 8.76a1.64 1.64 0 1 0 0-3.28 1.64 1.64 0 0 0 0 3.28m1.4 9.74V10.13H5.06v8.37h2.8z"/>
+            </svg>
+          </a>
+          <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" class="ps-footer-social-btn" aria-label="YouTube">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+          </a>
+          <a
+            href="mailto:support@procuresphere.com"
+            class="ps-footer-social-btn ps-footer-mail-btn"
+            aria-label="Email Support"
+            title="support@procuresphere.com"
+            onclick="window.location.href='mailto:support@procuresphere.com';"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="pointer-events:none;">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </a>
+        </div>
+
+        <!-- Operational Status Indicator -->
+        <div class="ps-footer-trust-pill">
+          <span class="ps-footer-live-dot"></span>
+          <span>All Systems Operational</span>
+        </div>
+      </div>
+
+      <!-- Column 2: Platform Navigation -->
+      <div class="ps-footer-col">
+        <h3 class="ps-footer-col-title">Platform</h3>
+        <ul class="ps-footer-links" role="list">
+          <li><a href="/#hero">Overview</a></li>
+          <li><a href="/benefits/">Features &amp; Benefits</a></li>
+          <li><a href="/solutions/">Solutions Portfolio</a></li>
+          <li><a href="/process/">How It Works</a></li>
+          <li><a href="/#contact" onclick="if(document.getElementById('contact')){document.getElementById('contact').scrollIntoView({behavior:'smooth'});return false;}">Request a Demo</a></li>
+        </ul>
+      </div>
+
+      <!-- Column 3: Procurement Solutions -->
+      <div class="ps-footer-col">
+        <h3 class="ps-footer-col-title">Solutions</h3>
+        <ul class="ps-footer-links" role="list">
+          <li><a href="/solutions/#vendors">Vendor Management &amp; KYC</a></li>
+          <li><a href="/solutions/#pr">Purchase Requests &amp; Intake</a></li>
+          <li><a href="/solutions/#sourcing">Strategic Sourcing &amp; RFx</a></li>
+          <li><a href="/solutions/#po">Purchase Order Management</a></li>
+          <li><a href="/solutions/#grn">Goods Receipt &amp; Quality</a></li>
+          <li><a href="/solutions/#match">Autonomous 3-Way Match</a></li>
+          <li><a href="/solutions/#clm">Contract Lifecycle &amp; SLAs</a></li>
+        </ul>
+      </div>
+
+      <!-- Column 4: Company -->
+      <div class="ps-footer-col">
+        <h3 class="ps-footer-col-title">Company</h3>
+        <ul class="ps-footer-links" role="list">
+          <li><a href="/about/">About Us</a></li>
+          <li><a href="/#testimonials">Testimonials</a></li>
+          <li><a href="/faq/">Frequently Asked Questions</a></li>
+          <li><a href="/#contact" onclick="if(document.getElementById('contact')){document.getElementById('contact').scrollIntoView({behavior:'smooth'});return false;}">Contact Us</a></li>
+          <li><a href="/roles/">Role Workspaces</a></li>
+        </ul>
+      </div>
+
+      <!-- Column 5: Contact Information -->
+      <div class="ps-footer-col ps-footer-contact-col">
+        <h3 class="ps-footer-col-title">Get In Touch</h3>
+        <div class="ps-footer-contact-list">
+          <!-- Clickable Official Email -->
+          <a
+            href="mailto:support@procuresphere.com"
+            class="ps-footer-contact-item"
+            aria-label="Send email to support@procuresphere.com"
+            title="Send email to support@procuresphere.com"
+            onclick="window.location.href='mailto:support@procuresphere.com';"
+          >
+            <span class="ps-footer-contact-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+            </span>
+            <div class="ps-footer-contact-meta">
+              <span class="ps-footer-contact-label">Official Inquiries</span>
+              <span class="ps-footer-contact-val">support@procuresphere.com</span>
+            </div>
+          </a>
+
+          <!-- Clickable Direct Phone -->
+          <a
+            href="tel:+919876543210"
+            class="ps-footer-contact-item"
+            aria-label="Call +91 98765 43210"
+            title="Call +91 98765 43210"
+          >
+            <span class="ps-footer-contact-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+            </span>
+            <div class="ps-footer-contact-meta">
+              <span class="ps-footer-contact-label">Direct Phone</span>
+              <span class="ps-footer-contact-val">+91 98765 43210</span>
+            </div>
+          </a>
+
+          <!-- Clickable Headquarters Location (Google Maps) -->
+          <a
+            href="https://maps.google.com/?q=Bangalore,+Karnataka,+India"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ps-footer-contact-item"
+            aria-label="Open Bangalore, Karnataka, India in Google Maps"
+            title="Open in Google Maps"
+          >
+            <span class="ps-footer-contact-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </span>
+            <div class="ps-footer-contact-meta">
+              <span class="ps-footer-contact-label">Headquarters</span>
+              <span class="ps-footer-contact-val">Bangalore, Karnataka, India</span>
+            </div>
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Bar -->
+    <div class="ps-footer-bottom">
+      <div class="ps-footer-bottom-left">
+        <span class="ps-footer-copyright">© 2026 ProcureSphere 360</span>
+        <span class="ps-footer-tagline">Built for clarity. Designed for control.</span>
+      </div>
+
+      <div class="ps-footer-bottom-right">
+        <a href="#privacy" class="open-privacy-modal" aria-label="Privacy Policy">Privacy Policy</a>
+        <span class="ps-footer-sep" aria-hidden="true">•</span>
+        <a href="#terms" class="open-terms-modal" aria-label="Terms and Conditions">Terms &amp; Conditions</a>
+        <span class="ps-footer-sep" aria-hidden="true">•</span>
+        <a href="#top" class="ps-footer-back-top" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;" aria-label="Scroll back to top">
+          <span>Back to top</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</footer>
+
+<!-- Robust Auto-Play Execution Script for Background Wave Video -->
+<script>
+(function() {
+  function ensureFooterVideoPlays() {
+    var v = document.getElementById('footer-bg-video') || document.querySelector('.footer-video');
+    if (!v) return;
+    v.muted = true;
+    v.defaultMuted = true;
+    v.playsInline = true;
+    v.setAttribute('muted', '');
+    v.setAttribute('playsinline', '');
+    v.setAttribute('autoplay', '');
+
+    function triggerPlay() {
+      var prom = v.play();
+      if (prom !== undefined && typeof prom.catch === 'function') {
+        prom.catch(function() {
+          // Autoplay policy fallback: resume on first user interaction
+          var resume = function() {
+            v.play().catch(function() {});
+            window.removeEventListener('scroll', resume);
+            document.removeEventListener('click', resume);
+            document.removeEventListener('touchstart', resume);
+          };
+          window.addEventListener('scroll', resume, { passive: true, once: true });
+          document.addEventListener('click', resume, { once: true });
+          document.addEventListener('touchstart', resume, { once: true });
+        });
+      }
+    }
+
+    triggerPlay();
+
+    if ('IntersectionObserver' in window) {
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) {
+            triggerPlay();
+          }
+        });
+      }, { threshold: 0.02 });
+      obs.observe(v);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', ensureFooterVideoPlays);
+  } else {
+    ensureFooterVideoPlays();
+  }
+  window.addEventListener('load', ensureFooterVideoPlays);
+})();
+</script>
+
+<style>
+/* ============================================================
+   ProcureSphere 360 — Premium Enterprise Video Footer Styles
+   ============================================================ */
+.ps-footer {
+  position: relative !important;
+  overflow: hidden !important;
+  background-color: #060c18 !important;
+  color: #ffffff !important;
+  padding: 0 !important;
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.16) !important;
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: 460px;
+}
+
+/* Background Video Layer — Anchored to bottom so particle waves stay completely visible */
+.footer-video,
+.ps-footer-video {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  top: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  object-fit: cover !important;
+  object-position: bottom !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+  opacity: 0.68 !important;
+  filter: brightness(0.85) contrast(0.92) !important;
+  display: block !important;
+}
+
+/* Background Video Overlay — Precisely balanced tone so waves look elegant and not overpowering */
+.ps-footer-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 12, 24, 0.72) 0%,
+    rgba(6, 12, 24, 0.36) 45%,
+    rgba(6, 12, 24, 0.24) 75%,
+    rgba(6, 12, 24, 0.48) 100%
+  ) !important;
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+/* Content Container */
+.ps-footer-inner {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  max-width: 1260px !important;
+  margin: 0 auto !important;
+  padding: 58px 28px 26px !important;
+  box-sizing: border-box !important;
+}
+
+/* 5-Column Navigation Grid */
+.ps-footer-grid {
+  display: grid;
+  grid-template-columns: 2.3fr 1fr 1.35fr 1fr 1.35fr;
+  gap: 40px;
+  padding-bottom: 48px;
+  align-items: start;
+}
+
+/* Brand Column */
+.ps-footer-brand-col {
+  padding-right: 16px;
+}
+
+/* Prominent White Logo Badge */
+.ps-footer-brand-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  padding: 10px 22px;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.3);
+  margin-bottom: 22px;
+  text-decoration: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ps-footer-brand-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, 0.7), 0 0 0 2px rgba(96, 165, 250, 0.6);
+}
+
+.ps-footer-brand-logo-img {
+  height: 64px;
+  max-height: 68px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* Bright, High-Contrast Platform Description */
+.ps-footer-brand-desc {
+  font-size: 15.5px;
+  line-height: 1.65;
+  color: #f8fafc !important;
+  margin: 0 0 24px 0;
+  max-width: 320px;
+  font-weight: 550;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 14px rgba(0, 0, 0, 0.85);
+}
+
+/* Social Buttons */
+.ps-footer-socials {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.ps-footer-social-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff !important;
+  text-decoration: none !important;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.ps-footer-social-btn:hover {
+  background: #2563eb;
+  border-color: #60a5fa;
+  color: #ffffff !important;
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
+
+/* Operational Status Pill — High Contrast, Crisp & Distinct */
+.ps-footer-trust-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  background: rgba(15, 23, 42, 0.94);
+  border: 1px solid rgba(52, 211, 153, 0.6);
+  border-radius: 999px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #ffffff !important;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.05em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.65), 0 0 14px rgba(16, 185, 129, 0.3);
+}
+
+.ps-footer-live-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 12px #10b981, 0 0 5px #34d399;
+  animation: psSignalPulse 2s infinite ease-in-out;
+}
+
+@keyframes psSignalPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.85); }
+}
+
+/* Column Titles — Bold, Clear & Prominent */
+.ps-footer-col-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  margin: 0 0 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.85);
+}
+
+.ps-footer-col-title::after {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 2.5px;
+  background: #38bdf8;
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+}
+
+/* Navigation Links — Pure White, Crisp & High Contrast */
+.ps-footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ps-footer-links li {
+  margin: 0;
+  padding: 0;
+}
+
+.ps-footer-links a {
+  color: #ffffff !important;
+  font-size: 15.5px;
+  text-decoration: none !important;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 14px rgba(0, 0, 0, 0.9);
+}
+
+.ps-footer-links a:hover {
+  color: #38bdf8 !important;
+  transform: translateX(4px);
+  text-shadow: 0 0 16px rgba(56, 189, 248, 0.95);
+}
+
+.ps-footer-links a:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* Contact Column */
+.ps-footer-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ps-footer-contact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  text-decoration: none !important;
+  color: inherit !important;
+  cursor: pointer !important;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border-radius: 10px;
+  transition: all 0.22s ease;
+}
+
+.ps-footer-contact-item:hover {
+  background: rgba(56, 189, 248, 0.08);
+  transform: translateX(4px);
+}
+
+.ps-footer-contact-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: rgba(56, 189, 248, 0.16);
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #38bdf8;
+  flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+  transition: all 0.22s ease;
+}
+
+.ps-footer-contact-item:hover .ps-footer-contact-icon {
+  background: rgba(56, 189, 248, 0.28);
+  border-color: #38bdf8;
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.65);
+}
+
+.ps-footer-contact-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ps-footer-contact-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7dd3fc;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  transition: color 0.2s ease;
+}
+
+.ps-footer-contact-item:hover .ps-footer-contact-label {
+  color: #38bdf8;
+}
+
+.ps-footer-contact-val {
+  color: #ffffff !important;
+  font-size: 15.5px;
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: color 0.2s ease, text-shadow 0.2s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 12px rgba(0, 0, 0, 0.85);
+}
+
+.ps-footer-contact-item:hover .ps-footer-contact-val {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 14px rgba(56, 189, 248, 0.95);
+}
+
+/* Bottom Bar */
+.ps-footer-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.ps-footer-bottom-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ps-footer-copyright {
+  font-size: 14.5px;
+  color: #ffffff !important;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+}
+
+.ps-footer-tagline {
+  font-family: 'DM Mono', monospace;
+  font-size: 15px;
+  color: #ffffff !important;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 16px rgba(0, 0, 0, 0.9);
+}
+
+.ps-footer-bottom-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ps-footer-bottom-right a {
+  color: #ffffff !important;
+  font-size: 14.5px;
+  text-decoration: none !important;
+  font-weight: 600;
+  transition: color 0.2s ease;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95);
+}
+
+.ps-footer-bottom-right a:hover {
+  color: #38bdf8 !important;
+  text-shadow: 0 0 14px rgba(56, 189, 248, 0.9);
+}
+
+.ps-footer-sep {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+}
+
+.ps-footer-back-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #ffffff !important;
+  font-weight: 650;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.2s ease !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.ps-footer-back-top:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN (TABLET & MOBILE)
+   ============================================================ */
+@media (max-width: 1100px) {
+  .ps-footer-grid {
+    grid-template-columns: 2fr 1fr 1.2fr 1fr;
+    gap: 32px;
+  }
+  .ps-footer-contact-col {
+    grid-column: span 4;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .ps-footer-contact-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 860px) {
+  .ps-footer-inner {
+    padding: 48px 22px 24px !important;
+  }
+  .ps-footer-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 32px 24px;
+    padding-bottom: 36px;
+  }
+  .ps-footer-brand-col {
+    grid-column: span 2;
+    padding-right: 0;
+  }
+  .ps-footer-contact-col {
+    grid-column: span 2;
+  }
+  .ps-footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 540px) {
+  .ps-footer-inner {
+    padding: 40px 18px 22px !important;
+  }
+  .ps-footer-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .ps-footer-brand-col {
+    grid-column: span 1;
+  }
+  .ps-footer-brand-badge {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+  }
+  .ps-footer-contact-col {
+    grid-column: span 1;
+  }
+  .ps-footer-contact-list {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .ps-footer-bottom {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+  .ps-footer-bottom-left {
+    justify-content: center;
+    text-align: center;
+  }
+  .ps-footer-bottom-right {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
+/* Reduced Motion Preference */
+@media (prefers-reduced-motion: reduce) {
+  .footer-video,
+  .ps-footer-video {
+    display: none !important;
+  }
+  .ps-footer {
+    background: radial-gradient(circle at 50% 10%, #15243e 0%, #060c18 100%) !important;
+  }
+  .ps-footer-live-dot {
+    animation: none !important;
+  }
+}
+</style>

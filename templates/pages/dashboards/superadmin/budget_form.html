@@ -17,6 +17,9 @@
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary small">Fiscal Period</label>
                 {{ form.fiscal_period }}
+                {% if not form.fiscal_period.field.queryset.exists %}
+                <div class="form-text text-warning">No fiscal period exists yet. Close this dialog and use Add Fiscal Period to set the name and dates.</div>
+                {% endif %}
                 {% if form.fiscal_period.errors %}<div class="text-danger small">{{ form.fiscal_period.errors }}</div>{% endif %}
             </div>
             <div class="col-md-12">

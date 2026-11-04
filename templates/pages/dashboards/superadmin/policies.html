@@ -1,6 +1,6 @@
 {% extends 'layouts/superadmin_base.html' %}
 
-{% block title %}Approval Policies — Super Admin{% endblock %}
+{% block title %}Approval Policies — Admin{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -12,6 +12,14 @@
         <button hx-get="/superadmin/policies/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-success text-white fw-bold rounded-pill px-4 shadow-sm">
             <i class="fa-solid fa-plus me-2"></i> Add Policy
         </button>
+    </div>
+</div>
+
+<div class="alert alert-warning border-0 shadow-sm rounded-4 d-flex align-items-start gap-3 mb-4" role="alert">
+    <i class="fa-solid fa-triangle-exclamation fs-5 mt-1"></i>
+    <div>
+        <div class="fw-bold mb-1">Budget routing</div>
+        <p class="mb-0">If the request amount is lower than the permitted budget, it goes to the Department Approver. If the amount is higher than the permitted budget, it goes to Finance / AP.</p>
     </div>
 </div>
 

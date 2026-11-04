@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 
 from apps.accounts.models import Role
@@ -13,7 +15,10 @@ from apps.invoices.services import (
     run_3_way_match_service,
 )
 from apps.orders.models import PurchaseOrder
+from apps.receipts.models import GoodsReceipt
 from apps.vendors.models import Vendor
+
+from .selectors import scope_invoices_queryset
 
 
 def _enforce_internal_invoice_access(request, allowed_roles=None):
@@ -34,11 +39,47 @@ def _enforce_internal_invoice_access(request, allowed_roles=None):
         raise PermissionDenied("Permission denied: insufficient role privileges for this invoice operation.")
 
 
+def _get_user_role(user):
+    if not user or not user.is_authenticated:
+        return None
+    return getattr(user, "role_code", None) or (
+        user.role.code if getattr(user, "role", None) else None
+    )
+
+
 @login_required(login_url="/login/")
 def list_view(request):
-    _enforce_internal_invoice_access(request)
-    items = SupplierInvoice.objects.all().order_by("-created_at")
-    return render(request, "pages/invoices/list.html", {"items": items})
+    _enforce_internal_invoice_access(
+        request,
+        allowed_roles=[
+            Role.FINANCE_AP,
+            Role.SUPER_ADMIN,
+            Role.AUDITOR,
+            Role.PROC_MGR,
+            Role.PROC_EXEC,
+            Role.STORES_RECEIVER,
+            "FINANCE_AP",
+            "SUPER_ADMIN",
+            "AUDITOR",
+            "PROC_MGR",
+            "PROC_EXEC",
+        ],
+    )
+    items = scope_invoices_queryset(
+        SupplierInvoice.objects.select_related("vendor", "po"), request.user
+    ).order_by("-created_at")
+    user_role = _get_user_role(request.user) or ""
+    is_finance = request.user.is_superuser or user_role in [Role.FINANCE_AP, "FINANCE_AP"]
+    is_proc = user_role in [Role.PROC_EXEC, Role.PROC_MGR, "PROC_EXEC", "PROC_MGR"]
+    return render(
+        request,
+        "pages/invoices/list.html",
+        {
+            "items": items,
+            "is_finance": is_finance,
+            "is_proc": is_proc,
+        },
+    )
 
 
 @login_required(login_url="/login/")
@@ -85,31 +126,77 @@ def tolerance_settings_view(request):
 def invoice_detail_view(request, invoice_id):
     _enforce_internal_invoice_access(request)
     invoice = get_object_or_404(
-        SupplierInvoice.objects.select_related("vendor", "po").prefetch_related(
-            "lines__po_line",
-            "exceptions",
-            "po__receipts__received_by",
-            "po__receipts__lines__inspection",
-            "po__receipts__lines__po_line",
+        scope_invoices_queryset(
+            SupplierInvoice.objects.select_related("vendor", "po").prefetch_related(
+                "lines__po_line",
+                "exceptions",
+                "po__receipts__received_by",
+                "po__receipts__lines__inspection",
+                "po__receipts__lines__po_line",
+            ),
+            request.user,
         ),
         id=invoice_id,
     )
-    return render(request, "pages/invoices/detail.html", {"invoice": invoice})
+    user_role = getattr(request.user, "role_code", None) or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else ""
+    )
+    is_finance = request.user.is_superuser or user_role in [Role.FINANCE_AP, "FINANCE_AP"]
+    is_proc = user_role in [Role.PROC_EXEC, Role.PROC_MGR, "PROC_EXEC", "PROC_MGR"]
+
+    return render(
+        request,
+        "pages/invoices/detail.html",
+        {
+            "invoice": invoice,
+            "is_finance": is_finance,
+            "is_proc": is_proc,
+            "can_validate": is_finance and invoice.status in [
+                SupplierInvoice.STATUS_RECEIVED,
+                SupplierInvoice.STATUS_VALIDATION,
+                SupplierInvoice.STATUS_EXCEPTION,
+            ],
+            "can_pay": is_finance and invoice.status == SupplierInvoice.STATUS_READY_FOR_PAYMENT,
+        },
+    )
+
+
+@login_required(login_url="/login/")
+def validate_invoice_view(request, invoice_id):
+    """
+    Finance validation action:
+    Executes automated 3-way match validation against PO and Goods Receipts.
+    Strictly restricted to Finance & AP and Super Admin.
+    Procurement Executive and Procurement Manager have read-only visibility.
+    """
+    _enforce_internal_invoice_access(
+        request, allowed_roles=[Role.FINANCE_AP, Role.SUPER_ADMIN, "FINANCE_AP", "SUPER_ADMIN"]
+    )
+    invoice = get_object_or_404(SupplierInvoice, id=invoice_id)
+    if request.method == "POST":
+        try:
+            run_3_way_match_service(invoice=invoice, user=request.user)
+            messages.success(request, f"Invoice {invoice.invoice_number} validated successfully.")
+        except Exception as e:
+            messages.error(request, f"Validation failed: {str(e)}")
+    return redirect("invoice_detail", invoice_id=invoice.id)
 
 
 @login_required(login_url="/login/")
 def exceptions_list_view(request):
     _enforce_internal_invoice_access(request)
-    exceptions = MatchException.objects.filter(status=MatchException.STATUS_OPEN).order_by(
-        "-created_at"
-    )
+    scoped_invoices = scope_invoices_queryset(SupplierInvoice.objects.all(), request.user)
+    exceptions = MatchException.objects.filter(
+        invoice__in=scoped_invoices, status=MatchException.STATUS_OPEN
+    ).order_by("-created_at")
     return render(request, "pages/invoices/exceptions_list.html", {"exceptions": exceptions})
 
 
 @login_required(login_url="/login/")
 def exception_detail_view(request, exception_id):
     _enforce_internal_invoice_access(request)
-    exception = get_object_or_404(MatchException, id=exception_id)
+    scoped_invoices = scope_invoices_queryset(SupplierInvoice.objects.all(), request.user)
+    exception = get_object_or_404(MatchException.objects.filter(invoice__in=scoped_invoices), id=exception_id)
     return render(request, "pages/invoices/exception_detail.html", {"exception": exception})
 
 
@@ -118,18 +205,6 @@ def resolve_exception_view(request, exception_id):
     _enforce_internal_invoice_access(
         request, allowed_roles=[Role.FINANCE_AP, Role.SUPER_ADMIN, "FINANCE_AP", "SUPER_ADMIN"]
     )
-
-    role_code = getattr(request.user, "role_code", None) or (
-        request.user.role.code
-        if hasattr(request.user, "role") and request.user.role
-        else Role.SUPER_ADMIN
-    )
-    if role_code == Role.AUDITOR:
-        messages.error(
-            request,
-            "Permission Denied: Compliance Auditors hold strictly read-only permissions and cannot resolve invoice match exceptions.",
-        )
-        return redirect("exceptions_list")
 
     if request.method == "POST":
         exception = get_object_or_404(MatchException, id=exception_id)
@@ -168,13 +243,25 @@ def pay_invoice_view(request, invoice_id):
     _enforce_internal_invoice_access(
         request, allowed_roles=[Role.FINANCE_AP, Role.SUPER_ADMIN, "FINANCE_AP", "SUPER_ADMIN"]
     )
+    invoice = get_object_or_404(SupplierInvoice, id=invoice_id)
     if request.method == "POST":
-        invoice = get_object_or_404(SupplierInvoice, id=invoice_id)
+        payment_reference = request.POST.get("payment_reference", "").strip()
+        payment_method = request.POST.get("payment_method", "ACH_TRANSFER").strip()
+        payment_date = request.POST.get("payment_date", "").strip() or None
+
         try:
-            mark_invoice_paid_service(invoice=invoice, user=request.user)
+            mark_invoice_paid_service(
+                invoice=invoice,
+                user=request.user,
+                payment_reference=payment_reference,
+                payment_method=payment_method,
+                payment_date=payment_date,
+            )
             messages.success(
                 request, f"Invoice {invoice.invoice_number} successfully marked as PAID."
             )
+        except ValidationError as ve:
+            messages.error(request, f"Error paying invoice: {ve.message if hasattr(ve, 'message') else str(ve)}")
         except Exception as e:
             messages.error(request, f"Error paying invoice: {str(e)}")
 
@@ -299,3 +386,58 @@ def create_invoice_view(request):
             return render(request, "pages/invoices/create.html", {"vendors": vendors, "pos": pos, "form_data": form_data})
 
     return render(request, "pages/invoices/create.html", {"vendors": vendors, "pos": pos, "form_data": form_data})
+
+
+@login_required(login_url="/login/")
+def finance_receipt_detail_view(request, grn_id):
+    """GRN detail view for Finance users - shows Goods Receipt Note details
+    appropriate for finance/AP context when accessed from invoice detail page."""
+    _enforce_internal_invoice_access(request, allowed_roles=[Role.FINANCE_AP, Role.SUPER_ADMIN, "FINANCE_AP", "SUPER_ADMIN"])
+    grn = get_object_or_404(
+        GoodsReceipt.objects.select_related("po__vendor", "po__cost_center", "received_by")
+        .prefetch_related("lines__po_line", "lines__inspection__inspected_by", "lines__rejections"),
+        id=grn_id,
+    )
+    from apps.audit.models import AuditLog
+
+    line_ids = [str(line.id) for line in grn.lines.all()]
+    rej_ids = [str(rej.id) for line in grn.lines.all() for rej in line.rejections.all()]
+    audit_logs = (
+        AuditLog.objects.filter(
+            Q(target_model="GoodsReceipt", target_object_id=str(grn.id))
+            | Q(target_model="ReceiptLine", target_object_id__in=line_ids)
+            | Q(target_model="RejectionRecord", target_object_id__in=rej_ids)
+        )
+        .select_related("actor")
+        .order_by("-timestamp")
+    )
+
+    # Get the associated invoice from the GRN's PO — may not exist yet if
+    # the vendor hasn't submitted an invoice or the PO has multiple invoices.
+    invoice = SupplierInvoice.objects.filter(po=grn.po).select_related("vendor").first()
+
+    # Determine 3-way match status for display (only when invoice exists)
+    has_open_exception = False
+    match_status = "NO_INVOICE"
+    if invoice:
+        has_open_exception = invoice.exceptions.filter(status=MatchException.STATUS_OPEN).exists()
+        match_status = (
+            "EXCEPTION_OPEN" if has_open_exception
+            else "MATCHING" if invoice.status == "MATCHING"
+            else "MATCHED"
+        )
+
+    return render(
+        request,
+        "pages/invoices/finance_grn_detail.html",
+        {
+            "grn": grn,
+            "po": grn.po,
+            "invoice": invoice,  # may be None — template must guard before using .id
+            "lines": grn.lines.all(),
+            "audit_logs": audit_logs,
+            "is_finance": True,
+            "match_status": match_status,
+            "has_open_exception": has_open_exception,
+        },
+    )

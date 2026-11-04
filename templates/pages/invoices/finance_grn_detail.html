@@ -1,0 +1,246 @@
+{% extends base_layout|default:'layouts/finance_base.html' %}
+
+{% block title %}GRN Detail — {{ grn.grn_number }} — ProcureSphere 360{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="fw-bold text-dark mb-1">
+                    <i class="fa-solid fa-receipt text-primary me-2"></i> GRN Details
+                </h2>
+                <span class="badge bg-light text-secondary border small">
+                    {% if invoice %}Invoice: {{ invoice.invoice_number }} | {% endif %}PO: {{ grn.po.po_number }}
+                </span>
+            </div>
+            <div class="d-flex gap-2">
+                {% if invoice and invoice.id %}
+                <a href="{% url 'invoice_detail' invoice.id %}" class="btn btn-outline-secondary rounded-pill px-3 fw-semibold">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Back to Invoice
+                </a>
+                {% endif %}
+                <a href="{% url 'invoices_list' %}" class="btn btn-outline-light rounded-pill px-3 fw-semibold">
+                    <i class="fa-solid fa-list me-1"></i> All Invoices
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRN Information -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+            <div class="row g-4">
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">GRN Number</small>
+                    <div class="fs-5 fw-bold font-monospace text-primary">{{ grn.grn_number }}</div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">Purchase Order</small>
+                    <div class="fs-5">
+                        <a href="{% url 'order_detail' grn.po.id %}" class="fs-5 fw-bold font-monospace text-primary text-decoration-none">
+                            {{ grn.po.po_number }}
+                        </a>
+                        <span class="badge bg-secondary-subtle text-secondary border ms-1">{{ grn.po.get_status_display }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">Vendor / Supplier</small>
+                    <div class="fs-5 fw-bold text-dark">{{ grn.po.vendor.legal_name }}</div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">Received Date</small>
+                    <div class="fs-5 text-dark">{{ grn.received_date|date:"M d, Y H:i" }}</div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">Received By</small>
+                    <div class="fs-5 text-dark">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">Invoice Status</small>
+                    <div class="fs-5">
+                        {% if not invoice %}
+                        <span class="badge bg-secondary-subtle text-secondary border py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-file-circle-question me-1"></i> No Invoice Yet
+                        </span>
+                        {% elif invoice.status == 'PAID' %}
+                        <span class="badge bg-success py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-check-circle me-1"></i> PAID
+                        </span>
+                        {% elif invoice.status == 'READY_FOR_PAYMENT' %}
+                        <span class="badge bg-info text-dark py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-hand-holding-dollar me-1"></i> READY TO PAY
+                        </span>
+                        {% elif invoice.status == 'EXCEPTION' %}
+                        <span class="badge bg-danger py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> EXCEPTION
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning text-dark py-2 px-3 rounded-pill">
+                            {{ invoice.get_status_display }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <small class="text-uppercase text-secondary fw-semibold">3-Way Match Status</small>
+                    <div class="fs-5">
+                        {% if match_status == 'NO_INVOICE' %}
+                        <span class="badge bg-secondary-subtle text-secondary border py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-minus me-1"></i> Awaiting Invoice
+                        </span>
+                        {% elif has_open_exception %}
+                        <span class="badge bg-danger py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-triangle-exclamation me-1"></i> EXCEPTION OPEN
+                        </span>
+                        {% elif match_status == 'MATCHING' %}
+                        <span class="badge bg-warning text-dark py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-rotate me-1"></i> MATCHING
+                        </span>
+                        {% else %}
+                        <span class="badge bg-success py-2 px-3 rounded-pill">
+                            <i class="fa-solid fa-check-circle me-1"></i> MATCHED
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Received Line Items Summary (Read-Only) -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-dark mb-2">
+                <i class="fa-solid fa-boxes-stacked text-primary me-2"></i> Received Line Items
+            </h5>
+            <p class="text-muted small mb-0">Summary of received items for 3-way match validation.</p>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small text-uppercase text-secondary">
+                    <thead>
+                        <tr>
+                            <th class="ps-3" style="width: 30px;">#</th>
+                            <th style="min-width: 200px;">Item Description</th>
+                            <th class="text-end" style="min-width: 80px;">Qty Ordered</th>
+                            <th class="text-end" style="min-width: 80px;">Qty Received</th>
+                            <th class="text-end" style="min-width: 80px;">Qty Accepted</th>
+                            <th class="text-end" style="min-width: 80px;">Qty Rejected</th>
+                            <th class="text-center" style="min-width: 60px;">UOM</th>
+                            <th class="text-center">Inspection Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td class="ps-3 text-secondary small">{{ forloop.counter }}</td>
+                            <td>
+                                <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                                <small class="text-muted font-monospace">Line #{{ line.po_line.line_number|default:forloop.counter }}</small>
+                            </td>
+                            <td class="text-end font-monospace text-muted">{{ line.po_line.quantity|floatformat:2 }}</td>
+                            <td class="text-end font-monospace fw-bold text-primary">{{ line.quantity_received|floatformat:2 }}</td>
+                            <td class="text-end font-monospace fw-bold text-success">{{ line.quantity_accepted|floatformat:2 }}</td>
+                            <td class="text-end font-monospace fw-bold {% if line.quantity_rejected > 0 %}text-danger{% else %}text-muted{% endif %}">
+                                {{ line.quantity_rejected|floatformat:2 }}
+                            </td>
+                            <td class="text-center"><span class="badge bg-light text-dark border">{{ line.po_line.uom|default:"EA" }}</span></td>
+                            <td class="text-center">
+                                {% if line.inspection_status == 'PASSED' %}
+                                    <span class="badge bg-success-subtle text-success border border-success">
+                                        <i class="fa-solid fa-check me-1"></i> Passed
+                                    </span>
+                                {% elif line.inspection_status == 'REJECTED' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger">
+                                        <i class="fa-solid fa-ban me-1"></i> Rejected
+                                    </span>
+                                {% elif line.inspection_status == 'PENDING' %}
+                                    <span class="badge bg-warning-subtle text-warning border border-warning">
+                                        <i class="fa-solid fa-clock me-1"></i> Pending
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">—</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-clock-rotate-left me-1"></i> No receipt line items found for this GRN.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body p-4">
+            <h5 class="fw-bold text-dark mb-2">
+                <i class="fa-solid fa-shield-halved text-primary me-2"></i> Audit Trail
+            </h5>
+            <p class="text-muted small mb-0">Historical timeline of receiving events.</p>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small text-uppercase text-secondary">
+                    <thead>
+                        <tr>
+                            <th class="ps-3" style="min-width: 150px;">Timestamp</th>
+                            <th style="min-width: 120px;">Actor / User</th>
+                            <th style="min-width: 100px;">Action</th>
+                            <th style="min-width: 120px;">Target Object</th>
+                            <th class="pe-3" style="min-width: 200px;">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in audit_logs %}
+                        <tr>
+                            <td class="ps-3 small text-muted font-monospace">
+                                {{ log.timestamp|date:"M d, Y H:i:s" }}
+                            </td>
+                            <td class="small">
+                                <div class="fw-bold text-dark">{{ log.actor.get_full_name|default:log.actor.email|default:"System" }}</div>
+                                <span class="badge bg-secondary-subtle text-secondary small">{{ log.actor.role.name|default:"User" }}</span>
+                            </td>
+                            <td>
+                                {% if log.action == 'CREATE' %}
+                                    <span class="badge bg-success-subtle text-success border border-success">CREATE</span>
+                                {% elif log.action == 'UPDATE' %}
+                                    <span class="badge bg-info-subtle text-info border border-info">UPDATE</span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark border">{{ log.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="small font-monospace text-secondary">
+                                {{ log.target_model }} <span class="text-muted small">({{ log.target_object_id|slice:":8" }}...)</span>
+                            </td>
+                            <td class="pe-3 small">
+                                {% if log.new_state %}
+                                    <div class="fw-semibold text-dark mb-1">
+                                        {% if log.new_state.reason %}
+                                        <span class="text-secondary">Reason:</span> {{ log.new_state.reason }}
+                                        {% endif %}
+                                        {% if log.new_state.quantity_received or log.new_state.quantity_accepted %}
+                                        <div class="font-monospace small text-muted">
+                                            Recv: {{ log.new_state.quantity_received|default:"N/A" }} &bull; Accept: {{ log.new_state.quantity_accepted|default:"N/A" }} &bull; Reject: {{ log.new_state.quantity_rejected|default:"N/A" }}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="fa-solid fa-clock-rotate-left me-1"></i> No audit events recorded for this GRN.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

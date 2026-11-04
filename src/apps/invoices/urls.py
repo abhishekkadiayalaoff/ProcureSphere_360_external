@@ -16,5 +16,8 @@ urlpatterns = [
     ),
     path("ready/", views.ready_for_payment_view, name="ready_list"),
     path("ready/<str:invoice_id>/pay/", views.pay_invoice_view, name="pay_invoice"),
+    path("<str:invoice_id>/validate/", views.validate_invoice_view, name="validate_invoice"),
     path("<str:invoice_id>/", views.invoice_detail_view, name="invoice_detail"),
+    path("grn/<str:grn_id>/", views.finance_receipt_detail_view, name="finance_grn_detail"),
 ]
+

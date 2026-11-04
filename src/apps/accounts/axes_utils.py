@@ -14,5 +14,8 @@ def get_axes_username(request, credentials):
         post = getattr(request, "POST", None)
         if post:
             value = post.get("email") or post.get("username")
-    value = (value or "").strip().lower()
+    if value is not None:
+        value = str(value).strip().lower()
+    else:
+        value = ""
     return value or None

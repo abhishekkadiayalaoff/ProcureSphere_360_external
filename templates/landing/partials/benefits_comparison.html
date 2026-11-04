@@ -1,0 +1,213 @@
+<!-- Benefits Comparison Table Section -->
+<section style="background:linear-gradient(180deg,#f8fafc 0%,#ffffff 100%);padding:clamp(60px,7vh,80px) 20px clamp(40px,4.5vh,50px);border-top:1px solid #e2e8f0;box-sizing:border-box;position:relative;" id="benefits-comparison">
+  <div style="max-width:1240px;margin:0 auto;padding:0 16px;">
+    <div style="text-align:center;margin-bottom:44px;" class="animate-on-scroll">
+      <div style="display:inline-flex;align-items:center;gap:10px;padding:9px 26px;border-radius:999px;background:#dbeafe;color:#0b40ad;border:1.5px solid #93c5fd;box-shadow:0 2px 10px rgba(11,64,173,0.12);font-size:16px;font-weight:850;letter-spacing:0.08em;margin-bottom:16px;text-transform:uppercase;">
+        <span style="width:9px;height:9px;border-radius:50%;background:#0b40ad;box-shadow:0 0 8px rgba(11,64,173,0.7);flex-shrink:0;"></span>
+        PROVEN ARCHITECTURAL DIFFERENCE
+      </div>
+      <h2 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(30px,3.8vw,44px);color:#0F1B2D;font-weight:700;margin:0 0 14px 0;line-height:1.2;">
+        Legacy Procurement vs. ProcureSphere 360
+      </h2>
+      <p style="color:#334155;font-size:18px;max-width:780px;margin:0 auto;line-height:1.6;font-weight:500;">
+        Why disconnected ERP modules and spreadsheet trackers fail modern global enterprises.
+      </p>
+    </div>
+
+    <div class="benefits-table-wrapper animate-on-scroll" style="background:#ffffff;border:2px solid #cbd5e1;border-radius:24px;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;box-shadow:0 20px 48px rgba(15,27,45,0.12),0 6px 16px rgba(15,27,45,0.06);">
+      <div class="benefits-table-card" style="width:100%;min-width:880px;">
+        <!-- Table Header -->
+        <div class="benefits-table-head" style="display:grid;grid-template-columns:21% 31% 32% 16%;background:#0F1B2D;color:#ffffff;font-weight:800;font-size:14px;letter-spacing:0.06em;text-transform:uppercase;align-items:stretch;border-bottom:2px solid #0F1B2D;">
+          <div style="padding:18px 24px;border-right:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;">Process Domain</div>
+          <div style="padding:18px 24px;border-right:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;">Traditional / Legacy Mode</div>
+          <div style="padding:18px 24px;border-right:1px solid rgba(255,255,255,0.12);display:flex;align-items:center;color:#60a5fa;">ProcureSphere 360 Approach</div>
+          <div style="padding:18px 20px;display:flex;align-items:center;justify-content:center;text-align:center;">Strategic Outcome</div>
+        </div>
+
+        <!-- Table Rows -->
+        {% for row in comparison_rows %}
+        <div class="benefits-table-row" style="display:grid;grid-template-columns:21% 31% 32% 16%;border-bottom:{% if not forloop.last %}1.5px solid #e2e8f0{% else %}none{% endif %};background:{% cycle '#ffffff' '#f8fafc' %};align-items:stretch;">
+          <div style="padding:22px 24px;border-right:1.5px solid #e2e8f0;font-weight:800;color:#0f172a;font-size:16.5px;line-height:1.45;display:flex;align-items:center;">
+            {{ row.dimension }}
+          </div>
+          <div style="padding:22px 24px;border-right:1.5px solid #e2e8f0;display:flex;align-items:center;gap:12px;color:#334155;font-size:15px;line-height:1.55;font-weight:500;">
+            <span style="color:#dc2626;font-weight:800;font-size:16px;line-height:1;flex-shrink:0;width:16px;text-align:center;">✕</span>
+            <span style="flex:1;">{{ row.legacy }}</span>
+          </div>
+          <div style="padding:22px 24px;border-right:1.5px solid #e2e8f0;display:flex;align-items:center;gap:12px;color:#0f172a;font-size:15px;font-weight:650;line-height:1.55;">
+            <span style="color:#16a34a;font-weight:800;font-size:16px;line-height:1;flex-shrink:0;width:16px;text-align:center;">✓</span>
+            <span style="flex:1;">{{ row.procuresphere }}</span>
+          </div>
+          <div style="padding:22px 16px;display:flex;align-items:center;justify-content:center;">
+            <span style="background:#eff6ff;color:#1d4ed8;border:1.5px solid #bfdbfe;font-weight:800;font-size:13px;padding:8px 14px;border-radius:12px;display:inline-block;font-family:'DM Mono',monospace;letter-spacing:0.02em;line-height:1.4;text-align:center;max-width:100%;word-break:break-word;box-shadow:0 2px 6px rgba(29,78,216,0.06);">
+              {{ row.advantage }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Mobile-Only Scroll Indicator Guide -->
+    <div class="benefits-mobile-scroll-guide">
+      <div class="benefits-scroll-hint-pill">
+        <svg class="benefits-swipe-arrow left" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+        <span>Swipe horizontally to view full comparison</span>
+        <svg class="benefits-swipe-arrow right" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </div>
+      <div class="benefits-scroll-indicator-bar" aria-label="Horizontal scroll position">
+        <div class="benefits-scroll-track">
+          <div class="benefits-scroll-thumb" id="benefitsScrollThumb"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .benefits-mobile-scroll-guide {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .benefits-table-wrapper {
+      overflow-x: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: thin !important;
+      scrollbar-color: #2563eb #f1f5f9 !important;
+      border-radius: 18px !important;
+    }
+    .benefits-table-wrapper::-webkit-scrollbar {
+      height: 6px !important;
+      display: block !important;
+    }
+    .benefits-table-wrapper::-webkit-scrollbar-track {
+      background: #f1f5f9 !important;
+      border-radius: 999px !important;
+    }
+    .benefits-table-wrapper::-webkit-scrollbar-thumb {
+      background: #2563eb !important;
+      border-radius: 999px !important;
+    }
+
+    .benefits-mobile-scroll-guide {
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      gap: 10px !important;
+      margin-top: 14px !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+    }
+
+    .benefits-scroll-hint-pill {
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      background: #eff6ff !important;
+      border: 1.5px solid #bfdbfe !important;
+      border-radius: 999px !important;
+      padding: 7px 16px !important;
+      color: #1d4ed8 !important;
+      font-size: 12px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.02em !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08) !important;
+      text-align: center !important;
+    }
+
+    .benefits-swipe-arrow {
+      display: inline-block !important;
+      animation: benefitsSwipePulse 1.6s ease-in-out infinite !important;
+      color: #2563eb !important;
+      flex-shrink: 0 !important;
+    }
+    .benefits-swipe-arrow.left {
+      animation-delay: 0s !important;
+    }
+    .benefits-swipe-arrow.right {
+      animation-delay: 0.8s !important;
+    }
+
+    @keyframes benefitsSwipePulse {
+      0%, 100% { transform: translateX(0); opacity: 0.65; }
+      50% { transform: translateX(3px); opacity: 1; }
+    }
+
+    .benefits-scroll-indicator-bar {
+      width: 100% !important;
+      max-width: 260px !important;
+      padding: 0 4px !important;
+      box-sizing: border-box !important;
+      cursor: pointer !important;
+    }
+
+    .benefits-scroll-track {
+      width: 100% !important;
+      height: 6px !important;
+      background: #e2e8f0 !important;
+      border-radius: 999px !important;
+      position: relative !important;
+      overflow: hidden !important;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    .benefits-scroll-thumb {
+      width: 35% !important;
+      height: 100% !important;
+      background: linear-gradient(90deg, #2563eb, #3b82f6) !important;
+      border-radius: 999px !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      transform: translateX(0);
+      transition: transform 0.08s ease-out !important;
+      box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35) !important;
+    }
+  }
+</style>
+
+<script>
+(function() {
+  function initBenefitsScroll() {
+    var wrapper = document.querySelector('.benefits-table-wrapper');
+    var thumb = document.getElementById('benefitsScrollThumb');
+    var track = document.querySelector('.benefits-scroll-indicator-bar');
+    if (!wrapper || !thumb) return;
+
+    function updateThumb() {
+      var maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
+      if (maxScroll <= 0) return;
+      var progress = Math.max(0, Math.min(1, wrapper.scrollLeft / maxScroll));
+      var trackEl = thumb.parentElement;
+      if (!trackEl) return;
+      var maxTranslate = trackEl.clientWidth - thumb.clientWidth;
+      thumb.style.transform = 'translateX(' + (progress * maxTranslate) + 'px)';
+    }
+
+    wrapper.addEventListener('scroll', updateThumb, { passive: true });
+    window.addEventListener('resize', updateThumb);
+    setTimeout(updateThumb, 100);
+
+    if (track) {
+      track.addEventListener('click', function(e) {
+        var rect = track.getBoundingClientRect();
+        var clickX = e.clientX - rect.left;
+        var pct = Math.max(0, Math.min(1, clickX / rect.width));
+        var maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
+        wrapper.scrollTo({ left: pct * maxScroll, behavior: 'smooth' });
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initBenefitsScroll);
+  } else {
+    initBenefitsScroll();
+  }
+})();
+</script>

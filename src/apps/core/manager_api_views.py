@@ -1768,3 +1768,64 @@ class ManagerSupplierCompareAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class ManagerVendorWatchlistAPIView(APIView):
+    """
+    GET /api/v1/manager/vendor-watchlist/
+    Returns high-priority vendors for the Manager Governance & Sanctions Watchlist on the dashboard:
+    currently SUSPENDED, ON_HOLD, or assessed as HIGH risk.
+    """
+
+    permission_classes = [IsAuthenticated, IsProcurementManager]
+
+    def get(self, request):
+        from apps.vendors.selectors import get_vendor_open_transactions
+        from apps.vendors.services import allowed_governance_transitions
+
+        # Target suppliers: SUSPENDED, ON_HOLD, or with HIGH risk level
+        high_risk_ids = set(
+            VendorRiskRecord.objects.filter(
+                risk_level=VendorRiskRecord.RISK_LEVEL_HIGH
+            ).values_list("vendor_id", flat=True)
+        )
+        governance_status_ids = set(
+            Vendor.objects.filter(
+                status__in=[Vendor.STATUS_SUSPENDED, Vendor.STATUS_ON_HOLD]
+            ).values_list("id", flat=True)
+        )
+
+        target_ids = list(high_risk_ids.union(governance_status_ids))
+        qs = (
+            Vendor.objects.filter(id__in=target_ids)
+            .select_related("category")
+            .order_by("-updated_at")[:15]
+        )
+
+        # If empty, fallback to recently updated vendors so dashboard is never empty
+        if not qs.exists():
+            qs = Vendor.objects.select_related("category").order_by("-updated_at")[:5]
+
+        results = []
+        for v in qs:
+            latest_risk = v.risk_records.order_by("-created_at").first()
+            exposure = get_vendor_open_transactions(v)["summary"]
+            transitions = allowed_governance_transitions(v, request.user)
+            results.append(
+                {
+                    "id": str(v.id),
+                    "legal_name": v.legal_name,
+                    "trade_name": v.trade_name,
+                    "vendor_number": v.vendor_number,
+                    "category": v.category.name if v.category else "General Supplier",
+                    "status": v.status,
+                    "status_display": v.get_status_display(),
+                    "status_notes": v.status_notes or "",
+                    "current_risk_level": latest_risk.risk_level if latest_risk else "LOW",
+                    "updated_at": v.updated_at.isoformat(),
+                    "exposure": exposure,
+                    "allowed_transitions": transitions,
+                }
+            )
+
+        return Response({"results": results, "count": len(results)}, status=status.HTTP_200_OK)

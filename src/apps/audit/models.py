@@ -1,6 +1,26 @@
 import uuid
 
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import pre_delete, pre_save
+from django.dispatch import receiver
+
+
+class AuditLogQuerySet(models.QuerySet):
+    """
+    Guarantees strict append-only immutability at the queryset level.
+    Prevents bulk updates and bulk deletions via QuerySet.update() and QuerySet.delete().
+    """
+
+    def update(self, **kwargs):
+        raise ValidationError(
+            "AuditLog records are append-only and immutable. Bulk updates are strictly prohibited."
+        )
+
+    def delete(self):
+        raise ValidationError(
+            "AuditLog records are append-only and immutable. Bulk deletions are strictly prohibited."
+        )
 
 
 class AuditLog(models.Model):
@@ -23,6 +43,8 @@ class AuditLog(models.Model):
     ACTION_OVERRIDE = "OVERRIDE"
     ACTION_ACKNOWLEDGE = "ACKNOWLEDGE"
     ACTION_VERIFY = "VERIFY"
+
+    objects = AuditLogQuerySet.as_manager()
 
     ACTION_CHOICES = [
         (ACTION_CREATE, "Create"),
@@ -148,4 +170,19 @@ class AuditLog(models.Model):
     def delete(self, *args, **kwargs):
         raise PermissionError(
             "AuditLog records are append-only and immutable. Deletions are strictly prohibited."
+        )
+
+
+@receiver(pre_delete, sender=AuditLog)
+def protect_audit_log_delete(sender, instance, **kwargs):
+    raise ValidationError(
+        "AuditLog records are append-only and immutable. Deletions are strictly prohibited."
+    )
+
+
+@receiver(pre_save, sender=AuditLog)
+def protect_audit_log_update(sender, instance, **kwargs):
+    if instance.pk and AuditLog.objects.filter(pk=instance.pk).exists():
+        raise ValidationError(
+            "AuditLog records are append-only and immutable. Edits are strictly prohibited."
         )

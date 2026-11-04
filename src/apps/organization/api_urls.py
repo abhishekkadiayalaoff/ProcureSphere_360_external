@@ -47,17 +47,42 @@ class OrganizationViewSet(viewsets.ModelViewSet):
     serializer_class = OrganizationSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def perform_destroy(self, instance):
+        if instance.departments.exists():
+            raise serializers.ValidationError(
+                {"detail": "Cannot delete organization: active child departments exist."}
+            )
+        instance.delete()
+
 
 class DepartmentViewSet(viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def perform_destroy(self, instance):
+        if instance.cost_centers.exists():
+            raise serializers.ValidationError(
+                {"detail": "Cannot delete department: active child cost centers exist."}
+            )
+        if instance.users.exists():
+            raise serializers.ValidationError(
+                {"detail": "Cannot delete department: users are assigned to this department."}
+            )
+        instance.delete()
+
 
 class CostCenterViewSet(viewsets.ModelViewSet):
     queryset = CostCenter.objects.all()
     serializer_class = CostCenterSerializer
     permission_classes = [IsAdminOrReadOnly]
+
+    def perform_destroy(self, instance):
+        if instance.budgets.exists():
+            raise serializers.ValidationError(
+                {"detail": "Cannot delete cost center: financial budget records exist."}
+            )
+        instance.delete()
 
     def get_queryset(self):
         user = self.request.user

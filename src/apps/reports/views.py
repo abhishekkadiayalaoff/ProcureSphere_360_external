@@ -6,10 +6,10 @@ from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
 
+from apps.accounts.models import Role
 from apps.audit.models import AuditLog
 from apps.reports.models import ExportJob
 from apps.reports.services import (
-    generate_export_job_service,
     get_audit_log_report,
     get_po_status_report,
     get_pr_aging_report,
@@ -40,9 +40,7 @@ def _resolve_base_layout(role_code):
         return "layouts/superadmin_base.html"
     if role_code in ("AUDITOR", "COMPLIANCE_AUDITOR", "AUDIT"):
         return "audit/base_auditor.html"
-    if role_code in ("PROCUREMENT_MANAGER", "PROC_MGR", "MANAGER"):
-        return "manager/base_manager.html"
-    if role_code in ("LEGAL_MGR", "LEGAL"):
+    if role_code in ("LEGAL_MGR", "LEGAL_MANAGER", "LEGAL"):
         return "layouts/legal_base.html"
     if role_code in ("STORES_RECEIVER", "STORES"):
         return "layouts/stores_base.html"
@@ -50,6 +48,8 @@ def _resolve_base_layout(role_code):
         return "layouts/approver_base.html"
     if role_code in ("REQUESTER",):
         return "layouts/requester_base.html"
+    if role_code in ("PROCUREMENT_MANAGER", "PROC_MGR", "MANAGER"):
+        return "manager/base_manager.html"
     if role_code in ("VENDOR_USER", "VENDOR"):
         return "layouts/vendor_base.html"
     return "layouts/finance_base.html"
@@ -74,6 +74,13 @@ def _csv_response(filename, fieldnames, rows):
 
 @login_required(login_url="/login/")
 def dashboard_view(request):
+    user = request.user
+    role_code = getattr(user, "role_code", None) or (
+        user.role.code if hasattr(user, "role") and user.role else None
+    )
+    if getattr(user, "is_vendor", False) or role_code in [Role.VENDOR_USER, "VENDOR_USER"]:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("External vendor users are not authorized to access internal reports.")
     jobs = ExportJob.objects.filter(requested_by=request.user).order_by("-created_at")[:20]
 
     reports = [
@@ -159,10 +166,11 @@ def generate_view(request):
         )
 
         try:
-            generate_export_job_service(job.id)
-            messages.success(request, f"{report_type} report successfully generated!")
+            from apps.reports.tasks import run_export_job_task
+            run_export_job_task.delay(job.id)
+            messages.success(request, f"{report_type} report queued for generation.")
         except Exception as e:
-            messages.error(request, f"Error generating report: {str(e)}")
+            messages.error(request, f"Error queuing report: {str(e)}")
 
     return redirect("reports_hub")
 

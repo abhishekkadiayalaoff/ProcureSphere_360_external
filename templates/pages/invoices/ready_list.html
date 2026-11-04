@@ -1,8 +1,20 @@
-{% extends 'layouts/finance_base.html' %}
+{% extends base_layout|default:'layouts/finance_base.html' %}
 
 {% block title %}Ready for Payment — ProcureSphere 360{% endblock %}
 
 {% block content %}
+<style>
+    /* Responsive table: under 768px transforms to stacked cards */
+    @media (max-width: 767.98px) {
+        .responsive-table thead { display: none; }
+        .responsive-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #dee2e6; border-radius: 0.5rem; background-color: #fff; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
+        .responsive-table tbody td { display: flex; justify-content: space-between; padding: 0.75rem 1rem; border: none; border-bottom: 1px solid #e9ecef; }
+        .responsive-table tbody td:last-child { border-bottom: none; justify-content: flex-start; }
+        .responsive-table tbody td .label { font-weight: bold; font-size: 0.875rem; color: #333; flex-shrink: 0; }
+        .responsive-table tbody td .value { flex-grow: 1; font-weight: normal; font-size: 0.875rem; text-align: right; color: #444; }
+        .responsive-table tbody tr:last-child td { border-bottom: none; }
+    }
+</style>
 <div class="row mb-4">
     <div class="col-12 d-flex justify-content-between align-items-center">
         <div>
@@ -12,30 +24,90 @@
     </div>
 </div>
 
+<!-- Payment Modals for each invoice -->
+{% for invoice in invoices %}
+<div class="modal fade" id="paymentModal-{{ invoice.id }}" tabindex="-1" aria-labelledby="paymentModalLabel-{{ invoice.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="paymentModalLabel-{{ invoice.id }}">
+                    <i class="fa-solid fa-credit-card me-2"></i> Disburse Payment
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'pay_invoice' invoice.id %}" id="paymentForm-{{ invoice.id }}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <strong>Invoice:</strong> {{ invoice.invoice_number }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Vendor:</strong> {{ invoice.vendor.legal_name }}
+                    </div>
+                    <div class="mb-3">
+                        <strong>Total Amount:</strong> <span class="text-success fw-bold">${{ invoice.total_amount|floatformat:2 }}</span>
+                    </div>
+
+                    <!-- Transaction Reference / UTR # -->
+                    <div class="mb-3">
+                        <label for="pref_{{ invoice.id }}" class="form-label small fw-semibold text-dark">Transaction Reference / UTR # <span class="text-danger">*</span></label>
+                        <input type="text" name="payment_reference" id="pref_{{ invoice.id }}" class="form-control" placeholder="e.g. UTR-2026-981023" required>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label for="pmeth_{{ invoice.id }}" class="form-label small fw-semibold text-dark">Payment Method <span class="text-danger">*</span></label>
+                        <select name="payment_method" id="pmeth_{{ invoice.id }}" class="form-select" required>
+                            <option value="ACH_TRANSFER">ACH Transfer</option>
+                            <option value="BANK_WIRE">Bank Wire</option>
+                            <option value="NEFT_RTGS">NEFT / RTGS</option>
+                            <option value="COMPANY_CHECK">Company Check</option>
+                        </select>
+                    </div>
+
+                    <!-- Payment Date -->
+                    <div class="mb-3">
+                        <label for="pdate_{{ invoice.id }}" class="form-label small fw-semibold text-dark">Payment Date <span class="text-danger">*</span></label>
+                        <input type="date" name="payment_date" id="pdate_{{ invoice.id }}" class="form-control" value="{{ now|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary shadow-sm"
+                            onclick="this.disabled=true; this.innerHTML='<i class=\'fa-solid fa-spinner fa-spin me-1\'></i> Processing...';">
+                        <i class="fa-solid fa-arrow-right me-1"></i> Confirm &amp; Disburse Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if not forloop.first %}{% endif %}
+{% endfor %}
 <div class="card shadow-sm border-0">
     <div class="card-body p-0">
-        <table class="table table-hover table-striped align-middle mb-0">
+        <table class="table table-hover table-striped align-middle mb-0 responsive-table">
             <thead class="table-dark">
                 <tr>
-                    <th scope="col" class="ps-4">Invoice Ref</th>
-                    <th scope="col">Vendor</th>
-                    <th scope="col">Total Amount</th>
-                    <th scope="col">Due Date</th>
-                    <th scope="col" class="pe-4 text-end">Actions</th>
+                    <th scope="col" class="ps-4" data-label="Invoice Ref">Invoice Ref</th>
+                    <th scope="col" data-label="Vendor">Vendor</th>
+                    <th scope="col" data-label="Total Amount">Total Amount</th>
+                    <th scope="col" data-label="Due Date">Due Date</th>
+                    <th scope="col" class="pe-4 text-end" data-label="Actions">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for invoice in invoices %}
                 <tr>
-                    <td class="ps-4 fw-bold">{{ invoice.invoice_number }}</td>
-                    <td>{{ invoice.vendor.legal_name }}</td>
-                    <td class="text-success fw-bold">${{ invoice.total_amount|floatformat:2 }}</td>
-                    <td>{{ invoice.due_date|date:"M d, Y" }}</td>
-                    <td class="pe-4 text-end">
-                        <form action="{% url 'pay_invoice' invoice.id %}" method="POST" class="d-inline">
-                            {% csrf_token %}
-                            <button type="submit" class="btn btn-sm btn-success rounded-pill px-3"><i class="fa-solid fa-money-bill-transfer me-1"></i> Process Payment</button>
-                        </form>
+                    <td class="ps-4 fw-bold" data-label="{{ invoice.invoice_number }}">{{ invoice.invoice_number }}</td>
+                    <td data-label="{{ invoice.vendor.legal_name }}">{{ invoice.vendor.legal_name }}</td>
+                    <td class="text-success fw-bold" data-label="Total Amount">${{ invoice.total_amount|floatformat:2 }}</td>
+                    <td data-label="Due Date">{{ invoice.due_date|date:"M d, Y" }}</td>
+                    <td class="pe-4 text-end" data-label="Actions">
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#paymentModal-{{ invoice.id }}">
+                            <i class="fa-solid fa-money-bill-transfer me-1"></i> Process Payment
+                        </button>
                     </td>
                 </tr>
                 {% empty %}

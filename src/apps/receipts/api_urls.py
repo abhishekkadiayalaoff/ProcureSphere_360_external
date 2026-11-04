@@ -80,49 +80,84 @@ class GoodsReceiptSerializer(serializers.ModelSerializer):
 
         if self.instance is None:
             lines = self.initial_data.get("lines")
-            if lines is None or len(lines) == 0:
+            if lines is None or not isinstance(lines, list) or len(lines) == 0:
                 raise serializers.ValidationError(
                     {"lines": ["Receipt must contain at least one line item."]}
                 )
+            if not po:
+                raise serializers.ValidationError({"po": ["Purchase Order is required."]})
+
+            po_lines_map = {str(l.id): l for l in po.lines.all()}
+            po_lines_list = list(po.lines.all())
+
+            for idx, item in enumerate(lines):
+                if not isinstance(item, dict):
+                    raise serializers.ValidationError({"lines": [f"Line item {idx + 1} must be an object."]})
+                po_line = None
+                po_line_id = item.get("po_line_id") or item.get("po_line")
+                if po_line_id:
+                    po_line = po_lines_map.get(str(po_line_id))
+                    if not po_line:
+                        raise serializers.ValidationError(
+                            {"lines": [f"PO line '{po_line_id}' does not belong to Purchase Order {po.po_number}."]}
+                        )
+                elif idx < len(po_lines_list):
+                    po_line = po_lines_list[idx]
+                elif po_lines_list:
+                    po_line = po_lines_list[0]
+
+                raw_qty = item.get("quantity_received")
+                if raw_qty is None:
+                    raw_qty = po_line.quantity if po_line else "1"
+                try:
+                    qty_recv = Decimal(str(raw_qty))
+                except (TypeError, ValueError, ArithmeticError, Exception):
+                    raise serializers.ValidationError({"lines": [f"Quantity received must be a valid numeric value for line {idx + 1}."]})
+
+                if qty_recv <= Decimal("0.00"):
+                    raise serializers.ValidationError({"lines": [f"Quantity received must be greater than zero for line {idx + 1}."]})
+
+                if po_line:
+                    rem = po_line.remaining_quantity
+                    if qty_recv > rem:
+                        raise serializers.ValidationError(
+                            {"lines": [f"Quantity received ({qty_recv}) cannot exceed remaining quantity ({rem}) for '{po_line.item_description}'."]}
+                        )
+
+                raw_acc = item.get("quantity_accepted")
+                if raw_acc is not None and str(raw_acc).strip() != "":
+                    try:
+                        qty_acc = Decimal(str(raw_acc))
+                    except (TypeError, ValueError, ArithmeticError, Exception):
+                        raise serializers.ValidationError({"lines": [f"Quantity accepted must be a valid numeric value for line {idx + 1}."]})
+                    if qty_acc < Decimal("0.00"):
+                        raise serializers.ValidationError({"lines": [f"Quantity accepted cannot be negative for line {idx + 1}."]})
+                    if qty_acc > qty_recv:
+                        raise serializers.ValidationError({"lines": [f"Quantity accepted ({qty_acc}) cannot exceed quantity received ({qty_recv}) for line {idx + 1}."]})
 
         return attrs
 
     def create(self, validated_data):
         lines_data = self.initial_data.get("lines", [])
-        receipt = super().create(validated_data)
-        po = receipt.po
-        po_lines = list(po.lines.all())
+        from apps.receipts.services import create_goods_receipt_service
 
-        for idx, item in enumerate(lines_data):
-            item_dict = dict(item)
-            po_line = None
-            po_line_id = item_dict.get("po_line_id") or item_dict.get("po_line")
-            if po_line_id:
-                po_line = POLine.objects.filter(id=po_line_id).first()
-            if not po_line and idx < len(po_lines):
-                po_line = po_lines[idx]
-            elif not po_line and po_lines:
-                po_line = po_lines[0]
+        po = validated_data["po"]
+        request = self.context.get("request")
+        received_by = validated_data.get("received_by") or (request.user if request else None)
+        delivery_note = validated_data.get("delivery_note_number", "")
+        remarks = validated_data.get("remarks", "")
 
-            if po_line:
-                qty_recv = Decimal(str(item_dict.get("quantity_received", po_line.quantity)))
-                qty_acc = Decimal(str(item_dict.get("quantity_accepted", qty_recv)))
-                qty_rej = qty_recv - qty_acc
-                ReceiptLine.objects.create(
-                    receipt=receipt,
-                    po_line=po_line,
-                    quantity_received=qty_recv,
-                    quantity_accepted=qty_acc,
-                    quantity_rejected=qty_rej,
-                    notes=item_dict.get("notes", ""),
-                )
-                po_line.quantity_received = (po_line.quantity_received or Decimal("0.00")) + qty_acc
-                po_line.save(update_fields=["quantity_received", "updated_at"])
-
-        from .services import _update_po_completion_status
-
-        _update_po_completion_status(po)
-        return receipt
+        try:
+            return create_goods_receipt_service(
+                po=po,
+                received_by=received_by,
+                receipt_items=lines_data,
+                delivery_note_number=delivery_note,
+                remarks=remarks,
+            )
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, "messages") else [str(e)]
+            raise serializers.ValidationError({"lines": msg})
 
 
 class GoodsReceiptPermission(IsAuthenticated):
@@ -143,9 +178,6 @@ class GoodsReceiptPermission(IsAuthenticated):
             request.user.role.code if hasattr(request.user, "role") and request.user.role else None
         )
 
-        if role_code == Role.VENDOR_USER:
-            return False
-
         if request.method in SAFE_METHODS:
             return role_code in [
                 Role.STORES_RECEIVER,
@@ -154,7 +186,11 @@ class GoodsReceiptPermission(IsAuthenticated):
                 Role.PROC_EXEC,
                 Role.PROC_MGR,
                 Role.FINANCE_AP,
+                Role.VENDOR_USER,
             ]
+
+        if role_code == Role.VENDOR_USER:
+            return False
 
         return role_code in [Role.STORES_RECEIVER, Role.SUPER_ADMIN]
 
@@ -167,6 +203,13 @@ class GoodsReceiptViewSet(viewsets.ModelViewSet):
     )
     serializer_class = GoodsReceiptSerializer
     permission_classes = [GoodsReceiptPermission]
+
+    def perform_destroy(self, instance):
+        if instance.status != GoodsReceipt.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                {"status": [f"Goods receipt in '{instance.status}' status cannot be deleted."]}
+            )
+        instance.delete()
 
     def get_queryset(self):
         user = self.request.user
@@ -249,19 +292,7 @@ class GoodsReceiptViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="handoff")
     def handoff(self, request, pk=None):
         receipt = self.get_object()
-        raw_location = request.data.get("storage_location")
-        storage_location = str(raw_location).strip() if raw_location is not None else ""
-        if not storage_location:
-            return Response(
-                {
-                    "error": {
-                        "code": "VALIDATION_ERROR",
-                        "message": "Storage location is required for stock handoff.",
-                        "details": {"storage_location": ["This field is required."]},
-                    }
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        storage_location = request.data.get("storage_location", "MAIN-WH")
         notes = request.data.get("handoff_notes", request.data.get("notes", ""))
         try:
             from .services import handoff_goods_to_stock_service

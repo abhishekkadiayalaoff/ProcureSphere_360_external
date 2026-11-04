@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Q
 from django.http import FileResponse
@@ -24,25 +25,84 @@ from apps.requisitions.services import (
 )
 
 
+def _resolve_requisition_layout(user, role_code):
+    """
+    Resolve base layout template for requisition views based on the authenticated user and role.
+    Super Admin and Admins render in layouts/superadmin_base.html so they remain inside the Admin workspace.
+    """
+    if getattr(user, "is_superuser", False) or role_code in [
+        Role.SUPER_ADMIN,
+        "SUPER_ADMIN",
+        "ADMIN",
+    ]:
+        return "layouts/superadmin_base.html"
+    if role_code in [Role.PROC_MGR, "PROC_MGR"]:
+        return "manager/base_manager.html"
+    if role_code in [Role.AUDITOR, "AUDITOR"]:
+        return "audit/base_auditor.html"
+    if role_code in [Role.LEGAL_MGR, "LEGAL_MGR"]:
+        return "layouts/legal_base.html"
+    if role_code in [Role.DEPT_APPROVER, Role.PROC_EXEC, "DEPT_APPROVER", "PROC_EXEC"]:
+        return "layouts/approver_base.html"
+    if role_code in [Role.FINANCE_AP, "FINANCE_AP"]:
+        return "layouts/finance_base.html"
+    if role_code in [Role.STORES_RECEIVER, "STORES_RECEIVER"]:
+        return "layouts/stores_base.html"
+    return "layouts/requester_base.html"
+
+
 @login_required(login_url="/login/")
 def list_view(request):
     user = request.user
     role_code = getattr(user, "role_code", None) or (
         user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
     )
+    if getattr(user, "is_vendor", False) or role_code == Role.VENDOR_USER:
+        from django.core.exceptions import PermissionDenied
+        raise PermissionDenied("Vendors are not permitted to view internal Purchase Requisitions.")
     search_q = request.GET.get("q", "").strip()
     status_filter = request.GET.get("status", "").strip()
+
+    if role_code == Role.VENDOR_USER:
+        from django.core.exceptions import PermissionDenied
+
+        raise PermissionDenied("Vendors are not permitted to view internal Purchase Requisitions.")
 
     if role_code == Role.REQUESTER:
         items = PurchaseRequisition.objects.filter(requester=user).order_by("-created_at")
     elif role_code == Role.DEPT_APPROVER:
         user_department = getattr(user, "department", None)
+        if not user_department:
+            managed_cc = (
+                CostCenter.objects.filter(manager=user)
+                .select_related("department")
+                .first()
+            )
+            if managed_cc and managed_cc.department:
+                user_department = managed_cc.department
+            elif getattr(user, "organization", None):
+                user_department = Department.objects.filter(
+                    organization=user.organization
+                ).first()
+
         if user_department:
-            items = PurchaseRequisition.objects.filter(department=user_department).order_by(
-                "-created_at"
+            items = (
+                PurchaseRequisition.objects.filter(
+                    Q(department=user_department) | Q(cost_center__manager=user)
+                )
+                .distinct()
+                .order_by("-created_at")
+            )
+        elif getattr(user, "organization", None):
+            items = (
+                PurchaseRequisition.objects.filter(
+                    Q(department__organization=user.organization) | Q(cost_center__manager=user)
+                )
+                .distinct()
+                .order_by("-created_at")
             )
         else:
-            items = PurchaseRequisition.objects.none()
+            items = PurchaseRequisition.objects.all().order_by("-created_at")
     else:
         items = PurchaseRequisition.objects.all().order_by("-created_at")
 
@@ -73,18 +133,25 @@ def list_view(request):
         else:
             items = items.filter(status=status_filter)
 
-    if role_code == Role.LEGAL_MGR or role_code == "LEGAL_MGR":
-        base_layout = "layouts/legal_base.html"
-    elif role_code in [Role.DEPT_APPROVER, Role.PROC_MGR]:
-        base_layout = "layouts/approver_base.html"
-    else:
-        base_layout = "layouts/requester_base.html"
+    # Pagination (10 items per page)
+    paginator = Paginator(items, 10)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    query_params = request.GET.copy()
+    if "page" in query_params:
+        query_params.pop("page")
+    querystring = query_params.urlencode()
+
+    base_layout = _resolve_requisition_layout(user, role_code)
 
     return render(
         request,
         "pages/requisitions/list.html",
         {
-            "items": items,
+            "items": page_obj,
+            "page_obj": page_obj,
+            "querystring": querystring,
             "role_code": role_code,
             "base_layout": base_layout,
             "search_q": search_q,
@@ -117,7 +184,7 @@ def create_view(request):
         cost_center_id = request.POST.get("cost_center")
         requested_delivery_date = request.POST.get("requested_delivery_date")
         attachments = request.FILES.getlist("attachments")
-        action_type = request.POST.get("action_type", "save_draft")
+        action_type = request.POST.get("action_type") or request.POST.get("submit_action", "save_draft")
 
         if not (
             title and justification and department_id and cost_center_id and requested_delivery_date
@@ -258,7 +325,7 @@ def create_view(request):
                 attachments=attachments,
             )
 
-            if action_type == "submit" or "submit" in request.POST:
+            if action_type in ["submit", "SUBMIT"] or "submit" in request.POST:
                 submit_purchase_requisition_service(requisition=pr, user=user)
                 if pr.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
                     messages.warning(
@@ -301,6 +368,8 @@ def create_view(request):
             "cost_centers": cost_centers,
             "user_assigned_cost_center": getattr(user, "cost_center", None),
             "today": timezone.now().date().isoformat(),
+            "role_code": role_code,
+            "base_layout": _resolve_requisition_layout(user, role_code),
         },
     )
 
@@ -466,6 +535,10 @@ def edit_view(request, pk):
         cost_centers = CostCenter.objects.all()
 
     cost_centers = _attach_available_budgets(cost_centers)
+    user = request.user
+    role_code = getattr(user, "role_code", None) or (
+        user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
+    )
 
     return render(
         request,
@@ -475,6 +548,8 @@ def edit_view(request, pk):
             "departments": departments,
             "cost_centers": cost_centers,
             "today": timezone.now().date().isoformat(),
+            "role_code": role_code,
+            "base_layout": _resolve_requisition_layout(user, role_code),
         },
     )
 
@@ -550,27 +625,56 @@ def detail_view(request, pk):
         )
     )
 
-    base_layout = (
-        "manager/base_manager.html"
-        if role_code == Role.PROC_MGR
-        else (
-            "audit/base_auditor.html"
-            if role_code == Role.AUDITOR
-            else (
-                "layouts/legal_base.html"
-                if role_code == Role.LEGAL_MGR
-                else (
-                    "layouts/approver_base.html"
-                    if role_code in [Role.DEPT_APPROVER, Role.PROC_EXEC]
-                    else (
-                        "layouts/finance_base.html"
-                        if role_code == Role.FINANCE_AP
-                        else "layouts/requester_base.html"
-                    )
-                )
-            )
-        )
+    from apps.approvals.models import ApprovalPolicy
+    from apps.approvals.services import evaluate_approval_chain
+
+    chain = evaluate_approval_chain(
+        module=ApprovalPolicy.MODULE_PR,
+        amount=pr.total_amount,
+        department=pr.department,
     )
+    existing_approvals = ApprovalAction.objects.filter(
+        target_object_id=str(pr.id),
+        target_model_name="PurchaseRequisition",
+        action=ApprovalAction.ACTION_APPROVE,
+    ).order_by("created_at")
+    current_step_index = existing_approvals.count()
+    user_has_approved = existing_approvals.filter(actor=user).exists()
+
+    can_approve = False
+    current_step_info = None
+
+    if pr.status in [
+        PurchaseRequisition.STATUS_SUBMITTED,
+        PurchaseRequisition.STATUS_MANAGER_REVIEW,
+    ]:
+        if user.is_superuser:
+            can_approve = True
+        elif chain and current_step_index < len(chain):
+            step_info = chain[current_step_index]
+            current_step_info = step_info
+            req_role = step_info["approver_role"]
+            specific_app = step_info["specific_approver"]
+            eff_app = step_info["effective_approver"]
+
+            if specific_app:
+                if user == eff_app or user == specific_app:
+                    can_approve = True
+            else:
+                approver_role_code = getattr(user.role, "code", None)
+                if (getattr(user, "role_id", None) == req_role.id) or (approver_role_code == req_role.code):
+                    if req_role.code == Role.DEPT_APPROVER and pr.department and user.department:
+                        if user.department == pr.department or (pr.cost_center and user == pr.cost_center.manager):
+                            can_approve = True
+                    else:
+                        can_approve = True
+        elif not chain and role_code in [Role.DEPT_APPROVER, Role.PROC_MGR, Role.SUPER_ADMIN]:
+            can_approve = not user_has_approved
+    elif pr.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
+        if role_code in [Role.FINANCE_AP, Role.SUPER_ADMIN] or user.is_superuser:
+            can_approve = True
+
+    base_layout = _resolve_requisition_layout(user, role_code)
 
     return render(
         request,
@@ -582,6 +686,9 @@ def detail_view(request, pk):
             "available_budget": available_budget,
             "is_budget_exceeded": is_budget_exceeded,
             "base_layout": base_layout,
+            "can_approve": can_approve,
+            "user_has_approved": user_has_approved,
+            "current_step_info": current_step_info,
         },
     )
 

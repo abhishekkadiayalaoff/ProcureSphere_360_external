@@ -289,11 +289,34 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
             Role.AUDITOR,
         ]:
             qs = self.queryset
-        elif role_code == Role.DEPT_APPROVER and user.department_id:
-            qs = self.queryset.filter(department_id=user.department_id)
+        elif role_code == Role.DEPT_APPROVER:
+            from django.db.models import Q
+            if user.department_id:
+                qs = self.queryset.filter(
+                    Q(department_id=user.department_id) | Q(cost_center__manager=user)
+                ).distinct()
+            elif getattr(user, "organization", None):
+                qs = self.queryset.filter(
+                    Q(department__organization=user.organization) | Q(cost_center__manager=user)
+                ).distinct()
+            else:
+                qs = self.queryset.all()
         else:
             # Requesters are strictly scoped to their own requisitions (prevents IDOR)
             qs = self.queryset.filter(requester=user)
+
+        # Filter by search
+        search_param = (
+            self.request.query_params.get("search", "").strip()
+            or self.request.query_params.get("q", "").strip()
+        )
+        if search_param:
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(pr_number__icontains=search_param)
+                | Q(title__icontains=search_param)
+                | Q(justification__icontains=search_param)
+            )
 
         # Filter by status
         status_param = self.request.query_params.get("status", "").strip().upper()
@@ -321,6 +344,21 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
                 "Only users with the Requester role can raise Purchase Requisitions."
             )
         serializer.save(requester=user)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.status != PurchaseRequisition.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                {"status": [f"Requisitions in '{instance.status}' status cannot be edited. Only DRAFT requisitions can be edited."]}
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.status != PurchaseRequisition.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                {"status": [f"Requisitions in '{instance.status}' status cannot be deleted."]}
+            )
+        instance.delete()
 
     @action(detail=True, methods=["post"], url_path="submit")
     def submit(self, request, pk=None):
@@ -352,11 +390,7 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
             )
         from apps.requisitions.services import approve_purchase_requisition_service
 
-        comments = str(request.data.get("comments", request.data.get("reason", ""))).strip()
-        if not comments:
-            raise serializers.ValidationError(
-                {"comments": "Approval comments / justification are mandatory."}
-            )
+        comments = request.data.get("comments", "")
         updated_pr = approve_purchase_requisition_service(
             requisition=pr, approver=user, comments=comments
         )
@@ -401,7 +435,11 @@ class PurchaseRequisitionViewSet(viewsets.ModelViewSet):
             raise permissions.exceptions.PermissionDenied(
                 "Only the original requester or a procurement manager can cancel this requisition."
             )
-        if pr.status != PurchaseRequisition.STATUS_DRAFT:
+        if pr.status in [
+            PurchaseRequisition.STATUS_PO_ISSUED,
+            PurchaseRequisition.STATUS_CANCELLED,
+            PurchaseRequisition.STATUS_SOURCING,
+        ]:
             raise serializers.ValidationError(
                 {"status": f"Cannot cancel requisition in '{pr.status}' status."}
             )

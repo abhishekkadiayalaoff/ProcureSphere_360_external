@@ -31,7 +31,8 @@ _is_test_env = (
     or any(arg == "test" for arg in sys.argv)
 )
 if env_file.exists() and not _is_test_env:
-    env.read_env(str(env_file))
+    is_docker = os.environ.get("DB_HOST") == "db" or os.path.exists("/.dockerenv")
+    env.read_env(str(env_file), overwrite=not is_docker)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
@@ -90,6 +91,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.core.middleware.VendorPortalIsolationMiddleware",
     "apps.accounts.middleware.PasswordChangeRequiredMiddleware",
     "apps.core.middleware.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -230,13 +232,13 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_BEAT_SCHEDULE = {
-    "test-beat-task-every-minute": {
-        "task": "apps.notifications.tasks.test_celery_beat_task",
-        "schedule": 60.0,  # every 60 seconds
-    },
     "sync-sourcing-bid-windows": {
         "task": "apps.sourcing.tasks.sync_sourcing_bid_windows_task",
-        "schedule": 300.0,  # every 5 minutes; views/services also sync on access
+        "schedule": 60.0,  # every 60 seconds; views/services also sync on access
+    },
+    "scan-contract-milestones-and-expirations": {
+        "task": "contracts.tasks.scan_contract_expirations_and_milestones",
+        "schedule": 3600.0,  # every hour
     },
     "scan-contract-expirations-and-milestones": {
         "task": "contracts.tasks.scan_contract_expirations_and_milestones",
@@ -245,6 +247,10 @@ CELERY_BEAT_SCHEDULE = {
     "scan-overdue-approvals-and-escalate": {
         "task": "notifications.tasks.scan_overdue_approvals_and_escalate",
         "schedule": 3600.0,  # hourly scan for approvals exceeding SLA turnaround
+    },
+    "scan-vendor-document-expirations": {
+        "task": "apps.vendors.tasks.scan_vendor_document_expirations_task",
+        "schedule": 86400.0,  # daily scan (runs every 24h)
     },
 }
 
@@ -292,3 +298,75 @@ VENDOR_PORTAL_LOGIN_URLS = env.list(
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
 BREVO_SENDER_EMAIL = env("BREVO_SENDER_EMAIL", default="no-reply@procuresphere.com")
 BREVO_SENDER_NAME = env("BREVO_SENDER_NAME", default="ProcureSphere 360")
+BREVO_SMTP_LOGIN = env("BREVO_SMTP_LOGIN", default="")
+EMAIL_FROM_ADDRESS = env("EMAIL_FROM", default="")
+EMAIL_FROM_NAME = env("EMAIL_FROM_NAME", default="")
+
+# An xsmtpsib key is Brevo's SMTP password. Use it when EMAIL_HOST_PASSWORD is empty.
+# SMTP login is the Brevo account email (EMAIL_HOST_USER, BREVO_SMTP_LOGIN, or EMAIL_FROM).
+if not EMAIL_HOST_PASSWORD and BREVO_API_KEY.startswith("xsmtpsib-"):
+    EMAIL_HOST_PASSWORD = BREVO_API_KEY
+if not EMAIL_HOST_USER:
+    if BREVO_SMTP_LOGIN:
+        EMAIL_HOST_USER = BREVO_SMTP_LOGIN
+    elif "@" in EMAIL_FROM_ADDRESS:
+        EMAIL_HOST_USER = EMAIL_FROM_ADDRESS
+    else:
+        EMAIL_HOST_USER = BREVO_SENDER_EMAIL
+if "localhost" in DEFAULT_FROM_EMAIL:
+    if "@" in EMAIL_FROM_ADDRESS:
+        sender_name = EMAIL_FROM_NAME or BREVO_SENDER_NAME
+        DEFAULT_FROM_EMAIL = f"{sender_name} <{EMAIL_FROM_ADDRESS}>"
+    else:
+        DEFAULT_FROM_EMAIL = f"{BREVO_SENDER_NAME} <{BREVO_SENDER_EMAIL}>"
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "apps": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "celery": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

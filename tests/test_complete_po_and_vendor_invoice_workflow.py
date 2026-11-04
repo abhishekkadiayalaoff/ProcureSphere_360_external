@@ -236,7 +236,7 @@ def test_complete_po_workflow_from_draft_to_payment(workflow_setup):
     assert invoice.status == SupplierInvoice.STATUS_READY_FOR_PAYMENT
 
     # --- Stage 11: Ready for Payment & Payment Recording ---
-    paid_invoice = mark_invoice_paid_service(invoice=invoice, user=finance_user)
+    paid_invoice = mark_invoice_paid_service(invoice=invoice, user=finance_user, payment_reference="PAY-2026-00110")
     assert paid_invoice.status == SupplierInvoice.STATUS_PAID
 
     data["budget"].refresh_from_db()

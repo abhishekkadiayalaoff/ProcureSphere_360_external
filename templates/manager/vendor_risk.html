@@ -274,7 +274,7 @@
 
                 <div class="mb-3">
                     <label class="form-label small fw-bold text-dark">Select New Governance Status <span class="text-danger">*</span></label>
-                    <select id="govTargetStatus" class="form-select">
+                    <select id="govTargetStatus" class="form-select" onchange="onGovTargetStatusChange()">
                         <option value="ACTIVE">ACTIVE — Full Bidding &amp; PO Authorization</option>
                         <option value="ON_HOLD">ON_HOLD — Restrict New Bids &amp; PO Issuance</option>
                         <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
@@ -282,16 +282,39 @@
                     </select>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-dark">Governance Reason / Audit Rationale <span class="text-danger">*</span></label>
-                    <textarea class="form-control" id="govReason" rows="3" placeholder="Provide governance rationale or compliance violation details..."></textarea>
+                <!-- Live Open Exposure Summary -->
+                <div id="govExposureBox" class="mb-3 p-3 bg-slate-50 border rounded-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="small text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Active Exposure at Transition</span>
+                        <span class="badge bg-secondary rounded-pill" id="govExposureBadge" style="font-size: 0.65rem;">Checking...</span>
+                    </div>
+                    <div class="d-flex flex-wrap gap-1 mb-2">
+                        <span class="badge bg-white text-dark border" id="govExpInvites">Invitations: 0</span>
+                        <span class="badge bg-white text-dark border" id="govExpBids">Bids: 0</span>
+                        <span class="badge bg-white text-dark border" id="govExpAwards">Awards: 0</span>
+                        <span class="badge bg-white text-dark border" id="govExpPOs">POs: 0</span>
+                    </div>
+                    <div id="govSuspendedWarning" class="alert alert-warning py-2 px-3 small mb-0 d-none" style="font-size: 0.75rem;">
+                        <i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i>
+                        <strong>Compliance Notice:</strong> This vendor has open transactions. They are not cancelled automatically; suspending this vendor blocks all new invitations, bids, awards, and PO issuance.
+                    </div>
                 </div>
 
-                <div class="d-flex justify-content-end gap-2 pt-2">
-                    <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm" id="govSubmitBtn" onclick="submitVendorGovernance()">
-                        Update Status
-                    </button>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark">Governance Reason / Audit Rationale <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="govReason" rows="3" placeholder="Provide governance rationale or compliance violation details (e.g., Confirmed sanctions match)..."></textarea>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center pt-2">
+                    <a id="govViewDetailLink" href="#" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Full File
+                    </a>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm" id="govSubmitBtn" onclick="submitVendorGovernance()">
+                            Update Status
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -436,7 +459,10 @@
                     </div>
                 </div>
             </div>
-            <div class="modal-footer bg-slate-50 px-4 py-3">
+            <div class="modal-footer bg-slate-50 px-4 py-3 d-flex justify-content-between align-items-center">
+                <a id="dossierFullDetailLink" href="#" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                    <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Open Full Governance File
+                </a>
                 <button type="button" class="btn btn-light btn-sm rounded-pill px-4" data-bs-dismiss="modal">Close Dossier</button>
             </div>
         </div>
@@ -690,9 +716,9 @@
             return `
                 <tr>
                     <td class="ps-4">
-                        <div class="fw-bold text-dark">${v.legal_name}</div>
+                        <a href="/vendors/${v.id}/" class="fw-bold text-dark text-decoration-none hover-primary">${v.legal_name}</a>
                         <div class="d-flex align-items-center gap-2 mt-1">
-                            <span class="badge bg-slate-100 text-dark border font-monospace" style="font-size: 0.65rem;">${v.vendor_number}</span>
+                            <a href="/vendors/${v.id}/" class="badge bg-slate-100 text-dark border font-monospace text-decoration-none" style="font-size: 0.65rem;" title="View Governance Detail">${v.vendor_number}</a>
                             <span class="text-muted small" style="font-size: 0.7rem;">TIN: ${v.tax_identification_number}</span>
                         </div>
                     </td>
@@ -719,13 +745,13 @@
                     </td>
                     <td class="pe-4 text-end">
                         <div class="d-inline-flex gap-1">
-                            <button onclick="openDossierModal('${v.id}')" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" title="View Supplier Dossier">
+                            <button type="button" onclick="openDossierModal('${v.id}')" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-1" title="View Supplier Dossier">
                                 <i class="fa-solid fa-folder-open me-1"></i> Dossier
                             </button>
-                            <button onclick="openRiskModal('${v.id}', '${v.legal_name}', '${v.vendor_number}', '${v.current_risk_level || 'LOW'}', '${v.status}')" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Assess Risk Level">
+                            <button type="button" onclick="openRiskModal('${v.id}', '${v.legal_name}', '${v.vendor_number}', '${v.current_risk_level || 'LOW'}', '${v.status}')" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Assess Risk Level">
                                 <i class="fa-solid fa-triangle-exclamation"></i>
                             </button>
-                            <button onclick="openGovernanceModal('${v.id}', '${v.legal_name}', '${v.status}')" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1" title="Change Governance Status">
+                            <button type="button" onclick="openGovernanceModal('${v.id}', '${v.legal_name}', '${v.status}')" class="btn btn-sm btn-outline-warning rounded-pill px-2 py-1" title="Change Governance Status">
                                 <i class="fa-solid fa-sliders"></i>
                             </button>
                         </div>
@@ -787,6 +813,21 @@
         renderVendorTable();
     }
 
+
+    function openModalSafely(modalEl) {
+        if (!modalEl || !window.bootstrap) return;
+        const scrollY = window.scrollY || document.documentElement.scrollTop;
+        const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl, {
+            focus: false,
+            backdrop: true,
+            keyboard: true
+        });
+        modalInst.show();
+        requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, behavior: 'instant' });
+        });
+    }
+
     function openRiskModal(vendorId, vendorName, vendorNumber, currentRisk, currentStatus) {
         document.getElementById('riskVendorId').value = vendorId;
         document.getElementById('riskModalVendorName').textContent = vendorName;
@@ -836,9 +877,7 @@
         }
 
         const modalEl = document.getElementById('vendorRiskModal');
-        if (modalEl && window.bootstrap) {
-            new bootstrap.Modal(modalEl).show();
-        }
+        openModalSafely(modalEl);
     }
 
     async function submitVendorRiskAssessment() {
@@ -887,50 +926,95 @@
         }
     }
 
-    function openGovernanceModal(vendorId, vendorName, currentStatus) {
+    let currentGovExposure = null;
+
+    async function openGovernanceModal(vendorId, vendorName, currentStatus) {
         document.getElementById('govVendorId').value = vendorId;
         document.getElementById('govVendorName').textContent = vendorName;
         document.getElementById('govCurrentStatus').textContent = currentStatus;
         document.getElementById('govReason').value = '';
 
+        const detailLink = document.getElementById('govViewDetailLink');
+        if (detailLink) detailLink.href = `/vendors/${vendorId}/`;
+
         const selectEl = document.getElementById('govTargetStatus');
         if (selectEl) {
-            if (['DRAFT', 'SUBMITTED', 'KYC_REVIEW'].includes(currentStatus)) {
+            if (['DRAFT', 'SUBMITTED', 'KYC_REVIEW', 'CHANGES_REQUIRED'].includes(currentStatus)) {
                 selectEl.innerHTML = `
-                    <option value="ACTIVE" selected>ACTIVE — Approve & Authorize Supplier</option>
+                    <option value="SUSPENDED" selected>SUSPENDED — Suspend / Blacklist Supplier</option>
+                    <option value="ACTIVE">ACTIVE — Approve &amp; Authorize Supplier</option>
+                    <option value="ON_HOLD">ON_HOLD — Restrict New Bids &amp; PO Issuance</option>
                     <option value="REJECTED">REJECTED — Reject Qualification</option>
                 `;
             } else if (currentStatus === 'ACTIVE') {
                 selectEl.innerHTML = `
-                    <option value="ON_HOLD" selected>ON_HOLD — Restrict New Bids & PO Issuance</option>
-                    <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="SUSPENDED" selected>SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="ON_HOLD">ON_HOLD — Restrict New Bids &amp; PO Issuance</option>
                 `;
             } else if (currentStatus === 'ON_HOLD') {
                 selectEl.innerHTML = `
-                    <option value="ACTIVE" selected>ACTIVE — Release Hold & Reinstate Authorization</option>
+                    <option value="ACTIVE" selected>ACTIVE — Release Hold &amp; Reinstate Authorization</option>
                     <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
                 `;
             } else if (currentStatus === 'SUSPENDED') {
                 selectEl.innerHTML = `
                     <option value="ACTIVE" selected>ACTIVE — Reinstate Supplier Authorization</option>
+                    <option value="ON_HOLD">ON_HOLD — Move to Administrative Hold</option>
                 `;
             } else if (currentStatus === 'REJECTED') {
                 selectEl.innerHTML = `
-                    <option value="ACTIVE" selected>ACTIVE — Reconsider & Approve Supplier</option>
+                    <option value="SUSPENDED" selected>SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="ACTIVE">ACTIVE — Reconsider &amp; Approve Supplier</option>
                 `;
             } else {
                 selectEl.innerHTML = `
-                    <option value="ACTIVE" selected>ACTIVE — Full Bidding & PO Authorization</option>
-                    <option value="ON_HOLD">ON_HOLD — Restrict New Bids & PO Issuance</option>
-                    <option value="SUSPENDED">SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="SUSPENDED" selected>SUSPENDED — Complete Supplier Blacklist</option>
+                    <option value="ACTIVE">ACTIVE — Full Bidding &amp; PO Authorization</option>
+                    <option value="ON_HOLD">ON_HOLD — Restrict New Bids &amp; PO Issuance</option>
                     <option value="REJECTED">REJECTED — Rejected Qualification</option>
                 `;
             }
         }
 
+        // Reset exposure box
+        document.getElementById('govExposureBadge').textContent = 'Loading...';
+        document.getElementById('govExpInvites').textContent = 'Invitations: ...';
+        document.getElementById('govExpBids').textContent = 'Bids: ...';
+        document.getElementById('govExpAwards').textContent = 'Awards: ...';
+        document.getElementById('govExpPOs').textContent = 'POs: ...';
+        document.getElementById('govSuspendedWarning').classList.add('d-none');
+
         const modalEl = document.getElementById('vendorGovernanceModal');
-        if (modalEl && window.bootstrap) {
-            new bootstrap.Modal(modalEl).show();
+        openModalSafely(modalEl);
+
+        // Fetch live open exposure
+        try {
+            const expRes = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/exposure/`);
+            if (expRes && expRes.exposure) {
+                currentGovExposure = expRes.exposure;
+                const exp = expRes.exposure;
+                const totalActive = (exp.open_invitations || 0) + (exp.open_bids || 0) + (exp.pending_awards || 0) + (exp.open_pos || 0);
+                document.getElementById('govExposureBadge').textContent = totalActive > 0 ? `${totalActive} active items` : 'Zero active exposure';
+                document.getElementById('govExposureBadge').className = totalActive > 0 ? 'badge bg-warning text-dark rounded-pill' : 'badge bg-success rounded-pill';
+                document.getElementById('govExpInvites').textContent = `Invitations: ${exp.open_invitations || 0}`;
+                document.getElementById('govExpBids').textContent = `Bids: ${exp.open_bids || 0}`;
+                document.getElementById('govExpAwards').textContent = `Awards: ${exp.pending_awards || 0}`;
+                document.getElementById('govExpPOs').textContent = `POs: ${exp.open_pos || 0}`;
+                onGovTargetStatusChange();
+            }
+        } catch (e) {
+            document.getElementById('govExposureBadge').textContent = 'Live check unavailable';
+        }
+    }
+
+    function onGovTargetStatusChange() {
+        const targetStatus = document.getElementById('govTargetStatus')?.value;
+        const warningEl = document.getElementById('govSuspendedWarning');
+        if (!warningEl) return;
+        if (targetStatus === 'SUSPENDED') {
+            warningEl.classList.remove('d-none');
+        } else {
+            warningEl.classList.add('d-none');
         }
     }
 
@@ -985,6 +1069,9 @@
         }
 
         if (!vendor) return;
+
+        const fullDetailLink = document.getElementById('dossierFullDetailLink');
+        if (fullDetailLink) fullDetailLink.href = `/vendors/${vendor.id}/`;
 
         document.getElementById('dossierVendorName').textContent = vendor.legal_name;
         document.getElementById('dossierVendorNumber').textContent = vendor.vendor_number;
@@ -1075,9 +1162,7 @@
 
         // Show Modal
         const modalEl = document.getElementById('vendorDossierModal');
-        if (modalEl && window.bootstrap) {
-            new bootstrap.Modal(modalEl).show();
-        }
+        openModalSafely(modalEl);
     }
 </script>
 {% endblock manager_content %}

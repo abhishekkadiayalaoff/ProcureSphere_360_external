@@ -1,6 +1,7 @@
 import os
 
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.http import FileResponse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -10,10 +11,18 @@ from rest_framework.response import Response
 
 from apps.audit.models import AuditLog
 
-from .models import Contract, ContractDocument, ContractMilestone, ContractObligation
-from .permissions import CanManageContract, CanViewContract, IsLegalManager, IsNotAuditor
+from .models import Contract, ContractAlert, ContractDocument, ContractMilestone, ContractObligation
+from .permissions import (
+    CanBusinessApproveContract,
+    CanManageContract,
+    CanRenewOrTerminateContract,
+    CanViewContract,
+    IsLegalManager,
+    IsNotAuditor,
+)
 from .selectors import get_contracts_qs
 from .serializers import (
+    ContractAlertSerializer,
     ContractDocumentSerializer,
     ContractMilestoneSerializer,
     ContractObligationSerializer,
@@ -80,6 +89,21 @@ class ContractViewSet(viewsets.ModelViewSet):
         )
         serializer.instance = contract
 
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        if instance.status != Contract.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                {"status": [f"Contracts in '{instance.status}' status cannot be edited directly. Use contract amendment versioning."]}
+            )
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.status != Contract.STATUS_DRAFT:
+            raise serializers.ValidationError(
+                {"status": [f"Contracts in '{instance.status}' status cannot be deleted. Terminate or archive the contract instead."]}
+            )
+        instance.delete()
+
     @action(detail=True, methods=["post"], url_path="submit-legal")
     def submit_legal(self, request, pk=None):
         contract = self.get_object()
@@ -140,7 +164,12 @@ class ContractViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=True, methods=["post"], url_path="business-approve")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="business-approve",
+        permission_classes=[IsAuthenticated, CanBusinessApproveContract],
+    )
     def business_approve(self, request, pk=None):
         contract = self.get_object()
         notes = request.data.get("notes", "")
@@ -316,7 +345,12 @@ class ContractViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=True, methods=["post"], url_path="renew")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="renew",
+        permission_classes=[IsAuthenticated, CanRenewOrTerminateContract],
+    )
     def renew(self, request, pk=None):
         contract = self.get_object()
         new_end_date = request.data.get("new_end_date")
@@ -342,7 +376,12 @@ class ContractViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-    @action(detail=True, methods=["post"], url_path="terminate")
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="terminate",
+        permission_classes=[IsAuthenticated, CanRenewOrTerminateContract],
+    )
     def terminate(self, request, pk=None):
         contract = self.get_object()
         reason = request.data.get("reason", "")
@@ -440,4 +479,31 @@ class ContractViewSet(viewsets.ModelViewSet):
             open(document.file.path, "rb"),
             as_attachment=True,
             filename=os.path.basename(document.file.name),
+        )
+
+    @action(detail=False, methods=["get"], url_path="alerts")
+    def alerts(self, request):
+        """List all contract alerts across all contracts visible to the user."""
+        contract_ids = self.get_queryset().values_list("id", flat=True)
+        alerts_qs = ContractAlert.objects.filter(contract_id__in=contract_ids).order_by("-triggered_at")
+        return Response(
+            ContractAlertSerializer(alerts_qs, many=True).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["get"], url_path="renewals")
+    def renewals(self, request):
+        """List contracts in RENEWAL_DUE status or within their renewal notice window."""
+        from django.utils import timezone
+        today = timezone.now().date()
+        qs = self.get_queryset().filter(
+            models.Q(status=Contract.STATUS_RENEWAL_DUE)
+            | models.Q(
+                status=Contract.STATUS_ACTIVE,
+                end_date__lte=today + timezone.timedelta(days=90),
+            )
+        ).order_by("end_date")
+        return Response(
+            ContractSerializer(qs, many=True).data,
+            status=status.HTTP_200_OK,
         )

@@ -1,18 +1,99 @@
+<div id="panel-amendments-content">
 {% if amendments %}
-<div class="table-responsive"><table class="table table-sm align-middle small mb-0">
-    <thead class="table-light"><tr><th>#</th><th>Reason</th><th>Requested by</th><th>Date</th><th class="text-end">Prior snapshot</th></tr></thead>
-    <tbody>
-    {% for a in amendments %}
-        <tr>
-            <td class="fw-bold">{{ a.amendment_number }}</td>
-            <td>{{ a.reason|truncatechars:120 }}</td>
-            <td>{{ a.requested_by.email|default:"—" }}</td>
-            <td class="text-nowrap">{{ a.created_at|date:"Y-m-d H:i" }}</td>
-            <td class="text-end"><code class="small">V{{ a.previous_version_snapshot.version }} · ${{ a.previous_version_snapshot.total_amount }}</code></td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table></div>
+<div class="table-responsive">
+    <table class="table table-sm align-middle small mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>Status</th>
+                <th>Reason</th>
+                <th>Delta Amount</th>
+                <th>Requested By</th>
+                <th>Reviewed By</th>
+                <th>Date</th>
+                <th class="text-end">Prior Snapshot</th>
+                {% if role_code == "PROC_MGR" or role_code == "SUPER_ADMIN" %}
+                <th class="text-end">Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+        {% for a in amendments %}
+            <tr>
+                <td class="fw-bold">#{{ a.amendment_number }}</td>
+                <td>
+                    {% if a.status == "APPROVED" %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Approved</span>
+                    {% elif a.status == "REJECTED" %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill" title="{{ a.rejection_reason }}">Rejected</span>
+                    {% else %}
+                        <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill">Pending Approval</span>
+                    {% endif %}
+                </td>
+                <td>{{ a.reason|truncatechars:100 }}</td>
+                <td>
+                    {% if a.delta_amount > 0 %}
+                        <span class="text-success fw-semibold">+${{ a.delta_amount|floatformat:2 }}</span>
+                    {% elif a.delta_amount < 0 %}
+                        <span class="text-danger fw-semibold">-${{ a.delta_amount|floatformat:2|slice:"1:" }}</span>
+                    {% else %}
+                        <span class="text-muted">$0.00</span>
+                    {% endif %}
+                </td>
+                <td>{{ a.requested_by.email|default:"—" }}</td>
+                <td>
+                    {% if a.approved_by %}
+                        <span class="small">{{ a.approved_by.email }}</span>
+                    {% else %}
+                        <span class="text-muted">—</span>
+                    {% endif %}
+                </td>
+                <td class="text-nowrap">{{ a.created_at|date:"Y-m-d H:i" }}</td>
+                <td class="text-end">
+                    <code class="small">V{{ a.previous_version_snapshot.version }} · ${{ a.previous_version_snapshot.total_amount }}</code>
+                </td>
+                {% if role_code == "PROC_MGR" or role_code == "SUPER_ADMIN" %}
+                <td class="text-end">
+                    {% if a.status == "PENDING" %}
+                    <div class="btn-group btn-group-sm">
+                        <form method="post" action="{% url 'order_amendment_approve' po.id a.id %}" class="d-inline"
+                              hx-post="{% url 'order_amendment_approve' po.id a.id %}"
+                              hx-target="#panel-amendments-content" hx-swap="outerHTML">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success" title="Approve Amendment">
+                                <i class="fa-solid fa-check me-1"></i>Approve
+                            </button>
+                        </form>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-1"
+                                onclick="document.getElementById('reject-form-{{ a.id }}').classList.toggle('d-none')"
+                                title="Reject Amendment">
+                            <i class="fa-solid fa-xmark me-1"></i>Reject
+                        </button>
+                    </div>
+                    <form id="reject-form-{{ a.id }}" method="post" action="{% url 'order_amendment_reject' po.id a.id %}"
+                          hx-post="{% url 'order_amendment_reject' po.id a.id %}"
+                          hx-target="#panel-amendments-content" hx-swap="outerHTML"
+                          class="d-none mt-2 text-start p-2 border rounded bg-light">
+                        {% csrf_token %}
+                        <div class="mb-1">
+                            <label class="form-label small fw-semibold text-danger mb-0">Rejection Reason *</label>
+                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="Reason for rejection..." required>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-sm btn-danger">Confirm Rejection</button>
+                        </div>
+                    </form>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% else %}
 <p class="text-muted small mb-0">No amendments recorded. The PO is at its original version.</p>
 {% endif %}
+</div>

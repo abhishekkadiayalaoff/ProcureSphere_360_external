@@ -327,13 +327,30 @@ class TestBidWindowAndDeadline:
             )
 
     def test_close_before_deadline_rejected_and_auto_closure_after(self, procurement_world):
-        event = open_event(procurement_world)
-        with pytest.raises(ValidationError, match="before the deadline"):
-            svc.close_bid_window_service(event=event, user=procurement_world["exec"])
-        expire(event)
+        # 1. Automatic closure when deadline expires
+        event_auto = open_event(procurement_world)
+        expire(event_auto)
         assert svc.sync_all_event_windows() == 1
-        event.refresh_from_db()
-        assert event.status == SourcingEvent.STATUS_TECHNICAL_REVIEW
+        event_auto.refresh_from_db()
+        assert event_auto.status == SourcingEvent.STATUS_TECHNICAL_REVIEW
+
+        # 2. Manual close by procurement executive before deadline
+        event_manual = open_event(procurement_world)
+        assert event_manual.status == SourcingEvent.STATUS_BID_WINDOW
+        assert not event_manual.bids_visible_to_evaluators
+        closed_event = svc.close_bid_window_service(event=event_manual, user=procurement_world["exec"])
+        closed_event.refresh_from_db()
+        assert closed_event.status == SourcingEvent.STATUS_TECHNICAL_REVIEW
+        assert closed_event.bids_visible_to_evaluators
+        assert AuditLog.objects.filter(
+            target_model="SourcingEvent",
+            target_object_id=str(closed_event.id),
+            actor=procurement_world["exec"],
+        ).exists()
+
+        # 3. Closing an event that is not in BID_WINDOW raises ValidationError
+        with pytest.raises(ValidationError, match="not open"):
+            svc.close_bid_window_service(event=closed_event, user=procurement_world["exec"])
 
     def test_celery_task_closes_expired_windows_with_run_evidence(self, procurement_world):
         from apps.sourcing.tasks import sync_sourcing_bid_windows_task
@@ -834,3 +851,32 @@ class TestSourcingPages:
         res = client.get("/")
         assert res.status_code == 200
         assert res.context["sourcing"]["awarded"] == 1
+
+    def test_close_bid_window_action_via_post_and_modal_render(self, client, procurement_world):
+        w = procurement_world
+        event = open_event(w)
+        client.force_login(w["exec"])
+
+        # Check that both sourcing detail and dedicated monitor pages render the button and modal
+        res_detail = client.get(f"/sourcing-events/{event.id}/")
+        assert res_detail.status_code == 200
+        content_detail = res_detail.content.decode()
+        assert "closeBidWindowModal" in content_detail
+        assert "Close Bid Window" in content_detail
+
+        res = client.get(f"/sourcing-events/{event.id}/bid-portal/")
+        assert res.status_code == 200
+        content = res.content.decode()
+        assert "closeBidWindowModal" in content
+        assert "Close Bid Window" in content
+
+        # Submit POST action to close bidding (the modal form submission) with next URL
+        res_post = client.post(
+            f"/sourcing-events/{event.id}/actions/close/",
+            {"next": f"/sourcing-events/{event.id}/"},
+            follow=True,
+        )
+        assert res_post.status_code == 200
+        event.refresh_from_db()
+        assert event.status == SourcingEvent.STATUS_TECHNICAL_REVIEW
+        assert event.bids_visible_to_evaluators

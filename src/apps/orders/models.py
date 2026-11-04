@@ -13,6 +13,7 @@ class PurchaseOrder(TimeStampedModel):
     STATUS_PARTIAL_RECEIPT = "PARTIAL_RECEIPT"
     STATUS_COMPLETED = "COMPLETED"
     STATUS_CANCELLED = "CANCELLED"
+    STATUS_AMENDMENT_PENDING = "AMENDMENT_PENDING"
 
     STATUS_CHOICES = [
         (STATUS_DRAFT, "Draft"),
@@ -22,6 +23,7 @@ class PurchaseOrder(TimeStampedModel):
         (STATUS_PARTIAL_RECEIPT, "Partial Receipt"),
         (STATUS_COMPLETED, "Completed"),
         (STATUS_CANCELLED, "Cancelled"),
+        (STATUS_AMENDMENT_PENDING, "Amendment Pending Approval"),
     ]
 
     po_number = models.CharField(max_length=50, unique=True)
@@ -45,15 +47,23 @@ class PurchaseOrder(TimeStampedModel):
         related_name="purchase_orders",
     )
     cost_center = models.ForeignKey(
-        "organization.CostCenter", on_delete=models.PROTECT, related_name="purchase_orders"
+        "organization.CostCenter",
+        on_delete=models.PROTECT,
+        related_name="purchase_orders",
     )
 
     status = models.CharField(
         max_length=50, choices=STATUS_CHOICES, default=STATUS_DRAFT, db_index=True
     )
-    subtotal = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    tax_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
-    total_amount = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
+    subtotal = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00")
+    )
+    tax_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00")
+    )
+    total_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00")
+    )
 
     terms_and_conditions = models.TextField(blank=True)
     acknowledged_at = models.DateTimeField(null=True, blank=True)
@@ -71,7 +81,9 @@ class PurchaseOrder(TimeStampedModel):
 
 
 class POLine(TimeStampedModel):
-    po = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="lines")
+    po = models.ForeignKey(
+        PurchaseOrder, on_delete=models.CASCADE, related_name="lines"
+    )
     item_description = models.CharField(max_length=255)
     quantity = models.DecimalField(max_digits=12, decimal_places=2)
     quantity_received = models.DecimalField(
@@ -87,35 +99,85 @@ class POLine(TimeStampedModel):
 
     @property
     def remaining_quantity(self):
-        return max(Decimal("0.00"), self.quantity - (self.quantity_received or Decimal("0.00")))
+        return max(
+            Decimal("0.00"), self.quantity - (self.quantity_received or Decimal("0.00"))
+        )
 
     def __str__(self):
         return f"{self.item_description} (Qty: {self.quantity}, Recv: {self.quantity_received})"
 
 
 class POAmendment(TimeStampedModel):
-    po = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name="amendments")
+    STATUS_PENDING = "PENDING"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_REJECTED = "REJECTED"
+
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending Approval"),
+        (STATUS_APPROVED, "Approved"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    po = models.ForeignKey(
+        PurchaseOrder, on_delete=models.CASCADE, related_name="amendments"
+    )
     amendment_number = models.PositiveIntegerField()
     reason = models.TextField()
     previous_version_snapshot = models.JSONField(
         help_text="Immutable JSON snapshot of PO prior to change order"
     )
-    requested_by = models.ForeignKey(
-        "accounts.User", on_delete=models.PROTECT, related_name="requested_po_amendments"
+    pending_line_items = models.JSONField(
+        default=list,
+        help_text="Proposed line item changes awaiting approval",
     )
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True
+    )
+    requested_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.PROTECT,
+        related_name="requested_po_amendments",
+    )
+    status = models.CharField(
+        max_length=30, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True
+    )
+    delta_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=Decimal("0.00")
+    )
+    pending_line_items = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Proposed line item changes awaiting approval",
+    )
+    proposed_changes = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Proposed changes to POLine items before approval",
+    )
+    approved_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="approved_po_amendments",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, default="")
 
     class Meta:
         unique_together = ("po", "amendment_number")
 
     def __str__(self):
-        return f"Amendment #{self.amendment_number} for {self.po.po_number}"
+        return f"Amendment #{self.amendment_number} ({self.status}) for {self.po.po_number}"
 
 
 class DeliverySchedule(TimeStampedModel):
     po = models.ForeignKey(
         PurchaseOrder, on_delete=models.CASCADE, related_name="delivery_schedules"
     )
-    po_line = models.ForeignKey(POLine, on_delete=models.CASCADE, related_name="schedules")
+    po_line = models.ForeignKey(
+        POLine, on_delete=models.CASCADE, related_name="schedules"
+    )
     expected_delivery_date = models.DateField()
     quantity_expected = models.DecimalField(max_digits=12, decimal_places=2)
     destination_address = models.TextField(blank=True)

@@ -5,7 +5,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role
-from apps.orders.models import PurchaseOrder
+from apps.orders.models import POAmendment, PurchaseOrder
+from apps.orders.selectors import scope_purchase_orders_queryset
 
 from .forms import POAmendForm
 
@@ -20,53 +21,58 @@ RECEIVABLE_PO_STATUSES = [
 def list_view(request):
     user = request.user
     role_code = getattr(user, "role_code", None) or (
-        user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
+        user.role.code if hasattr(user, "role") and user.role else None
     )
 
+    if role_code == Role.VENDOR_USER:
+        raise PermissionDenied("Vendors must access purchase orders via the Vendor Portal (/vendor/purchase-orders/).")
+
+    scoped_qs = scope_purchase_orders_queryset(PurchaseOrder.objects.all(), user)
     if role_code == Role.STORES_RECEIVER:
         # Stores / Receiver sees only POs eligible for receiving
         items = (
-            PurchaseOrder.objects.filter(status__in=RECEIVABLE_PO_STATUSES)
-            .select_related("vendor", "cost_center")
-            .prefetch_related("lines")
-            .order_by("-created_at")
-        )
-    elif role_code == Role.VENDOR_USER and getattr(user, "vendor", None):
-        items = (
-            PurchaseOrder.objects.filter(vendor=user.vendor)
+            scoped_qs.filter(status__in=RECEIVABLE_PO_STATUSES)
             .select_related("vendor", "cost_center")
             .prefetch_related("lines")
             .order_by("-created_at")
         )
     else:
         items = (
-            PurchaseOrder.objects.all()
+            scoped_qs
             .select_related("vendor", "cost_center")
             .prefetch_related("lines")
             .order_by("-created_at")
         )
 
+    context = {
+        "items": items,
+        "role_code": role_code,
+        "is_stores_receiver": role_code == Role.STORES_RECEIVER,
+        "receivable_statuses": RECEIVABLE_PO_STATUSES,
+    }
+    if role_code == Role.SUPER_ADMIN or getattr(user, "is_superuser", False):
+        context["base_layout"] = "base.html"
+
     return render(
         request,
         "pages/orders/list.html",
-        {
-            "items": items,
-            "role_code": role_code,
-            "is_stores_receiver": role_code == Role.STORES_RECEIVER,
-            "receivable_statuses": RECEIVABLE_PO_STATUSES,
-        },
+        context,
     )
 
 
 @login_required(login_url="/login/")
 def detail_view(request, pk):
+    from django.core.exceptions import PermissionDenied
     user = request.user
     role_code = getattr(user, "role_code", None) or (
-        user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
+        user.role.code if hasattr(user, "role") and user.role else None
     )
 
+    if role_code is None and not user.is_superuser:
+        raise PermissionDenied("No role assigned. Contact your administrator.")
+
     po = get_object_or_404(
-        PurchaseOrder.objects.select_related(
+        scope_purchase_orders_queryset(PurchaseOrder.objects.all(), user).select_related(
             "vendor", "cost_center", "requisition", "acknowledged_by"
         ).prefetch_related(
             "lines",
@@ -86,18 +92,14 @@ def detail_view(request, pk):
         )
         return redirect("orders_list")
 
-    # Scoping check: Vendor portal user can only view their own POs
-    if (
-        role_code == Role.VENDOR_USER
-        and getattr(user, "vendor", None)
-        and po.vendor_id != user.vendor_id
-    ):
-        messages.error(request, "You do not have permission to view this purchase order.")
-        return redirect("orders_list")
+    if role_code == Role.VENDOR_USER:
+        raise PermissionDenied("Vendors must access purchase orders via the Vendor Portal (/vendor/purchase-orders/).")
 
     lines = po.lines.all()
     delivery_schedules = po.delivery_schedules.select_related("po_line").all()
-    amendments = po.amendments.select_related("requested_by").order_by("-amendment_number")
+    amendments = po.amendments.select_related("requested_by").order_by(
+        "-amendment_number"
+    )
     can_amend = role_code in (Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN) or (
         user.is_superuser
     )
@@ -130,7 +132,9 @@ def _require_po_execute(user):
     if user.is_superuser:
         return
     if role_code not in (Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN):
-        raise PermissionDenied("Purchase order execution is restricted to procurement roles.")
+        raise PermissionDenied(
+            "Purchase order execution is restricted to procurement roles."
+        )
 
 
 def _is_htmx(request):
@@ -162,7 +166,9 @@ def awards_pending_po_tab_view(request):
         .prefetch_related("award_decisions__winning_bid__vendor")
         .order_by("-updated_at")
     )
-    return render(request, "orders/partials/htmx_awards_pending.html", {"pending": pending})
+    return render(
+        request, "orders/partials/htmx_awards_pending.html", {"pending": pending}
+    )
 
 
 @login_required(login_url="/login/")
@@ -175,7 +181,9 @@ def po_generate_from_award_htmx_view(request, event_id):
 
     event = get_object_or_404(SourcingEvent, pk=event_id)
     try:
-        po = sourcing_services.generate_po_from_award_service(event=event, user=request.user)
+        po = sourcing_services.generate_po_from_award_service(
+            event=event, user=request.user
+        )
     except ValidationError as exc:
         messages.error(request, " ".join(exc.messages))
         if _is_htmx(request):
@@ -186,10 +194,14 @@ def po_generate_from_award_htmx_view(request, event_id):
                 status=400,
             )
         return redirect("evaluation_event", event_id=event.id)
-    messages.success(request, f"Purchase Order {po.po_number} generated from the award.")
+    messages.success(
+        request, f"Purchase Order {po.po_number} generated from the award."
+    )
     if _is_htmx(request):
         response = render(
-            request, "orders/partials/htmx_action_result.html", {"success": True, "po": po}
+            request,
+            "orders/partials/htmx_action_result.html",
+            {"success": True, "po": po},
         )
         response["HX-Trigger"] = "po-generated"
         return response
@@ -201,7 +213,9 @@ def po_amend_modal_view(request, pk):
     """HTMX modal: GET shows reason + line edits; POST calls amend_purchase_order_service."""
     _require_po_execute(request.user)
     po = get_object_or_404(
-        PurchaseOrder.objects.select_related("vendor", "cost_center").prefetch_related("lines"),
+        PurchaseOrder.objects.select_related("vendor", "cost_center").prefetch_related(
+            "lines"
+        ),
         pk=pk,
     )
     if po.status == PurchaseOrder.STATUS_CANCELLED:
@@ -241,8 +255,8 @@ def po_amend_modal_view(request, pk):
                 )
             messages.success(
                 request,
-                f"PO {po.po_number} amended to V{po.version} "
-                f"(Amendment #{amendment.amendment_number}). Prior version preserved.",
+                f"PO Amendment #{amendment.amendment_number} requested for {po.po_number}. "
+                "The order is in AMENDMENT_PENDING status awaiting manager approval.",
             )
             if _is_htmx(request):
                 response = render(
@@ -254,11 +268,47 @@ def po_amend_modal_view(request, pk):
                 return response
             return redirect("order_detail", pk=po.id)
         return render(
-            request, "orders/partials/htmx_amend_modal.html", _modal_context(form), status=400
+            request,
+            "orders/partials/htmx_amend_modal.html",
+            _modal_context(form),
+            status=400,
         )
     return render(
-        request, "orders/partials/htmx_amend_modal.html", _modal_context(POAmendForm(po=po))
+        request,
+        "orders/partials/htmx_amend_modal.html",
+        _modal_context(POAmendForm(po=po)),
     )
+
+
+@login_required(login_url="/login/")
+@require_POST
+def po_approve_amendment_view(request, pk, amendment_id):
+    """Procurement Manager approves a pending PO amendment."""
+    _require_po_execute(request.user)
+    role_code = getattr(request.user, "role_code", None) or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else None
+    )
+    if not (request.user.is_superuser or role_code in (Role.PROC_MGR, Role.SUPER_ADMIN)):
+        raise PermissionDenied("Only Procurement Manager or Super Admin can approve amendments.")
+    from .models import POAmendment
+    from .services import approve_po_amendment_service, reject_po_amendment_service
+    po = get_object_or_404(PurchaseOrder, pk=pk)
+    amendment = get_object_or_404(POAmendment, pk=amendment_id, po=po)
+    action = request.POST.get("action", "approve")
+    comments = request.POST.get("comments", "").strip()
+    try:
+        if action == "reject":
+            reject_po_amendment_service(amendment=amendment, approver=request.user, reason=comments or "Rejected")
+            messages.success(request, f"Amendment #{amendment.amendment_number} rejected.")
+        else:
+            approve_po_amendment_service(amendment=amendment, approver=request.user, comments=comments)
+            messages.success(
+                request,
+                f"Amendment #{amendment.amendment_number} approved. PO {po.po_number} updated to V{po.version}.",
+            )
+    except ValidationError as exc:
+        messages.error(request, " ".join(exc.messages) if hasattr(exc, "messages") else str(exc))
+    return redirect("order_detail", pk=po.id)
 
 
 @login_required(login_url="/login/")
@@ -266,9 +316,13 @@ def po_amendments_partial_view(request, pk):
     """HTMX fragment: immutable amendment/version history for a PO."""
     _require_po_execute(request.user)
     po = get_object_or_404(PurchaseOrder, pk=pk)
-    amendments = po.amendments.select_related("requested_by").order_by("-amendment_number")
+    amendments = po.amendments.select_related("requested_by").order_by(
+        "-amendment_number"
+    )
     return render(
-        request, "orders/partials/htmx_amendments.html", {"po": po, "amendments": amendments}
+        request,
+        "orders/partials/htmx_amendments.html",
+        {"po": po, "amendments": amendments},
     )
 
 
@@ -277,9 +331,9 @@ def po_create_view(request):
     """View & modal to issue a purchase order."""
     user = request.user
     role_code = getattr(user, "role_code", None) or (
-        user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
+        user.role.code if hasattr(user, "role") and user.role else None
     )
-    if role_code not in [Role.SUPER_ADMIN, Role.PROC_EXEC, Role.PROC_MGR]:
+    if not user.is_superuser and role_code not in (Role.SUPER_ADMIN, Role.PROC_EXEC, Role.PROC_MGR):
         raise PermissionDenied("Only Procurement users can issue purchase orders.")
 
     if request.method == "POST":
@@ -304,7 +358,9 @@ def po_create_view(request):
 
         vendor = get_object_or_404(Vendor, pk=vendor_id)
         cost_center = get_object_or_404(CostCenter, pk=cost_center_id)
-        requisition = PurchaseRequisition.objects.filter(pk=req_id).first() if req_id else None
+        requisition = (
+            PurchaseRequisition.objects.filter(pk=req_id).first() if req_id else None
+        )
 
         line_items = [
             {
@@ -367,7 +423,8 @@ def po_approve_action_view(request, pk):
 
         approve_purchase_order_service(po=po, approver=user, comments=comments)
         messages.success(
-            request, f"Purchase Order {po.po_number} approved and issued to {po.vendor.legal_name}."
+            request,
+            f"Purchase Order {po.po_number} approved and issued to {po.vendor.legal_name}.",
         )
     except ValidationError as exc:
         messages.error(
@@ -387,10 +444,110 @@ def po_submit_approval_action_view(request, pk):
         from .services import submit_purchase_order_for_approval_service
 
         submit_purchase_order_for_approval_service(po=po, actor=user)
-        messages.success(request, f"Purchase Order {po.po_number} submitted for manager review.")
+        messages.success(
+            request, f"Purchase Order {po.po_number} submitted for manager review."
+        )
     except ValidationError as exc:
         messages.error(
             request, " ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
         )
     return redirect("order_detail", pk=po.id)
 
+
+@login_required(login_url="/login/")
+def po_amendment_approve_view(request, pk, amendment_id):
+    """Procurement Manager action to approve a pending PO amendment."""
+    _require_po_execute(request.user)
+    po = get_object_or_404(PurchaseOrder, pk=pk)
+    amendment = get_object_or_404(POAmendment, pk=amendment_id, po=po)
+
+    if request.method == "POST":
+        comments = request.POST.get("comments", "").strip()
+        from .services import approve_po_amendment_service
+
+        try:
+            approve_po_amendment_service(
+                amendment=amendment,
+                approver=request.user,
+                comments=comments,
+            )
+            messages.success(
+                request,
+                f"PO Amendment #{amendment.amendment_number} approved! PO {po.po_number} is now V{po.version} (requires supplier re-acknowledgement).",
+            )
+        except ValidationError as exc:
+            msg = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+            messages.error(request, msg)
+
+    if _is_htmx(request):
+        amendments = po.amendments.select_related(
+            "requested_by", "approved_by"
+        ).order_by("-amendment_number")
+        response = render(
+            request,
+            "orders/partials/htmx_amendments.html",
+            {
+                "po": po,
+                "amendments": amendments,
+                "role_code": getattr(request.user, "role_code", None)
+                or (
+                    request.user.role.code
+                    if getattr(request.user, "role", None)
+                    else None
+                ),
+            },
+        )
+        response["HX-Trigger"] = "po-amended"
+        return response
+    return redirect("order_detail", pk=po.id)
+
+
+@login_required(login_url="/login/")
+def po_amendment_reject_view(request, pk, amendment_id):
+    """Procurement Manager action to reject a pending PO amendment."""
+    _require_po_execute(request.user)
+    po = get_object_or_404(PurchaseOrder, pk=pk)
+    amendment = get_object_or_404(POAmendment, pk=amendment_id, po=po)
+
+    if request.method == "POST":
+        reason = request.POST.get("reason", "").strip()
+        if not reason:
+            messages.error(request, "Rejection justification reason is mandatory.")
+        else:
+            from .services import reject_po_amendment_service
+
+            try:
+                reject_po_amendment_service(
+                    amendment=amendment,
+                    rejector=request.user,
+                    reason=reason,
+                )
+                messages.success(
+                    request,
+                    f"PO Amendment #{amendment.amendment_number} rejected. PO {po.po_number} reverted to operational status.",
+                )
+            except ValidationError as exc:
+                msg = exc.messages[0] if hasattr(exc, "messages") else str(exc)
+                messages.error(request, msg)
+
+    if _is_htmx(request):
+        amendments = po.amendments.select_related(
+            "requested_by", "approved_by"
+        ).order_by("-amendment_number")
+        response = render(
+            request,
+            "orders/partials/htmx_amendments.html",
+            {
+                "po": po,
+                "amendments": amendments,
+                "role_code": getattr(request.user, "role_code", None)
+                or (
+                    request.user.role.code
+                    if getattr(request.user, "role", None)
+                    else None
+                ),
+            },
+        )
+        response["HX-Trigger"] = "po-amended"
+        return response
+    return redirect("order_detail", pk=po.id)

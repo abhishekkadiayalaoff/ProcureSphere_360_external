@@ -24,10 +24,10 @@
     <div class="d-flex flex-wrap gap-2">
         <a href="{% url 'sourcing_detail' event.id %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-arrow-left me-1"></i>Back to Event</a>
         <a href="{% url 'bid_portal_dashboard' %}" class="btn btn-outline-secondary rounded-pill px-3"><i class="fa-solid fa-list me-1"></i>All Bid Windows</a>
-        {% if caps.can_manage and event.status == 'BID_WINDOW' and is_deadline_passed %}
-            <form method="post" action="{% url 'sourcing_action' event.id 'close' %}">{% csrf_token %}
-                <button class="btn btn-dark rounded-pill px-3"><i class="fa-solid fa-lock me-1"></i>Close bidding</button>
-            </form>
+        {% if caps.can_manage and event.status == 'BID_WINDOW' %}
+            <button type="button" class="btn btn-danger rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#closeBidWindowModal">
+                <i class="fa-solid fa-lock me-1"></i>Close Bid Window
+            </button>
         {% endif %}
         {% if not sealed %}
             <a href="{% url 'evaluation_event' event.id %}" class="btn btn-primary rounded-pill px-3"><i class="fa-solid fa-scale-balanced me-1"></i>Go to evaluation</a>
@@ -44,7 +44,7 @@
             <h5 class="fw-bold mb-3"><i class="fa-solid fa-user-shield text-primary me-2"></i>Restricted submission</h5>
             <ul class="small mb-0 ps-3">
                 <li>Only <strong>invited, ACTIVE</strong> vendors can open the event or bid; draft events are hidden from vendors.</li>
-                <li>Window: <strong>{{ event.bid_start_date|date:"Y-m-d H:i" }}</strong> to <strong>{{ event.bid_end_date|date:"Y-m-d H:i T" }}</strong> (server clock).{% if event.status == 'BID_WINDOW' and not is_deadline_passed %} <span class="text-danger">{{ event.bid_end_date|timeuntil }} left.</span>{% endif %}</li>
+                <li>Window: <strong>{{ event.bid_start_date|date:"Y-m-d H:i" }}</strong> to <strong>{{ event.bid_end_date|date:"Y-m-d H:i T" }}</strong> (server clock).{% if event.status == 'BID_WINDOW' and not is_deadline_passed %} <span class="text-danger fw-semibold" id="bidWindowCountdown" data-end="{{ event.bid_end_date|date:'c' }}">{{ event.bid_end_date|timeuntil }} left.</span>{% endif %}</li>
                 <li>Submission, amendment, withdrawal and attachment upload are rejected after the deadline.</li>
                 <li>Amendments create a new immutable version; prior versions are never overwritten.</li>
                 <li>Attachments: PDF, images, Office/CSV only, max 10&nbsp;MB, owner vendor only.</li>
@@ -127,4 +127,104 @@
         </table>
     </div>
 </div>
+
+{% if caps.can_manage and event.status == 'BID_WINDOW' %}
+<!-- Confirm Close Bid Window Modal -->
+<div class="modal fade" id="closeBidWindowModal" tabindex="-1" aria-labelledby="closeBidWindowModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-danger text-white border-0 py-3 px-4">
+                <h5 class="modal-title fw-bold" id="closeBidWindowModalLabel">
+                    <i class="fa-solid fa-triangle-exclamation me-2"></i>Close Bid Window
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center mb-3">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center p-3 mb-2" style="width: 64px; height: 64px;">
+                        <i class="fa-solid fa-lock fa-2x"></i>
+                    </div>
+                    <h5 class="fw-bold text-dark mb-1">Are you sure you want to close the bid window?</h5>
+                    <p class="text-muted small mb-0 font-monospace">{{ event.event_number }} — {{ event.title }}</p>
+                </div>
+
+                <div class="alert alert-warning small border-0 bg-warning bg-opacity-10 text-dark mb-3">
+                    <i class="fa-solid fa-circle-exclamation text-warning me-2"></i>
+                    <strong>Action cannot be undone:</strong> Closing the bid window will immediately transition this sourcing event to <strong>Technical Review</strong>. Vendors will no longer be able to submit, amend, or withdraw bids.
+                </div>
+
+                <div class="bg-light p-3 rounded-3 small">
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Invited Vendors:</span>
+                        <span class="fw-semibold text-dark">{{ summary.invited }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1 border-bottom">
+                        <span class="text-muted">Submitted Bids:</span>
+                        <span class="fw-semibold text-success">{{ summary.submitted }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between py-1">
+                        <span class="text-muted">Scheduled Deadline:</span>
+                        <span class="fw-semibold text-dark">{{ event.bid_end_date|date:"Y-m-d H:i T" }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-top py-3 px-4 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                <form method="post" action="{% url 'sourcing_action' event.id 'close' %}" class="d-inline mb-0">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-danger rounded-pill px-4 fw-semibold shadow-sm">
+                        <i class="fa-solid fa-lock me-1"></i>Yes, Close Bid Window
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const countdownEl = document.getElementById("bidWindowCountdown");
+    if (!countdownEl) return;
+
+    const endDateStr = countdownEl.getAttribute("data-end");
+    if (!endDateStr) return;
+
+    const endDate = new Date(endDateStr).getTime();
+    let reloaded = false;
+
+    function updateCountdown() {
+        const now = new Date().getTime();
+        const diff = endDate - now;
+
+        if (diff <= 0) {
+            countdownEl.innerHTML = '<span class="badge bg-danger text-white"><i class="fa-solid fa-clock-rotate-left me-1"></i>Bid Window Ended (Closing...)</span>';
+            if (!reloaded) {
+                reloaded = true;
+                setTimeout(function () {
+                    window.location.reload();
+                }, 1500);
+            }
+            return;
+        }
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        let text = "";
+        if (days > 0) text += days + (days === 1 ? " day, " : " days, ");
+        text += hours + "h " + minutes + "m " + seconds + "s left.";
+        countdownEl.textContent = text;
+    }
+
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+});
+</script>
+{% endblock extra_js %}

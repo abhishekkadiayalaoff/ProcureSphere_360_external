@@ -503,7 +503,7 @@
                             </td>
                             <td class="small text-muted">{{ doc.verified_by.email|default:"Pending Review" }}</td>
                             <td class="text-end pe-4">
-                                <a href="{% url 'vendor_document_download' doc_type='kyc' doc_id=doc.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                <a href="{% url 'vendor_portal_document_download' doc_type='kyc' doc_id=doc.id %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
                                     <i class="fa-solid fa-download me-1"></i> Download
                                 </a>
                             </td>
@@ -791,8 +791,9 @@
                         <input type="date" name="expiry_date" class="form-control form-control-sm">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label small fw-semibold">Select File (PDF, PNG, JPG &le; 10MB)</label>
-                        <input type="file" name="kyc_file" class="form-control form-control-sm" required>
+                        <label class="form-label small fw-semibold">Select File (PDF, DOC, DOCX, XLSX, CSV &le; 10MB)</label>
+                        <input type="file" name="kyc_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+                        <div class="form-text small text-muted">Supported formats: PDF, DOC, DOCX, XLSX, CSV (&le; 10MB). Image files (PNG, JPG, JPEG, GIF, WebP) are not permitted.</div>
                     </div>
                 </div>
                 <div class="modal-footer border-top bg-light py-2 px-4 d-flex justify-content-end gap-2">

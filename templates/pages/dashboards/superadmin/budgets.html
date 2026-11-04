@@ -1,6 +1,6 @@
 {% extends 'layouts/superadmin_base.html' %}
 
-{% block title %}Budget Allocations — Super Admin{% endblock %}
+{% block title %}Budget Allocations — Admin{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -9,9 +9,63 @@
             <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-sack-dollar text-warning me-2"></i> Budget Allocations</h3>
             <p class="text-muted mb-0">View financial limits and consumption per cost center for the active fiscal period.</p>
         </div>
-        <button hx-get="/superadmin/budgets/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm">
-            <i class="fa-solid fa-plus me-2"></i> Add Budget
-        </button>
+        <div class="d-flex gap-2">
+            <button hx-get="/superadmin/fiscal-periods/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-primary text-white fw-bold rounded-pill px-4 shadow-sm">
+                <i class="fa-solid fa-calendar-plus me-2"></i> Add Fiscal Period
+            </button>
+            <button hx-get="/superadmin/budgets/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm">
+                <i class="fa-solid fa-plus me-2"></i> Add Budget
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 mb-4">
+    <div class="card-body p-0">
+        <div class="px-4 py-3 border-bottom">
+            <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-calendar-days text-primary me-2"></i>Fiscal Periods</h5>
+            <p class="text-muted small mb-0">Set the name and start/end dates. These periods appear in the budget allocation dropdown.</p>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Name</th>
+                        <th>Year</th>
+                        <th>Period</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in fiscal_periods %}
+                    <tr>
+                        <td class="ps-4 fw-bold text-dark">{{ p.name }}</td>
+                        <td>{{ p.year }}</td>
+                        <td>{{ p.period_number }}</td>
+                        <td>{{ p.start_date|date:"Y-m-d" }}</td>
+                        <td>{{ p.end_date|date:"Y-m-d" }}</td>
+                        <td>
+                            {% if p.is_closed %}
+                            <span class="badge bg-secondary">Closed</span>
+                            {% else %}
+                            <span class="badge bg-success">Open</span>
+                            {% endif %}
+                        </td>
+                        <td class="pe-4 text-end">
+                            <button hx-get="/superadmin/fiscal-periods/{{ p.pk }}/edit/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Edit dates</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">No fiscal periods yet. Add one with a start and end date before allocating a budget.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 

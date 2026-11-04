@@ -127,13 +127,15 @@ def audit_log_view(request):
         request.user.role.code if getattr(request.user, "role", None) else None
     )
     base_layout = "layouts/requester_base.html"
-    if role_code == "DEPT_APPROVER":
+    if getattr(request.user, "is_superuser", False) or role_code in ["SUPER_ADMIN", "ADMIN"]:
+        base_layout = "layouts/superadmin_base.html"
+    elif role_code == "DEPT_APPROVER":
         base_layout = "layouts/approver_base.html"
     elif role_code == "FINANCE_AP":
         base_layout = "layouts/finance_base.html"
     elif role_code in ["PROC_MGR", "PROC_EXEC"]:
         base_layout = "layouts/procurement_base.html"
-    elif role_code in ["AUDITOR", "SUPER_ADMIN"]:
+    elif role_code in ["AUDITOR"]:
         base_layout = "layouts/auditor_base.html"
     elif role_code in ["STORES_RECEIVER", "STORES"]:
         base_layout = "layouts/stores_base.html"

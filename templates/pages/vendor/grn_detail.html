@@ -1,0 +1,173 @@
+{% extends 'layouts/vendor_base.html' %}
+
+{% block vendor_title %}Goods Receipt Note {{ grn.grn_number }}{% endblock %}
+
+{% block vendor_content %}
+<div class="container-fluid px-0">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb small">
+            <li class="breadcrumb-item"><a href="/vendor/" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'vendor_purchase_orders_list' %}" class="text-decoration-none text-muted">Purchase Orders</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}" class="text-decoration-none text-muted">{{ po.po_number }}</a></li>
+            <li class="breadcrumb-item active fw-semibold text-dark" aria-current="page">{{ grn.grn_number }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header Banner -->
+    <div class="card glass-card border-0 shadow-sm mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-secondary rounded-pill px-3 py-2 text-uppercase">Goods Receipt Note</span>
+                        <h3 class="fw-bold text-dark mb-0 font-monospace">{{ grn.grn_number }}</h3>
+                        {% if grn.overall_inspection_status == 'PASSED' %}
+                        <span class="badge bg-success px-3 py-2 rounded-pill"><i class="fa-solid fa-circle-check me-1"></i> Inspection Passed</span>
+                        {% elif grn.overall_inspection_status == 'FAILED' or grn.overall_inspection_status == 'REJECTED' %}
+                        <span class="badge bg-danger px-3 py-2 rounded-pill"><i class="fa-solid fa-triangle-exclamation me-1"></i> Quality Rejection</span>
+                        {% elif grn.overall_inspection_status == 'PARTIALLY_INSPECTED' %}
+                        <span class="badge bg-warning text-dark px-3 py-2 rounded-pill"><i class="fa-solid fa-pen-ruler me-1"></i> Partially Inspected</span>
+                        {% else %}
+                        <span class="badge bg-secondary px-3 py-2 rounded-pill"><i class="fa-solid fa-clock me-1"></i> Pending Inspection</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-muted small mb-0">
+                        Purchase Order: <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}" class="fw-bold font-monospace text-primary text-decoration-none">{{ po.po_number }}</a>
+                        &bull; Buyer Entity: <strong class="text-dark">{{ po.cost_center.department.organization.name|default:"ProcureSphere Organization" }}</strong>
+                        &bull; Department: <span class="fw-semibold text-dark">{{ po.cost_center.department.name }}</span>
+                    </p>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm" onclick="window.print()">
+                        <i class="fa-solid fa-print me-1"></i> Print / Save GRN Note
+                    </button>
+                    <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-arrow-left me-1"></i> Back to PO
+                    </a>
+                    {% if grn.overall_inspection_status == 'PASSED' or grn.overall_inspection_status == 'PARTIALLY_INSPECTED' %}
+                    <a href="{% url 'vendor_invoice_submit' po.id %}" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
+                        <i class="fa-solid fa-file-invoice-dollar me-1"></i> Submit Invoice for Accepted Items
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GRN Information Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100">
+                <small class="text-uppercase text-secondary fw-semibold">Delivery Note / Challan</small>
+                <div class="fs-6 fw-bold font-monospace text-dark mt-1">{{ grn.delivery_note_number|default:"N/A" }}</div>
+                <div class="small text-muted mt-1">{{ grn.remarks|default:"Standard Logistics" }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100">
+                <small class="text-uppercase text-secondary fw-semibold">Received Date &amp; Time</small>
+                <div class="fs-6 fw-bold text-dark mt-1">{{ grn.received_date|date:"M d, Y H:i" }}</div>
+                <div class="small text-muted mt-1">Intake at receiving dock</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100">
+                <small class="text-uppercase text-secondary fw-semibold">Receiving Location</small>
+                <div class="fs-6 fw-bold text-dark mt-1">Central Warehouse Dock</div>
+                <div class="small text-muted mt-1">Stores &amp; Receiving Desk</div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm rounded-3 bg-white p-3 h-100">
+                <small class="text-uppercase text-secondary fw-semibold">Received &amp; Inspected By</small>
+                <div class="fs-6 fw-bold text-dark mt-1">{{ grn.received_by.get_full_name|default:grn.received_by.email }}</div>
+                <div class="small text-muted mt-1">Authorized Stores Receiver</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Line Items and Inspection Breakdown Table -->
+    <div class="card border-0 shadow-sm rounded-4 bg-white mb-4 overflow-hidden">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-2 px-4 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="fa-solid fa-clipboard-check text-primary me-2"></i> Quality Inspection Check Results
+            </h5>
+            <span class="badge bg-light text-secondary border small">{{ lines|length }} Consigned Item{{ lines|length|pluralize }}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-secondary">
+                        <tr>
+                            <th class="ps-4 py-3">Item Description</th>
+                            <th class="py-3 text-center">Unit</th>
+                            <th class="py-3 text-end">Delivered Qty</th>
+                            <th class="py-3 text-end">Accepted Qty</th>
+                            <th class="py-3 text-end">Rejected Qty</th>
+                            <th class="py-3 text-center">Inspection Result</th>
+                            <th class="pe-4 py-3">Stores Inspection Remarks / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr>
+                            <td class="ps-4 py-3">
+                                <div class="fw-bold text-dark">{{ line.po_line.item_description }}</div>
+                                <small class="text-muted font-monospace">${{ line.po_line.unit_price|floatformat:2 }} / unit</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-light text-dark border">{{ line.po_line.unit_of_measure }}</span>
+                            </td>
+                            <td class="text-end fw-semibold text-dark font-monospace">
+                                {{ line.quantity_received|floatformat:2 }}
+                            </td>
+                            <td class="text-end fw-bold text-success font-monospace">
+                                {{ line.quantity_accepted|floatformat:2 }}
+                            </td>
+                            <td class="text-end fw-bold {% if line.quantity_rejected > 0 %}text-danger{% else %}text-muted{% endif %} font-monospace">
+                                {{ line.quantity_rejected|floatformat:2 }}
+                            </td>
+                            <td class="text-center">
+                                {% if line.inspection_status == 'PASSED' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-1">
+                                    <i class="fa-solid fa-circle-check me-1"></i> Passed
+                                </span>
+                                {% elif line.inspection_status == 'FAILED' or line.inspection_status == 'REJECTED' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2 py-1">
+                                    <i class="fa-solid fa-circle-xmark me-1"></i> Rejected
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 px-2 py-1">
+                                    <i class="fa-solid fa-clock me-1"></i> Pending Check
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 py-3 small">
+                                {% if line.inspection %}
+                                    <div class="text-dark">{{ line.inspection.inspection_notes|default:"Inspected and verified." }}</div>
+                                {% endif %}
+                                {% if line.latest_rejection %}
+                                    <div class="text-danger mt-1">
+                                        <i class="fa-solid fa-triangle-exclamation me-1"></i>
+                                        <strong>Rejection Reason:</strong> {{ line.latest_rejection.rejection_reason }}
+                                    </div>
+                                {% endif %}
+                                {% if not line.inspection and not line.latest_rejection %}
+                                    <span class="text-muted fst-italic">No additional remarks.</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">No line items recorded for this receipt.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

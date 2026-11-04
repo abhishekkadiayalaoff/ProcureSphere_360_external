@@ -121,11 +121,11 @@
                                         {{ grn.stock_handoff_status_display }}
                                     </span>
                                 </td>
-                                <td class="text-end pe-4">
-                                    <a href="{% url 'receipt_detail' grn_id=grn.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
-                                        View GRN
-                                    </a>
-                                </td>
+<td class="text-end pe-4">
+                    <a href="{% url 'finance_grn_detail' grn_id=grn.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="fa-solid fa-receipt me-1"></i> View GRN
+                    </a>
+                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -170,8 +170,55 @@
                         <span class="fw-semibold">{{ invoice.po.po_number }}</span>
                     </div>
                     {% if invoice.payment_record %}
-                    <div class="mb-2 mt-4">
-                        <span class="badge bg-success w-100 py-2"><i class="fa-solid fa-check-circle me-1"></i> Payment Disbursed</span>
+                    <div class="mt-4 pt-4 border-top">
+                        <h6 class="fw-bold mb-3">Payment Disbursed</h6>
+                        <div class="d-flex flex-column gap-2 small">
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Status:</span>
+                                <span class="text-success fw-bold">Disbursed (PAID)</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Reference / UTR ID:</span>
+                                <span>{{ invoice.payment_record.payment_reference }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Payment Method:</span>
+                                <span>{{ invoice.payment_record.get_payment_method_display }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Disbursement Date:</span>
+                                <span>{{ invoice.payment_record.payment_date|date:"M d, Y" }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Processed By:</span>
+                                <span>{{ invoice.payment_record.paid_by.get_full_name|default:invoice.payment_record.paid_by.email }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% elif can_pay %}
+                    <div class="mt-4 pt-4 border-top">
+                        <h6 class="fw-bold mb-3">Payment Disbursement</h6>
+                        <p class="text-muted small">Click the button below to disburse payment for this invoice.</p>
+                        <button type="button" class="btn btn-success w-100 py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#paymentModal-{{ invoice.id }}">
+                            <i class="fa-solid fa-credit-card me-1"></i> Disburse Payment
+                        </button>
+                    </div>
+                    {% elif can_validate %}
+                    <div class="mt-4 pt-4 border-top">
+                        <h6 class="fw-bold mb-3">Validate Invoice</h6>
+                        <form method="post" action="{% url 'validate_invoice' invoice.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary w-100 fw-bold py-2 shadow-sm">
+                                <i class="fa-solid fa-calculator me-1"></i> Validate Invoice (3-Way Match)
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    {% if is_proc %}
+                    <div class="mt-3 p-2 bg-secondary bg-opacity-10 border border-secondary border-opacity-25 rounded text-center small text-muted">
+                        <i class="fa-solid fa-lock me-1"></i> <strong>Procurement Role:</strong> Read-Only Access.<br>
+                        Financial validation and payment actions are restricted to Finance & AP.
                     </div>
                     {% endif %}
                 </div>
@@ -179,4 +226,52 @@
         </div>
     </div>
 </div>
+
+{% if can_pay %}
+<!-- Payment Modal (triggered from sidebar "Disburse Payment" button) -->
+<div class="modal fade" id="paymentModal-{{ invoice.id }}" tabindex="-1" aria-labelledby="paymentModalDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="paymentModalDetailLabel">
+                    <i class="fa-solid fa-credit-card me-2"></i> Disburse Payment
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'pay_invoice' invoice.id %}">
+                {% csrf_token %}
+                <div class="modal-body p-4">
+                    <div class="mb-3"><strong>Invoice:</strong> {{ invoice.invoice_number }}</div>
+                    <div class="mb-3"><strong>Vendor:</strong> {{ invoice.vendor.legal_name }}</div>
+                    <div class="mb-3"><strong>Total Amount:</strong> <span class="text-success fw-bold">${{ invoice.total_amount|floatformat:2 }}</span></div>
+                    <div class="mb-3">
+                        <label for="detail_pref" class="form-label small fw-semibold text-dark">Transaction Reference / UTR # <span class="text-danger">*</span></label>
+                        <input type="text" name="payment_reference" id="detail_pref" class="form-control" placeholder="e.g. UTR-2026-981023" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="detail_pmeth" class="form-label small fw-semibold text-dark">Payment Method <span class="text-danger">*</span></label>
+                        <select name="payment_method" id="detail_pmeth" class="form-select" required>
+                            <option value="ACH_TRANSFER">ACH Transfer</option>
+                            <option value="BANK_WIRE">Bank Wire</option>
+                            <option value="NEFT_RTGS">NEFT / RTGS</option>
+                            <option value="COMPANY_CHECK">Company Check</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="detail_pdate" class="form-label small fw-semibold text-dark">Payment Date <span class="text-danger">*</span></label>
+                        <input type="date" name="payment_date" id="detail_pdate" class="form-control" value="{{ now|date:'Y-m-d' }}" required>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary shadow-sm">
+                        <i class="fa-solid fa-arrow-right me-1"></i> Confirm &amp; Disburse Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}

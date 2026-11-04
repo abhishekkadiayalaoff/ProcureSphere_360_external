@@ -2,6 +2,12 @@
 
 {% block title %}{{ vendor.legal_name }} — Vendor Governance{% endblock %}
 
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item"><a href="/manager/vendor-risk/" class="text-decoration-none text-muted">Vendor Risk</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">{{ vendor.legal_name }}</li>
+{% endblock manager_breadcrumbs %}
+
 {% block content %}
 <div class="d-flex flex-wrap gap-2 align-items-start justify-content-between mb-4">
     <div>

@@ -101,6 +101,9 @@
                                 {% if po.requisition %}
                                 <small class="text-muted font-monospace">{{ po.requisition.pr_number }}</small>
                                 {% endif %}
+                                {% if po.sourcing_event %}
+                                <small class="badge bg-secondary bg-opacity-10 text-dark border ms-1 font-monospace">{{ po.sourcing_event.event_number }}</small>
+                                {% endif %}
                             </td>
                             <td class="fw-bold text-dark fs-6">${{ po.total_amount|floatformat:2 }}</td>
                             <td>
@@ -137,11 +140,16 @@
                                         <i class="fa-solid fa-eye"></i> Details
                                     </a>
                                     {% if po.status == 'ISSUED' and not po.acknowledged_at %}
-                                    <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}#acknowledge" class="btn btn-success btn-sm" title="Acknowledge PO">
+                                    <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}#acknowledge" class="btn btn-warning btn-sm text-dark fw-bold" title="Acknowledge PO">
                                         <i class="fa-solid fa-signature"></i> Acknowledge
+                                    </a>
+                                    {% elif po.status == 'ACKNOWLEDGED' or po.status == 'PARTIAL_RECEIPT' %}
+                                    <a href="{% url 'vendor_purchase_order_detail' po_id=po.id %}#delivery-goods" class="btn btn-success btn-sm" title="Deliver Goods">
+                                        <i class="fa-solid fa-truck-fast"></i> Deliver
                                     </a>
                                     {% endif %}
                                 </div>
+
                             </td>
                         </tr>
                         {% endfor %}

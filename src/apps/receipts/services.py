@@ -225,6 +225,165 @@ def create_goods_receipt_service(
     return receipt
 
 
+@transaction.atomic
+def vendor_dispatch_delivery_service(
+    *,
+    po: PurchaseOrder,
+    vendor_user: User,
+    delivery_note_number: str = "",
+    remarks: str = "",
+    delivery_items: list,
+) -> GoodsReceipt:
+    """
+    Records a delivery dispatch initiated by the vendor from the Vendor Dashboard.
+    Creates a Goods Receipt Note (GRN) with line items in PENDING inspection status.
+    Notifies Stores Receiver, Procurement Executive, and the Vendor.
+    Updates Purchase Order status to PARTIAL_RECEIPT.
+    """
+    if not po:
+        raise ValidationError("Purchase Order reference is mandatory.")
+    if not vendor_user:
+        raise ValidationError("Vendor user reference is mandatory.")
+
+    # Backend IDOR protection
+    if not vendor_user.is_superuser:
+        user_vendor = getattr(vendor_user, "vendor", None)
+        if not user_vendor or user_vendor.id != po.vendor_id:
+            raise ValidationError(
+                "Access Denied: You cannot dispatch deliveries for a Purchase Order belonging to another vendor."
+            )
+
+    if po.status not in [
+        PurchaseOrder.STATUS_ACKNOWLEDGED,
+        PurchaseOrder.STATUS_PARTIAL_RECEIPT,
+        PurchaseOrder.STATUS_ISSUED,
+    ]:
+        raise ValidationError(
+            f"Cannot dispatch delivery for Purchase Order in status '{po.get_status_display()}'. Must be Acknowledged or in Partial Receipt."
+        )
+
+    if not delivery_items or not isinstance(delivery_items, list):
+        raise ValidationError("Delivery must contain at least one line item with quantity greater than zero.")
+
+    po = PurchaseOrder.objects.select_for_update().get(id=po.id)
+
+    # Find designated stores receiver user for FK integrity
+    stores_user = User.objects.filter(
+        role__code=Role.STORES_RECEIVER, is_active=True
+    ).first()
+    if not stores_user:
+        stores_user = User.objects.filter(is_superuser=True, is_active=True).first() or vendor_user
+
+    from apps.core.services import generate_document_number
+    from apps.notifications.models import Notification
+
+    grn_number = generate_document_number(GoodsReceipt, "grn_number", "GRN")
+
+    receipt = GoodsReceipt.objects.create(
+        grn_number=grn_number,
+        po=po,
+        received_by=stores_user,
+        received_date=timezone.now(),
+        delivery_note_number=delivery_note_number or grn_number,
+        remarks=remarks,
+    )
+
+    created_any_line = False
+    for item in delivery_items:
+        po_line_id = item.get("po_line_id") or (item["po_line"].id if "po_line" in item else None)
+        if not po_line_id:
+            continue
+
+        try:
+            po_line = POLine.objects.select_for_update().get(id=po_line_id, po=po)
+        except POLine.DoesNotExist:
+            raise ValidationError(f"Invalid PO line reference '{po_line_id}' for Purchase Order {po.po_number}.")
+
+        try:
+            qty_delivering = Decimal(str(item.get("quantity", item.get("quantity_received", 0))))
+        except Exception:
+            raise ValidationError(f"Quantity for '{po_line.item_description}' must be a valid numeric value.")
+
+        if qty_delivering <= Decimal("0.00"):
+            continue
+
+        current_received = po_line.quantity_received or Decimal("0.00")
+        remaining_qty = max(Decimal("0.00"), po_line.quantity - current_received)
+        if qty_delivering > remaining_qty:
+            raise ValidationError(
+                f"Delivering quantity ({qty_delivering}) cannot exceed remaining order quantity ({remaining_qty}) for '{po_line.item_description}'."
+            )
+
+        ReceiptLine.objects.create(
+            receipt=receipt,
+            po_line=po_line,
+            quantity_received=qty_delivering,
+            quantity_accepted=qty_delivering,
+            quantity_rejected=Decimal("0.00"),
+            notes=str(item.get("notes", "")).strip(),
+        )
+        po_line.quantity_received = current_received + qty_delivering
+        po_line.save(update_fields=["quantity_received", "updated_at"])
+        created_any_line = True
+
+
+    if not created_any_line:
+        raise ValidationError("Please specify a dispatch quantity greater than 0 for at least one item.")
+
+    _update_po_completion_status(po)
+
+    AuditLog.objects.create(
+        actor=vendor_user,
+        action=AuditLog.ACTION_CREATE,
+        target_model="GoodsReceipt",
+        target_object_id=str(receipt.id),
+        new_state={
+            "action": "VENDOR_DELIVERY",
+            "grn_number": receipt.grn_number,
+            "po_number": po.po_number,
+            "delivery_note_number": receipt.delivery_note_number,
+            "po_status": po.status,
+        },
+    )
+
+    # Notify Stores Receiver team
+    stores_receivers = User.objects.filter(role__code=Role.STORES_RECEIVER, is_active=True)
+    for s_user in stores_receivers:
+        Notification.objects.create(
+            recipient=s_user,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"Goods Delivered: {receipt.grn_number} (PO {po.po_number})",
+            message=(
+                f"Vendor '{po.vendor.legal_name}' has dispatched goods under delivery note '{receipt.delivery_note_number}'. "
+                f"Goods Receipt Note {receipt.grn_number} has been generated and is ready for inspection check."
+            ),
+            target_url=f"/receipts/{receipt.id}/inspect/",
+        )
+
+    # Notify Procurement Executive
+    pe_users = User.objects.filter(role__code=Role.PROC_EXEC, is_active=True)
+    for pe in pe_users:
+        Notification.objects.create(
+            recipient=pe,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"Vendor Delivery Dispatched: PO {po.po_number}",
+            message=f"Vendor '{po.vendor.legal_name}' has recorded shipment {receipt.delivery_note_number} (GRN: {receipt.grn_number}).",
+            target_url=f"/receipts/{receipt.id}/",
+        )
+
+    # Notify Vendor user
+    Notification.objects.create(
+        recipient=vendor_user,
+        notification_type=Notification.TYPE_GOODS_RECEIVED,
+        title=f"Delivery Dispatched: {receipt.grn_number}",
+        message=f"Your goods delivery for PO {po.po_number} has been submitted under GRN {receipt.grn_number}. It is now awaiting inspection by Stores Receiver.",
+        target_url=f"/vendor/purchase-orders/{po.id}/",
+    )
+
+    return receipt
+
+
+
 def _check_inspection_permission(user: User) -> None:
     role_code = getattr(user, "role_code", None) or (
         user.role.code if hasattr(user, "role") and user.role else None
@@ -456,6 +615,111 @@ def record_inspection_service(
         previous_state=previous_state,
         new_state=new_state,
     )
+
+    # Notifications after inspection check completion
+    from apps.notifications.models import Notification
+
+    lines_list = list(receipt.lines.select_related("po_line").all())
+    passed_lines_count = sum(1 for line in lines_list if line.inspection_status == "PASSED")
+    failed_lines_count = sum(
+        1 for line in lines_list if line.inspection_status in ["FAILED", "REJECTED"]
+    )
+    total_accepted_qty = sum(line.quantity_accepted for line in lines_list)
+    total_rejected_qty = sum(line.quantity_rejected for line in lines_list)
+
+    has_rejected = any(line.quantity_rejected > Decimal("0.00") for line in lines_list)
+    if has_rejected:
+        recipients = set()
+        if po.requisition and po.requisition.requester:
+            recipients.add(po.requisition.requester)
+        if po.created_by:
+            recipients.add(po.created_by)
+
+        for recipient in recipients:
+            if not Notification.objects.filter(
+                recipient=recipient,
+                notification_type=Notification.TYPE_EXCEPTION_RAISED,
+                target_url=f"/receipts/{receipt.id}/",
+            ).exists():
+                Notification.objects.create(
+                    recipient=recipient,
+                    notification_type=Notification.TYPE_EXCEPTION_RAISED,
+                    title=f"Receipt Quality Rejection: {receipt.grn_number}",
+                    message=(
+                        f"Quality inspection recorded rejected items on receipt {receipt.grn_number} "
+                        f"for PO {po.po_number}."
+                    ),
+                    target_url=f"/receipts/{receipt.id}/",
+                )
+    elif receipt.overall_inspection_status == "PASSED":
+        if po.requisition and po.requisition.requester:
+            if not Notification.objects.filter(
+                recipient=po.requisition.requester,
+                notification_type=Notification.TYPE_GOODS_RECEIVED,
+                title__startswith="Receipt Inspection Passed",
+                target_url=f"/receipts/{receipt.id}/",
+            ).exists():
+                Notification.objects.create(
+                    recipient=po.requisition.requester,
+                    notification_type=Notification.TYPE_GOODS_RECEIVED,
+                    title=f"Receipt Inspection Passed: {receipt.grn_number}",
+                    message=(
+                        f"Quality inspection has passed for all items on receipt {receipt.grn_number} "
+                        f"for PO {po.po_number}."
+                    ),
+                    target_url=f"/receipts/{receipt.id}/",
+                )
+
+    # 1. Notify Finance & AP
+    finance_users = User.objects.filter(role__code=Role.FINANCE_AP, is_active=True)
+    for fin_user in finance_users:
+        Notification.objects.create(
+            recipient=fin_user,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"Inspection Report: GRN {receipt.grn_number} (PO {po.po_number})",
+            message=(
+                f"Quality inspection recorded for GRN {receipt.grn_number}. "
+                f"Overall status: {receipt.overall_inspection_status}. "
+                f"Passed: {passed_lines_count} lines ({total_accepted_qty} units), "
+                f"Failed/Rejected: {failed_lines_count} lines ({total_rejected_qty} units)."
+            ),
+            target_url=f"/receipts/{receipt.id}/",
+        )
+
+    # 2. Notify Vendor Users
+    if po.vendor:
+        vendor_users = User.objects.filter(vendor=po.vendor, is_active=True)
+        for v_user in vendor_users:
+            Notification.objects.create(
+                recipient=v_user,
+                notification_type=Notification.TYPE_GOODS_RECEIVED,
+                title=f"Inspection Report Generated: GRN {receipt.grn_number}",
+                message=(
+                    f"Inspection completed for PO {po.po_number} (GRN: {receipt.grn_number}). "
+                    f"Status: {receipt.overall_inspection_status}. "
+                    f"Passed: {passed_lines_count} lines ({total_accepted_qty} units accepted), "
+                    f"Rejected: {failed_lines_count} lines ({total_rejected_qty} units). "
+                    f"You may now raise an invoice for passed goods."
+                ),
+                target_url=f"/vendor/purchase-orders/{po.id}/",
+            )
+
+    # 3. Notify Procurement Executive & Manager
+    pe_pm_users = User.objects.filter(
+        role__code__in=[Role.PROC_EXEC, Role.PROC_MGR], is_active=True
+    )
+    for staff_user in pe_pm_users:
+        Notification.objects.create(
+            recipient=staff_user,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"Stores Inspection Check: PO {po.po_number}",
+            message=(
+                f"Inspection completed for Goods Receipt {receipt.grn_number} on PO {po.po_number}. "
+                f"Overall status: {receipt.overall_inspection_status} "
+                f"(Passed: {passed_lines_count}, Rejected: {failed_lines_count})."
+            ),
+            target_url=f"/receipts/{receipt.id}/",
+        )
 
     return receipt
 

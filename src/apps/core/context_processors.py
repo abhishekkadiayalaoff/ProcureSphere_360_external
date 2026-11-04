@@ -11,8 +11,12 @@ def layout_context(request):
         role_code = getattr(user, "role_code", None) or (
             user.role.code if hasattr(user, "role") and user.role else None
         )
-        if role_code in [Role.PROC_MGR, "PROC_MGR"]:
+        if user.is_superuser or role_code in [Role.SUPER_ADMIN, "SUPER_ADMIN", "ADMIN"]:
+            return {"base_layout": "layouts/superadmin_base.html"}
+        elif role_code in [Role.PROC_MGR, "PROC_MGR"]:
             return {"base_layout": "manager/base_manager.html"}
+        elif role_code in [Role.PROC_EXEC, "PROC_EXEC"]:
+            return {"base_layout": "base.html"}
         elif role_code in [Role.LEGAL_MGR, "LEGAL_MGR"]:
             return {"base_layout": "layouts/legal_base.html"}
         elif role_code in [Role.STORES_RECEIVER, "STORES_RECEIVER"]:
@@ -27,6 +31,4 @@ def layout_context(request):
             return {"base_layout": "layouts/vendor_base.html"}
         elif role_code in [Role.REQUESTER, "REQUESTER"]:
             return {"base_layout": "layouts/requester_base.html"}
-        elif role_code in [Role.SUPER_ADMIN, "SUPER_ADMIN"]:
-            return {"base_layout": "layouts/superadmin_base.html"}
     return {}

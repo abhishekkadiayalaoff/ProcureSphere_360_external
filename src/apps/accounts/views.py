@@ -2,8 +2,10 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm, SetPasswordForm
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 
@@ -22,18 +24,20 @@ def portal_login_view(request):
     """
 
     if request.user.is_authenticated:
-
-        if getattr(request.user, "must_change_password", False):
-            return redirect(reverse("accounts:change_password"))
         role_code = getattr(request.user, "role_code", None) or (
             request.user.role.code if hasattr(request.user, "role") and request.user.role else None
         )
         if role_code == "VENDOR_USER":
             return redirect("/vendor/")
 
+        if getattr(request.user, "must_change_password", False):
+            return redirect(reverse("accounts:change_password"))
+
         return redirect("/")
 
 
+
+    is_ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
 
     if request.method == "POST":
 
@@ -44,7 +48,8 @@ def portal_login_view(request):
 
 
         if not email or not password:
-
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "Please provide both email and password."}, status=400)
             messages.error(request, "Please provide both email and password.")
 
             return render(request, "pages/login.html", {"email": email})
@@ -60,7 +65,8 @@ def portal_login_view(request):
         if user is not None:
 
             if not user.is_active:
-
+                if is_ajax:
+                    return JsonResponse({"ok": False, "error": "Your account has been deactivated. Please contact support."}, status=403)
                 messages.error(
 
                     request, "Your account has been deactivated. Please contact support."
@@ -115,7 +121,10 @@ def portal_login_view(request):
 
 
             if getattr(user, "must_change_password", False):
-                return redirect(reverse("accounts:change_password"))
+                change_url = reverse("accounts:change_password")
+                if is_ajax:
+                    return JsonResponse({"ok": True, "redirect": change_url})
+                return redirect(change_url)
 
             next_url = request.GET.get("next") or request.POST.get("next")
             if next_url and not url_has_allowed_host_and_scheme(
@@ -131,10 +140,27 @@ def portal_login_view(request):
                 else:
                     next_url = "/"
 
+            if is_ajax:
+                return JsonResponse({"ok": True, "redirect": next_url})
             return redirect(next_url)
 
         else:
+            from apps.accounts.models import User
 
+            inactive_user = User.objects.filter(email__iexact=email).first()
+            if (
+                inactive_user
+                and inactive_user.check_password(password)
+                and not inactive_user.is_active
+            ):
+                msg = "Your account has been deactivated. Please contact support."
+                if is_ajax:
+                    return JsonResponse({"ok": False, "error": msg}, status=403)
+                messages.error(request, msg)
+                return render(request, "pages/login.html", {"email": email})
+
+            if is_ajax:
+                return JsonResponse({"ok": False, "error": "Invalid email or password. Please try again."}, status=401)
             messages.error(request, "Invalid email or password. Please try again.")
 
 
@@ -245,7 +271,7 @@ def portal_logout_view(request):
 
     """
 
-    Logs out the user from the ERP Portal and redirects to /login/.
+    Logs out the user from the ERP Portal and redirects to the public landing page (/).
 
     """
 
@@ -278,7 +304,9 @@ def portal_logout_view(request):
 
     messages.info(request, "You have been logged out successfully.")
 
-    return redirect("/login/")
+    response = redirect("/?logged_out=1")
+    response.set_cookie("ps360_just_logged_out", "1", max_age=60, path="/", samesite="Lax")
+    return response
 
 
 

@@ -133,3 +133,22 @@ class IsVendorUser(BasePermission):
             and request.user.is_authenticated
             and (request.user.role_code == Role.VENDOR_USER or request.user.is_superuser)
         )
+
+class IsAuditorOrSuperAdmin(BasePermission):
+    """
+    Allows read-only access to Auditor and full access to Super Admin.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        if request.user.is_superuser:
+            return True
+        role_code = getattr(request.user, "role_code", None) or (
+            request.user.role.code if getattr(request.user, "role", None) else None
+        )
+        if role_code == Role.SUPER_ADMIN:
+            return True
+        if role_code == Role.AUDITOR and request.method in SAFE_METHODS:
+            return True
+        return False

@@ -11,12 +11,18 @@ from .manager_api_views import (
     ManagerSupplierCompareAPIView,
     ManagerSupplierPerformanceAPIView,
     ManagerSupplierPerformanceDetailAPIView,
+    ManagerVendorWatchlistAPIView,
 )
 
 urlpatterns = [
     path("kpis/", ManagerKPIsAPIView.as_view(), name="manager-kpis-api"),
     path("pipeline/", ManagerPipelineAPIView.as_view(), name="manager-pipeline-api"),
     path("pr-aging/", ManagerPRAgingAPIView.as_view(), name="manager-pr-aging-api"),
+    path(
+        "vendor-watchlist/",
+        ManagerVendorWatchlistAPIView.as_view(),
+        name="manager-vendor-watchlist-api",
+    ),
     # Spend Analytics
     path("spend/", ManagerSpendAnalyticsAPIView.as_view(), name="manager-spend-api"),
     path("spend/summary/", ManagerSpendSummaryAPIView.as_view(), name="manager-spend-summary-api"),

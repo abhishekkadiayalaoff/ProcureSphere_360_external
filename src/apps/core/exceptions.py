@@ -79,14 +79,32 @@ def custom_exception_handler(exc, context):
             if isinstance(error_code, str):
                 error_code = error_code.upper()
 
-        message = str(exc)
+        def _clean_item(item):
+            if isinstance(item, dict):
+                return {k: _clean_item(v) for k, v in item.items()}
+            if isinstance(item, (list, tuple)):
+                return [_clean_item(v) for v in item]
+            return str(item)
+
         if hasattr(exc, "detail") and isinstance(exc.detail, dict):
-            details = exc.detail
+            details = _clean_item(exc.detail)
             message = "Validation failed for one or more fields."
         elif hasattr(exc, "detail") and isinstance(exc.detail, list):
-            details = exc.detail
+            details = _clean_item(exc.detail)
+            message = str(details[0]) if details else "Validation failed."
+        elif hasattr(exc, "detail"):
+            details = _clean_item(exc.detail)
+            message = str(exc.detail)
         else:
-            details = response.data if isinstance(response.data, (dict, list)) else {}
+            raw_data = response.data if isinstance(response.data, (dict, list)) else {}
+            details = _clean_item(raw_data)
+            message = str(exc)
+
+        if "ErrorDetail(" in message:
+            import re
+            m = re.search(r"""ErrorDetail\(string=['"](.*?)['"]""", message)
+            if m:
+                message = m.group(1)
 
         custom_response_data = {
             "error": {
@@ -97,4 +115,17 @@ def custom_exception_handler(exc, context):
         }
         return Response(custom_response_data, status=status_code)
 
-    return response
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.exception("Unhandled server error: %s", exc)
+
+    return Response(
+        {
+            "error": {
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected internal server error occurred.",
+                "details": str(exc),
+            }
+        },
+        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )

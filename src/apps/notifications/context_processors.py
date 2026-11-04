@@ -28,15 +28,56 @@ def notifications_processor(request):
         PurchaseRequisition.STATUS_BUDGET_REVIEW,
     ]
     if role_code == Role.DEPT_APPROVER:
+        from django.db.models import Q
         user_dept = getattr(user, "department", None)
+        if not user_dept:
+            from apps.organization.models import CostCenter, Department
+
+            managed_cc = (
+                CostCenter.objects.filter(manager=user)
+                .select_related("department")
+                .first()
+            )
+            if managed_cc and managed_cc.department:
+                user_dept = managed_cc.department
+            elif getattr(user, "organization", None):
+                user_dept = Department.objects.filter(
+                    organization=user.organization
+                ).first()
+
+        from apps.approvals.models import ApprovalAction
+        user_approved_pr_ids = ApprovalAction.objects.filter(
+            actor=user,
+            target_model_name="PurchaseRequisition",
+            action=ApprovalAction.ACTION_APPROVE,
+        ).values_list("target_object_id", flat=True)
+
         if user_dept:
-            pending_count = PurchaseRequisition.objects.filter(
-                department=user_dept, status__in=statuses
-            ).count()
-            if pending_count == 0:
-                pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
+            pending_count = (
+                PurchaseRequisition.objects.filter(
+                    Q(department=user_dept) | Q(cost_center__manager=user),
+                    status__in=statuses,
+                )
+                .exclude(id__in=user_approved_pr_ids)
+                .distinct()
+                .count()
+            )
+        elif getattr(user, "organization", None):
+            pending_count = (
+                PurchaseRequisition.objects.filter(
+                    Q(department__organization=user.organization) | Q(cost_center__manager=user),
+                    status__in=statuses,
+                )
+                .exclude(id__in=user_approved_pr_ids)
+                .distinct()
+                .count()
+            )
         else:
-            pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
+            pending_count = (
+                PurchaseRequisition.objects.filter(status__in=statuses)
+                .exclude(id__in=user_approved_pr_ids)
+                .count()
+            )
     elif role_code in [Role.PROC_MGR, Role.SUPER_ADMIN]:
         pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
     elif role_code == Role.LEGAL_MGR:

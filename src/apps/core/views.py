@@ -66,8 +66,11 @@ def home_view(request):  # noqa: C901
     """
     user = request.user
     role_code = getattr(user, "role_code", None) or (
-        user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
+        user.role.code if hasattr(user, "role") and user.role else None
     )
+
+    if role_code is None and not user.is_superuser:
+        return render(request, "pages/dashboards/no_role.html", status=403)
 
     # 1. REQUESTER ROLE DASHBOARD
     if role_code == Role.REQUESTER:
@@ -100,6 +103,10 @@ def home_view(request):  # noqa: C901
             {
                 "metrics": data["metrics"],
                 "recent_grns": data["recent_grns"],
+                "pending_deliveries": data.get("pending_deliveries", []),
+                "pending_inspections": data.get("pending_inspections", []),
+                "pending_handoffs": data.get("pending_handoffs", []),
+                "pending_rejections": data.get("pending_rejections", []),
             },
         )
 
@@ -217,8 +224,7 @@ def home_view(request):  # noqa: C901
         from apps.notifications.models import Notification
         from apps.sourcing.selectors import get_sourcing_dashboard_metrics
         from apps.sourcing.services import sync_all_event_windows
-        from apps.vendors.filters import annotate_governance
-        from apps.vendors.selectors import get_governance_metrics
+        from apps.vendors.selectors import get_governance_metrics, get_governance_vendor_queryset
 
         sync_all_event_windows()
         now = timezone.now()
@@ -240,7 +246,7 @@ def home_view(request):  # noqa: C901
             ]
         ).order_by("-updated_at")[:10]
         attention_vendors = (
-            annotate_governance(Vendor.objects.select_related("category"))
+            get_governance_vendor_queryset(user=request.user)
             .filter(
                 Q(status=Vendor.STATUS_ON_HOLD)
                 | Q(latest_risk_level="HIGH")
@@ -300,54 +306,90 @@ def home_view(request):  # noqa: C901
     # 9. DEPARTMENT APPROVER DASHBOARD
     elif role_code == Role.DEPT_APPROVER:
         user_department = getattr(user, "department", None)
-        if user_department:
-            dept_prs = PurchaseRequisition.objects.filter(department=user_department)
-            pending_prs_qs = (
-                dept_prs.filter(status__in=["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"])
-                .order_by("-updated_at")
-                .prefetch_related("attachments")
+        from apps.budgets.models import Budget
+        from apps.organization.models import CostCenter, Department, FiscalPeriod
+
+        if not user_department:
+            managed_cc = (
+                CostCenter.objects.filter(manager=user)
+                .select_related("department")
+                .first()
             )
+            if managed_cc and managed_cc.department:
+                user_department = managed_cc.department
+            elif getattr(user, "organization", None):
+                user_department = Department.objects.filter(
+                    organization=user.organization
+                ).first()
 
-            from apps.budgets.models import Budget
-            from apps.organization.models import CostCenter, FiscalPeriod
-
-            # Basic available budget calculation for dashboard
-            now = timezone.now()
-            # Find current fiscal period
-            current_period = FiscalPeriod.objects.filter(
-                start_date__lte=now, end_date__gte=now, is_closed=False
-            ).first()
-
-            available_budget = 0
-            if current_period:
-                # Aggregate available budget across all cost centers in this department
-                dept_ccs = CostCenter.objects.filter(department=user_department)
-                budgets = Budget.objects.filter(
-                    cost_center__in=dept_ccs, fiscal_period=current_period
-                )
-                available_budget = sum([b.available_amount for b in budgets])
-
-            context = {
-                "user_department": user_department,
-                "metrics": {
-                    "total_prs_count": dept_prs.count(),
-                    "pending_count": pending_prs_qs.count(),
-                    "approved_count": dept_prs.filter(status="APPROVED").count(),
-                    "available_budget": float(available_budget),
-                },
-                "pending_prs": pending_prs_qs[:10],
-            }
+        if user_department:
+            dept_prs = PurchaseRequisition.objects.filter(
+                Q(department=user_department) | Q(cost_center__manager=user)
+            ).distinct()
+        elif getattr(user, "organization", None):
+            dept_prs = PurchaseRequisition.objects.filter(
+                Q(department__organization=user.organization) | Q(cost_center__manager=user)
+            ).distinct()
         else:
-            context = {
-                "user_department": None,
-                "metrics": {
-                    "total_prs_count": 0,
-                    "pending_count": 0,
-                    "approved_count": 0,
-                    "available_budget": 0.0,
-                },
-                "pending_prs": [],
-            }
+            dept_prs = PurchaseRequisition.objects.all()
+
+        from apps.approvals.models import ApprovalAction
+        user_approved_pr_ids = ApprovalAction.objects.filter(
+            actor=user,
+            target_model_name="PurchaseRequisition",
+            action=ApprovalAction.ACTION_APPROVE,
+        ).values_list("target_object_id", flat=True)
+
+        pending_prs_qs = (
+            dept_prs.filter(status__in=["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"])
+            .exclude(id__in=user_approved_pr_ids)
+            .order_by("-updated_at")
+            .prefetch_related("attachments")
+        )
+        budget_overrun_qs = pending_prs_qs.filter(status=PurchaseRequisition.STATUS_BUDGET_REVIEW)
+        has_budget_overrun = budget_overrun_qs.exists()
+        budget_overrun_count = budget_overrun_qs.count()
+
+        now = timezone.now()
+        user_org = getattr(user, "organization", None) or (
+            user_department.organization if user_department else None
+        )
+        period_filter = Q(start_date__lte=now, end_date__gte=now, is_closed=False)
+        if user_org:
+            current_period = FiscalPeriod.objects.filter(
+                period_filter, organization=user_org
+            ).first()
+        else:
+            current_period = FiscalPeriod.objects.filter(period_filter).first()
+
+        available_budget = 0
+        if current_period:
+            if user_department:
+                dept_ccs = CostCenter.objects.filter(
+                    Q(department=user_department) | Q(manager=user)
+                ).distinct()
+            elif getattr(user, "organization", None):
+                dept_ccs = CostCenter.objects.filter(department__organization=user.organization)
+            else:
+                dept_ccs = CostCenter.objects.filter(manager=user)
+            budgets = Budget.objects.filter(
+                cost_center__in=dept_ccs, fiscal_period=current_period
+            )
+            available_budget = sum([b.available_amount for b in budgets])
+
+        context = {
+            "user_department": user_department,
+            "has_budget_overrun": has_budget_overrun,
+            "budget_overrun_count": budget_overrun_count,
+            "metrics": {
+                "total_prs_count": dept_prs.count(),
+                "pending_count": pending_prs_qs.count(),
+                "approved_count": dept_prs.filter(status="APPROVED").count(),
+                "available_budget": float(available_budget),
+                "budget_overrun_count": budget_overrun_count,
+            },
+            "pending_prs": pending_prs_qs[:10],
+        }
         return render(request, "pages/dashboards/approver_dashboard.html", context)
 
     # 10. SUPER ADMIN DASHBOARD
@@ -355,24 +397,59 @@ def home_view(request):  # noqa: C901
         from apps.audit.models import AuditLog
         from apps.budgets.models import Budget
         from apps.invoices.models import MatchException
+        from apps.organization.models import Organization
+
+        scoped_org = getattr(user, "effective_organization", None) if not user.is_superuser else None
 
         today = timezone.now().date()
-        total_users = User.objects.count()
-        budget_agg = Budget.objects.aggregate(total=Sum("allocated_amount"))["total"]
-        allocated_budget = budget_agg if budget_agg is not None else Decimal("0.00")
-        pending_pr_count = PurchaseRequisition.objects.filter(
+        users_qs = User.objects.all()
+        budgets_qs = Budget.objects.all()
+        prs_qs = PurchaseRequisition.objects.filter(
             status__in=[
                 PurchaseRequisition.STATUS_SUBMITTED,
                 PurchaseRequisition.STATUS_MANAGER_REVIEW,
                 PurchaseRequisition.STATUS_BUDGET_REVIEW,
             ]
-        ).count()
-        pending_exceptions = MatchException.objects.filter(
-            status=MatchException.STATUS_OPEN
-        ).count()
-        audits_today = AuditLog.objects.filter(timestamp__date=today).count()
+        )
+        exceptions_qs = MatchException.objects.filter(status=MatchException.STATUS_OPEN)
+        audits_qs = AuditLog.objects.filter(timestamp__date=today)
+        orgs_qs = Organization.objects.select_related("admin_user").order_by("code")
+
+        if scoped_org:
+            users_qs = users_qs.filter(Q(organization=scoped_org) | Q(department__organization=scoped_org))
+            budgets_qs = budgets_qs.filter(cost_center__department__organization=scoped_org)
+            prs_qs = prs_qs.filter(department__organization=scoped_org)
+            exceptions_qs = exceptions_qs.filter(invoice__po__requisition__department__organization=scoped_org)
+            audits_qs = audits_qs.filter(
+                Q(actor__organization=scoped_org) | Q(actor__department__organization=scoped_org)
+            )
+            orgs_qs = orgs_qs.filter(id=scoped_org.id)
+
+        total_users = users_qs.count()
+        budget_agg = budgets_qs.aggregate(total=Sum("allocated_amount"))["total"]
+        allocated_budget = budget_agg if budget_agg is not None else Decimal("0.00")
+        pending_pr_count = prs_qs.count()
+        pending_exceptions = exceptions_qs.count()
+        audits_today = audits_qs.count()
+
+        is_global_superadmin = bool(not scoped_org)
 
         context = {
+            "organizations": orgs_qs,
+            "scoped_org": scoped_org,
+            "is_global_superadmin": is_global_superadmin,
+            "can_add_organization": is_global_superadmin,
+            "total_organizations": Organization.objects.count() if is_global_superadmin else (1 if scoped_org else 0),
+            "active_organizations": (
+                Organization.objects.filter(is_active=True).count()
+                if is_global_superadmin
+                else (1 if (scoped_org and scoped_org.is_active) else 0)
+            ),
+            "provisioned_admins": (
+                Organization.objects.filter(admin_user__isnull=False).count()
+                if is_global_superadmin
+                else (1 if (scoped_org and scoped_org.admin_user) else 0)
+            ),
             "metrics": {
                 "total_users": total_users,
                 "allocated_budget": allocated_budget,
@@ -451,3 +528,86 @@ def custom_403_view(request, exception=None):
             status=403,
         )
     return render(request, "403.html", status=403)
+
+
+def protected_media_view(request, file_path):
+    """
+    Secure media delivery endpoint enforcing authentication, directory traversal
+    protection, and object-level/role-based access control (DEF-002).
+    """
+    import mimetypes
+    import os
+
+    from django.conf import settings
+    from django.http import FileResponse, Http404, HttpResponseForbidden
+
+    if not request.user or not request.user.is_authenticated:
+        if _is_api_request(request):
+            return JsonResponse(
+                {
+                    "error": {
+                        "code": "AUTHENTICATION_REQUIRED",
+                        "message": "Authentication required to access media documents.",
+                    }
+                },
+                status=401,
+            )
+        return HttpResponseForbidden("Authentication required to access media documents.")
+
+    user = request.user
+    role_code = getattr(user, "role_code", None) or (
+        user.role.code if hasattr(user, "role") and user.role else None
+    )
+
+    # 1. Path traversal hardening
+    normalized_path = os.path.normpath(file_path).lstrip("/\\")
+    if normalized_path.startswith("..") or ".." in normalized_path.split(os.path.sep):
+        return HttpResponseForbidden("Access denied: Invalid file path.")
+
+    full_path = os.path.join(settings.MEDIA_ROOT, normalized_path)
+    if not os.path.exists(full_path) or not os.path.isfile(full_path):
+        raise Http404("Document not found.")
+
+    # 2. RBAC and Ownership Enforcement
+    if user.is_superuser or role_code == Role.SUPER_ADMIN:
+        pass  # Super Admin has full administrative access
+    elif role_code == Role.VENDOR_USER:
+        vendor = getattr(user, "vendor", None)
+        if not vendor:
+            return HttpResponseForbidden("Access denied: No linked vendor profile.")
+
+        from apps.sourcing.models import BidAttachment
+        from apps.vendors.models import VendorDocument
+
+        is_vendor_doc = VendorDocument.objects.filter(
+            vendor=vendor, file__endswith=os.path.basename(normalized_path)
+        ).exists()
+        is_bid_att = BidAttachment.objects.filter(
+            bid__vendor=vendor, file__endswith=os.path.basename(normalized_path)
+        ).exists()
+
+        if not (is_vendor_doc or is_bid_att or str(vendor.id) in normalized_path):
+            return HttpResponseForbidden("Access denied: Vendors may only access their own documents.")
+    elif role_code in [Role.REQUESTER, Role.DEPT_APPROVER, Role.STORES_RECEIVER]:
+        norm_lower = normalized_path.lower()
+        if "contracts" in norm_lower:
+            return HttpResponseForbidden("Access denied: Legal contracts are restricted to Legal and Procurement.")
+        if "vendor_docs" in norm_lower or "kyc" in norm_lower:
+            return HttpResponseForbidden("Access denied: Vendor KYC records are restricted to Procurement and Legal.")
+    elif role_code in [Role.PROC_EXEC, Role.PROC_MGR, Role.LEGAL_MGR, Role.FINANCE_AP, Role.AUDITOR]:
+        pass
+
+    content_type, _ = mimetypes.guess_type(full_path)
+    filename = os.path.basename(full_path)
+    response = FileResponse(open(full_path, "rb"), content_type=content_type or "application/octet-stream")
+    response["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+def protected_vendor_document_view(request, file_path):
+    """Alias for backwards compatibility with vendor_documents specific route."""
+    import os
+    if not file_path.startswith("vendor_documents"):
+        file_path = os.path.join("vendor_documents", file_path)
+    return protected_media_view(request, file_path)
+

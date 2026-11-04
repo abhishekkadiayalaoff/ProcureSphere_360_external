@@ -36,5 +36,8 @@ class AuditorReadOnlyPermission(BasePermission):
         if role_code == Role.SUPER_ADMIN:
             return True
         if role_code == Role.AUDITOR:
+            action = getattr(view, "action", None)
+            if action in ["export_data", "export"] or getattr(request, "path", "").endswith("/export/"):
+                return True
             return request.method in SAFE_METHODS
         return True

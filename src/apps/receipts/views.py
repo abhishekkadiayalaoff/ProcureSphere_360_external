@@ -1055,15 +1055,62 @@ def get_stores_dashboard_data(user=None):
         "pending_vendor_returns_count": pending_vendor_returns_count,
         "stock_handoffs_count": stock_handoffs_count,
         "pending_stock_handoff_grns": pending_stock_handoff_grns,
+        "pending_stock_handoffs": pending_stock_handoff_grns,
         "completed_stock_handoff_grns": completed_stock_handoff_grns,
         "quantity_corrections_count": quantity_corrections_count,
     }
 
     recent_grns = all_grns[:10]
 
+    # 1. Pending Deliveries: POs issued or in partial receipt awaiting dock receiving
+    pending_deliveries_items = list(
+        PurchaseOrder.objects.filter(
+            status__in=[
+                PurchaseOrder.STATUS_ISSUED,
+                PurchaseOrder.STATUS_ACKNOWLEDGED,
+                PurchaseOrder.STATUS_PARTIAL_RECEIPT,
+            ]
+        )
+        .select_related("vendor", "cost_center")
+        .prefetch_related("lines")
+        .order_by("-created_at")[:15]
+    )
+
+    # 2. Pending Inspections: GRNs received at the dock awaiting quality inspection
+    pending_inspections_items = [g for g in all_grns if g.overall_inspection_status == "PENDING"][
+        :15
+    ]
+
+    # 3. Pending Stock Handoffs: Inspected GRNs with accepted quantities awaiting transfer to warehouse stock
+    pending_handoffs_items = [
+        g
+        for g in eligible_handoff_grns
+        if g.stock_handoff_status in ["PENDING_HANDOFF", "PARTIALLY_HANDED_OFF"]
+    ][:15]
+
+    # 4. Rejections & Returns: Receipt lines rejected during quality inspection
+    pending_rejections_items = list(
+        ReceiptLine.objects.filter(
+            Q(quantity_rejected__gt=Decimal("0.00")) | Q(rejections__isnull=False)
+        )
+        .select_related(
+            "receipt__po__vendor",
+            "receipt__received_by",
+            "po_line",
+            "inspection__inspected_by",
+        )
+        .prefetch_related("rejections")
+        .distinct()
+        .order_by("-receipt__received_date")[:15]
+    )
+
     return {
         "metrics": metrics,
         "recent_grns": recent_grns,
+        "pending_deliveries": pending_deliveries_items,
+        "pending_inspections": pending_inspections_items,
+        "pending_handoffs": pending_handoffs_items,
+        "pending_rejections": pending_rejections_items,
     }
 
 
@@ -1099,6 +1146,10 @@ def receipt_dashboard_view(request):
         {
             "metrics": data["metrics"],
             "recent_grns": data["recent_grns"],
+            "pending_deliveries": data.get("pending_deliveries", []),
+            "pending_inspections": data.get("pending_inspections", []),
+            "pending_handoffs": data.get("pending_handoffs", []),
+            "pending_rejections": data.get("pending_rejections", []),
         },
     )
 
@@ -1231,3 +1282,75 @@ def receipt_delivery_performance_report_view(request):
             },
         },
     )
+
+
+@login_required(login_url="/login/")
+def receipt_send_notification_view(request, grn_id):
+    """
+    Explicit action for Store Receiver to dispatch/send GRN Receipt Note
+    to Finance & AP, Vendor Portal, and Procurement Executive/Manager.
+    """
+    from django.core.exceptions import PermissionDenied
+
+    from apps.accounts.models import Role, User
+    from apps.notifications.models import Notification
+
+    role_code = getattr(request.user, "role_code", None) or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else None
+    )
+    if not (request.user.is_superuser or role_code in [Role.STORES_RECEIVER, Role.SUPER_ADMIN]):
+        raise PermissionDenied("Only Stores Receiver or Super Admin can send GRN notifications.")
+
+    grn = get_object_or_404(
+        GoodsReceipt.objects.select_related("po__vendor"),
+        id=grn_id,
+    )
+    po = grn.po
+
+    # 1. Notify Finance & AP
+    fin_users = User.objects.filter(role__code=Role.FINANCE_AP, is_active=True)
+    for fin_u in fin_users:
+        Notification.objects.create(
+            recipient=fin_u,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"GRN Receipt Note Dispatched: {grn.grn_number} (PO {po.po_number})",
+            message=(
+                f"Stores Receiver has dispatched Goods Receipt Note {grn.grn_number} for PO {po.po_number}. "
+                f"Status: {grn.overall_inspection_status}. Ready for 3-way match upon invoice arrival."
+            ),
+            target_url=f"/receipts/{grn.id}/",
+        )
+
+    # 2. Notify Vendor
+    if po.vendor:
+        for v_u in User.objects.filter(vendor=po.vendor, is_active=True):
+            Notification.objects.create(
+                recipient=v_u,
+                notification_type=Notification.TYPE_GOODS_RECEIVED,
+                title=f"GRN Receipt Note Delivered: {grn.grn_number}",
+                message=(
+                    f"Goods Receipt Note {grn.grn_number} for PO {po.po_number} is completed. "
+                    f"Status: {grn.overall_inspection_status}. You can now raise an invoice for inspected goods."
+                ),
+                target_url=f"/vendor/purchase-orders/{po.id}/",
+            )
+
+    # 3. Notify Procurement Executive & Manager
+    pe_pm_users = User.objects.filter(
+        role__code__in=[Role.PROC_EXEC, Role.PROC_MGR], is_active=True
+    )
+    for staff_u in pe_pm_users:
+        Notification.objects.create(
+            recipient=staff_u,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"GRN Dispatched: {grn.grn_number} (PO {po.po_number})",
+            message=f"Goods Receipt Note {grn.grn_number} on PO {po.po_number} has been shared with Finance and Vendor.",
+            target_url=f"/receipts/{grn.id}/",
+        )
+
+    messages.success(
+        request,
+        f"Goods Receipt Note {grn.grn_number} successfully dispatched to Finance & Accounts Payable and Vendor ({po.vendor.legal_name}).",
+    )
+    return redirect("receipt_detail", grn_id=grn.id)
+
