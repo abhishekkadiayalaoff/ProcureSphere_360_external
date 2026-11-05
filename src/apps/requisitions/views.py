@@ -893,6 +893,12 @@ def cancel_view(request, pk):
                     ip_address=request.META.get("REMOTE_ADDR", ""),
                 )
 
+                # Release active budget reservations and restore available budget
+                from apps.budgets.services import release_budget_reservation_service
+                release_budget_reservation_service(
+                    requisition=pr, user=request.user, reason="PR Cancelled by Requester"
+                )
+
             messages.success(request, f"Requisition {pr.pr_number} has been cancelled.")
         except Exception as e:
             messages.error(request, f"Error cancelling requisition: {str(e)}")
