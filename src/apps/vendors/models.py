@@ -1,3 +1,4 @@
+import re
 from django.conf import settings
 from django.db import models
 
@@ -131,6 +132,14 @@ class Vendor(TimeStampedModel):
             self.gstin = normalize_tax_identifier(self.gstin)
         super().save(*args, **kwargs)
 
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status"], name="vendor_st_idx"),
+            models.Index(fields=["status", "-updated_at"], name="vendor_st_upd_idx"),
+            models.Index(fields=["category", "status"], name="vendor_cat_st_idx"),
+        ]
+
     def __str__(self):
         return f"{self.legal_name} ({self.vendor_number}) [{self.status}]"
 
@@ -146,6 +155,13 @@ class VendorContact(TimeStampedModel):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.vendor.legal_name}"
+
+    @property
+    def phone_digits(self) -> str:
+        if not self.phone:
+            return ""
+        digits = re.sub(r"\D", "", self.phone)
+        return digits[-10:] if len(digits) >= 10 else digits
 
 
 class VendorDocument(TimeStampedModel):
@@ -344,6 +360,10 @@ class VendorRiskRecord(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["vendor", "-created_at"], name="vendor_risk_v_ts_idx"),
+            models.Index(fields=["risk_level"], name="vendor_risk_lvl_idx"),
+        ]
 
     def __str__(self):
         return f"{self.vendor.legal_name} - {self.risk_level} Risk"

@@ -1,123 +1,725 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In — ProcureSphere 360 ERP</title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="description" content="Sign in to ProcureSphere 360 Enterprise Procurement Platform." />
+
+    <!-- Production WebP Favicon Suite -->
+    <link rel="icon" type="image/webp" sizes="32x32" href="{% static 'icons/favicon-32x32.webp' %}">
+    <link rel="icon" type="image/webp" sizes="16x16" href="{% static 'icons/favicon-16x16.webp' %}">
+    <link rel="icon" type="image/webp" href="{% static 'icons/favicon.webp' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.webp' %}">
+    <link rel="manifest" href="{% static 'icons/site.webmanifest' %}">
+    <meta name="theme-color" content="#ffffff">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <!-- Custom Design System Styles -->
-    <link href="/static/css/style.css" rel="stylesheet">
+
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #e6effc 0%, #d8e5f8 40%, #c5d7f2 100%);
+            font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #1a2540;
+            position: relative;
+            padding: 24px;
+            overflow-x: hidden;
+        }
+
+        /* Subtle ambient backdrop shapes for depth */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -15%;
+            left: -10%;
+            width: 50vw;
+            height: 50vw;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, rgba(255, 255, 255, 0) 70%);
+            pointer-events: none;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 60vw;
+            height: 60vw;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.10) 0%, rgba(255, 255, 255, 0) 70%);
+            pointer-events: none;
+        }
+
+        /* ── EXIT PILL (top-right, outside card) ──────────────── */
+        .lm-exit-pill {
+            position: fixed;
+            top: 22px;
+            right: 24px;
+            z-index: 5010;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 16px;
+            background: #ffffff;
+            border: 1px solid #d1d9e6;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a2540;
+            text-decoration: none;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            font-family: inherit;
+            transition: background 0.15s, box-shadow 0.15s, transform 0.12s;
+            letter-spacing: 0.01em;
+        }
+        .lm-exit-pill:hover {
+            background: #f5f7fb;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+            transform: translateY(-1px);
+            color: #1a2540;
+        }
+
+        /* ── CARD ─────────────────────────────────────────────── */
+        .login-content-wrapper {
+            background: #ffffff;
+            border-radius: 24px;
+            box-shadow: 0 24px 64px rgba(30, 50, 100, 0.16);
+            display: flex;
+            flex-direction: row;
+            overflow: hidden;
+            width: 90vw;
+            max-width: 960px;
+            min-height: 520px;
+            max-height: 95vh;
+            border: 1px solid rgba(220, 230, 245, 0.85);
+            position: relative;
+            z-index: 10;
+            animation: lmSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes lmSlide {
+            from { opacity: 0; transform: scale(0.97) translateY(12px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* ── LEFT PANEL ───────────────────────────────────────── */
+        .lm-left {
+            flex: 0 0 46%;
+            background: linear-gradient(160deg, #eef4fd 0%, #dde9f9 55%, #cddaf5 100%);
+            display: flex;
+            flex-direction: column;
+            padding: 34px 30px 0 34px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Badge */
+        .lm-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 14px;
+            background: rgba(210, 228, 255, 0.85);
+            color: #2455c8;
+            border-radius: 9999px;
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            font-family: 'DM Mono', monospace, sans-serif;
+            margin-bottom: 24px;
+            width: fit-content;
+            border: 1px solid rgba(180, 210, 255, 0.6);
+        }
+        .lm-badge-dot {
+            width: 6px;
+            height: 6px;
+            background: #2455c8;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* Headline */
+        .lm-headline {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1.22;
+            color: #0d1a33;
+            margin: 0 0 16px 0;
+            letter-spacing: -0.01em;
+        }
+        .lm-headline-blue {
+            display: block;
+            color: #2563eb;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-style: normal;
+        }
+
+        /* Subtext */
+        .lm-sub {
+            font-size: 13.5px;
+            line-height: 1.65;
+            color: #4e6080;
+            margin: 0;
+            max-width: 340px;
+            font-family: 'DM Sans', 'Inter', sans-serif;
+        }
+
+        /* Person image */
+        .lm-img-wrap {
+            margin-top: auto;
+            flex-shrink: 0;
+            width: calc(100% + 80px);
+            margin-left: -44px;
+            margin-right: -36px;
+            margin-bottom: 0;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            overflow: hidden;
+            line-height: 0;
+        }
+        .lm-img {
+            width: 122%;
+            max-width: none;
+            height: auto;
+            object-fit: contain;
+            object-position: bottom center;
+            display: block;
+            margin: 0 auto;
+            margin-bottom: -4px;
+            transition: opacity 0.25s ease;
+        }
+
+        /* ── RIGHT PANEL ──────────────────────────────────────── */
+        .lm-right {
+            flex: 1 1 54%;
+            background: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px 34px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+        }
+        .lm-form-wrap {
+            width: 100%;
+            max-width: 370px;
+        }
+
+        /* Icon box */
+        .lm-icon-box {
+            width: 48px;
+            height: 48px;
+            background: #edf2ff;
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px auto;
+            border: 1px solid rgba(180, 200, 255, 0.5);
+            padding: 4px;
+        }
+
+        /* Brand / headings */
+        .lm-brand {
+            text-align: center;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #1a2540;
+            margin: 0 0 4px 0;
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.005em;
+        }
+        .lm-brand span { color: #2455c8; }
+
+        .lm-heading {
+            text-align: center;
+            font-family: 'Playfair Display', Georgia, serif;
+            font-size: 25px;
+            font-weight: 700;
+            color: #0d1a33;
+            margin: 0 0 2px 0;
+            letter-spacing: -0.01em;
+            line-height: 1.2;
+        }
+
+        .lm-tagline {
+            text-align: center;
+            font-size: 12px;
+            color: #64748b;
+            margin: 0 0 10px 0;
+            font-family: 'DM Sans', 'Inter', sans-serif;
+            line-height: 1.4;
+        }
+
+        /* Alerts */
+        .login-alert-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 9px;
+            padding: 7px 12px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .login-alert-banner.alert-danger {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #b91c1c;
+        }
+        .login-alert-banner.alert-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1d4ed8;
+        }
+        .login-alert-banner.alert-success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #15803d;
+        }
+
+        /* Form */
+        .lm-form {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+        }
+        .lm-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .lm-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e293b;
+            font-family: 'Inter', sans-serif;
+        }
+        .lm-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .lm-icon {
+            position: absolute;
+            left: 12px;
+            color: #a0aec0;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .lm-input {
+            width: 100%;
+            padding: 9px 12px 9px 38px;
+            border: 1.5px solid #dde3ee;
+            border-radius: 9px;
+            font-size: 13.5px;
+            font-family: inherit;
+            color: #1a2540;
+            background: #ffffff;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: none;
+        }
+        .lm-input:focus {
+            border-color: #3b6fe8;
+            box-shadow: 0 0 0 3px rgba(59, 111, 232, 0.12);
+        }
+        .lm-input::placeholder {
+            color: #b0bccc;
+            font-size: 13px;
+        }
+
+        /* Eye toggle */
+        .lm-eye {
+            position: absolute;
+            right: 11px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #a0aec0;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            transition: color 0.15s;
+        }
+        .lm-eye:hover { color: #64748b; }
+
+        /* Remember + Forgot row */
+        .lm-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            margin-top: -2px;
+        }
+        .lm-remember {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            color: #475569;
+            cursor: pointer;
+            user-select: none;
+            font-size: 13px;
+        }
+        .lm-remember input[type="checkbox"] {
+            accent-color: #3b6fe8;
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+        }
+        .lm-forgot {
+            font-size: 13px;
+            color: #3b6fe8;
+            text-decoration: none;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .lm-forgot:hover {
+            color: #1d4ed8;
+            text-decoration: underline;
+        }
+
+        /* Submit button */
+        .lm-submit {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 10.5px 18px;
+            background: #3b6fe8;
+            color: #ffffff;
+            border: none;
+            border-radius: 9px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            letter-spacing: 0.01em;
+            transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+            box-shadow: 0 4px 14px rgba(59, 111, 232, 0.25);
+            margin-top: 3px;
+        }
+        .lm-submit:hover {
+            background: #2455c8;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 111, 232, 0.38);
+        }
+        .lm-submit:active {
+            transform: translateY(0);
+        }
+
+        /* ── DEV QUICK-LOGIN ─────────────────────────────────── */
+        .dev-quick-login-section {
+            margin-top: 10px;
+            padding: 7px 10px;
+            background: #fffbeb;
+            border: 1.5px solid #fde68a;
+            border-radius: 9px;
+        }
+        .dev-quick-login-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #92400e;
+            margin: 0 0 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        .dev-quick-login-label code {
+            background: #fef3c7;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            color: #b45309;
+            border: 1px solid #fde68a;
+            font-family: 'DM Mono', monospace;
+        }
+        .dev-quick-login-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .dev-ql-btn {
+            padding: 3.5px 7px;
+            font-size: 10.5px;
+            font-weight: 600;
+            border: 1.5px solid #d1d5db;
+            border-radius: 5px;
+            background: #ffffff;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-family: inherit;
+        }
+        .dev-ql-btn:hover {
+            background: #f0f4ff;
+            border-color: #3b6fe8;
+            color: #3b6fe8;
+        }
+        .dev-ql-btn--vendor {
+            border-color: #06b6d4;
+            color: #0e7490;
+        }
+        .dev-ql-btn--vendor:hover {
+            background: #ecfeff;
+            border-color: #06b6d4;
+            color: #0e7490;
+        }
+
+        /* ── RESPONSIVE ───────────────────────────────────────── */
+        @media (max-width: 780px) {
+            .login-content-wrapper {
+                flex-direction: column;
+                max-height: 95vh;
+                max-width: 440px;
+            }
+            .lm-left { display: none; }
+            .lm-right { padding: 32px 24px; }
+        }
+    </style>
 </head>
-<body class="bg-light d-flex align-items-center justify-content-center min-vh-100 py-5">
+<body>
 
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-4">
-                <div class="card shadow-lg border-0 rounded-4 overflow-hidden">
-                    <!-- Header -->
-                    <div class="card-header bg-primary text-white text-center p-4">
-                        <div class="mb-2">
-                            <i class="fa-solid fa-cubes-stacked fa-3x"></i>
-                        </div>
-                        <h3 class="fw-bold mb-1">ProcureSphere 360</h3>
-                        <p class="mb-0 opacity-75 small text-uppercase tracking-wider fw-semibold">Enterprise Procurement ERP</p>
-                    </div>
-                    
-                    <!-- Form Body -->
-                    <div class="card-body p-4 p-md-4 bg-white">
-                        {% if messages %}
-                            {% for message in messages %}
-                                <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show text-center mb-3 small" role="alert">
-                                    <i class="fa-solid fa-circle-exclamation me-1"></i> {{ message }}
-                                    <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
+    <!-- Exit pill — top-right of viewport -->
+    <a href="/" id="login-exit-btn" class="lm-exit-pill" aria-label="Exit to Home">
+        Exit
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+    </a>
 
-                        <form id="loginForm" method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
-                            {% csrf_token %}
-                            
-                            <div class="mb-3">
-                                <label for="email" class="form-label fw-semibold text-secondary small">Work Email Address</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-envelope"></i></span>
-                                    <input type="email" class="form-control fs-6" id="email" name="email" value="{{ email|default:'' }}" placeholder="name@company.com" autocomplete="email" required autofocus>
-                                </div>
-                            </div>
+    <!-- Main Card -->
+    <div class="login-content-wrapper">
 
-                            <div class="mb-4">
-                                <label for="password" class="form-label fw-semibold text-secondary small">Password</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light text-muted"><i class="fa-solid fa-lock"></i></span>
-                                    <input type="password" class="form-control fs-6" id="password" name="password" placeholder="••••••••••••" autocomplete="current-password" required>
-                                </div>
-                            </div>
+        <!-- ═══════ LEFT PANEL ═══════ -->
+        <div class="lm-left">
+            <!-- Badge -->
+            <div class="lm-badge">
+                <span class="lm-badge-dot"></span>
+                PROCURESPHERE PORTAL
+            </div>
 
-                            <div class="d-grid mb-4">
-                                <button type="submit" class="btn btn-primary btn-lg fw-bold py-3 text-uppercase shadow-sm fs-6">
-                                    <i class="fa-solid fa-right-to-bracket me-2"></i> Sign In to Dashboard
-                                </button>
-                            </div>
-                        </form>
+            <!-- Headline -->
+            <h2 class="lm-headline">
+                Enterprise Procurement,<br>
+                <span class="lm-headline-blue">Unified &amp; In Control.</span>
+            </h2>
 
-                        <!-- Quick Demo Accounts Helper -->
-                        <div class="border-top pt-3 text-center">
-                            <p class="small text-muted fw-semibold mb-2"><i class="fa-solid fa-bolt text-warning me-1"></i> Quick 1-Click Role Logins (Password: <code>Password123!</code>)</p>
-                            <div class="d-flex flex-wrap justify-content-center gap-1">
-                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('admin@hpe.com')">Admin</button>
-                                <button type="button" class="btn btn-outline-primary btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('requester@hpe.com')">Requester</button>
-                                <button type="button" class="btn btn-outline-warning btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('approver@hpe.com')">Dept Approver</button>
-                                <button type="button" class="btn btn-outline-info btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('procexec@hpe.com')">Proc Exec</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('procmgr@hpe.com')">Proc Mgr</button>
-                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('receiver@hpe.com')">Stores Receiver</button>
-                                <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('finance@hpe.com')">Finance AP</button>
-                                <button type="button" class="btn btn-outline-dark btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('legal@hpe.com')">Legal Mgr</button>
-                                <button type="button" class="btn btn-outline-info btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('auditor@hpe.com')">Auditor</button>
-                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-2" style="font-size: 0.72rem;" onclick="quickLogin('vendoruser@cisco.com')">Vendor User</button>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Subtext -->
+            <p class="lm-sub">
+                Connecting every requisition, vendor negotiation, and payment into one seamless, automated source-to-pay workflow.
+            </p>
 
-                    <div class="card-footer bg-light text-center py-3 border-0">
-                        <small class="text-muted">ProcureSphere 360 ERP &copy; 2026</small>
-                    </div>
-                </div>
+            <!-- Person image pinned to bottom of left panel -->
+            <div class="lm-img-wrap">
+                <img
+                    id="login-char-img"
+                    src="{% static 'landing/login-states/normal.webp' %}"
+                    alt="Enterprise workspace"
+                    class="lm-img"
+                />
             </div>
         </div>
+
+        <!-- ═══════ RIGHT PANEL ═══════ -->
+        <div class="lm-right">
+            <div class="lm-form-wrap">
+
+                <!-- Prominent High-Visibility Brand Logo -->
+                <div class="lm-logo-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <img
+                        src="{% static 'landing/images/procuresphere_360_emblem.png' %}"
+                        alt="ProcureSphere 360 Emblem"
+                        style="height: 66px; width: 66px; object-fit: contain; display: block; filter: drop-shadow(0 4px 14px rgba(37, 99, 235, 0.18));"
+                    />
+                    <img
+                        src="{% static 'landing/images/procuresphere_360_wordmark.png' %}"
+                        alt="ProcureSphere 360"
+                        style="height: 27px; width: auto; object-fit: contain; display: block; margin-top: 5px;"
+                    />
+                </div>
+                <h1 class="lm-heading">Welcome Back</h1>
+                <p class="lm-tagline">Sign in to your enterprise procurement portal</p>
+
+                <!-- Django Messages / Alert -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="login-alert-banner {% if message.tags == 'error' %}alert-danger{% elif message.tags == 'info' %}alert-info{% else %}alert-success{% endif %}">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% elif message.tags == 'info' %}fa-circle-info{% else %}fa-circle-check{% endif %}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                            <button type="button" onclick="this.closest('.login-alert-banner').remove()" style="background: none; border: none; font-size: 16px; cursor: pointer; color: inherit; padding: 0 4px; line-height: 1; opacity: 0.7;" aria-label="Close alert">&times;</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Form -->
+                <form id="loginForm" class="lm-form" method="POST" action="/login/{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">
+                    {% csrf_token %}
+
+                    <!-- Email -->
+                    <div class="lm-field">
+                        <label for="email" class="lm-label">Email</label>
+                        <div class="lm-input-wrap">
+                            <span class="lm-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                                    <circle cx="12" cy="7" r="4"/>
+                                </svg>
+                            </span>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                class="lm-input"
+                                value="{{ email|default:'' }}"
+                                placeholder="e.g. admin@hpe.com"
+                                autocomplete="email"
+                                required
+                                />
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div class="lm-field">
+                        <label for="password" class="lm-label">Password</label>
+                        <div class="lm-input-wrap">
+                            <span class="lm-icon">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                                </svg>
+                            </span>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="lm-input"
+                                placeholder="••••••••••••"
+                                autocomplete="current-password"
+                                required
+                            />
+                            <button type="button" id="toggle-password" class="lm-eye" aria-label="Toggle password visibility">
+                                <svg id="pw-eye-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sign In button -->
+                    <button type="submit" id="login-submit-btn" class="lm-submit">
+                        <span id="login-btn-text">Sign In &nbsp;→</span>
+                    </button>
+                </form>
+
+                <!-- Dev Quick-Login -->
+                <div id="dev-quick-login" class="dev-quick-login-section">
+                    <p class="dev-quick-login-label">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="#f59e0b" stroke="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        Dev Logins &nbsp;·&nbsp; Password: <code>Password123!</code>
+                    </p>
+                    <div class="dev-quick-login-buttons">
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('admin@hpe.com')">Admin</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('requester@hpe.com')">Requester</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('approver@hpe.com')">Dept Approver</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('procexec@hpe.com')">Proc Exec</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('procmgr@hpe.com')">Proc Mgr</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('receiver@hpe.com')">Stores Receiver</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('finance@hpe.com')">Finance AP</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('legal@hpe.com')">Legal Mgr</button>
+                        <button type="button" class="dev-ql-btn" onclick="quickLogin('auditor@hpe.com')">Auditor</button>
+                        <button type="button" class="dev-ql-btn dev-ql-btn--vendor" onclick="quickLogin('vendoruser@cisco.com')">Vendor User</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
     </div>
 
-    <!-- Bootstrap JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function getCsrfToken() {
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.substring(0, 10) === 'csrftoken=') {
-                        return decodeURIComponent(cookie.substring(10));
-                    }
-                }
-            }
-            return null;
+        // Character stays strictly in idle stage (no animations/reactions)
+        function setLoginCharState(state) {
+            const img = document.getElementById('login-char-img');
+            if (img) img.src = "{% static 'landing/login-states/normal.webp' %}";
         }
 
-        function quickLogin(email) {
-            document.getElementById('email').value = email;
-            document.getElementById('password').value = 'Password123!';
+        // Password visibility toggle
+        const pwInput = document.getElementById('password');
+        const toggleBtn = document.getElementById('toggle-password');
+        const eyeSvg = document.getElementById('pw-eye-svg');
+        const eyeOpenSvg = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        const eyeSlashSvg = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
 
-            // Synchronize hidden input with current live csrftoken cookie to prevent stale token mismatch
-            const liveToken = getCsrfToken();
-            const csrfInput = document.querySelector('#loginForm input[name="csrfmiddlewaretoken"]');
-            if (liveToken && csrfInput) {
-                csrfInput.value = liveToken;
-            }
+        if (toggleBtn && pwInput) {
+            toggleBtn.addEventListener('click', function () {
+                const isPassword = pwInput.type === 'password';
+                pwInput.type = isPassword ? 'text' : 'password';
+                if (eyeSvg) {
+                    eyeSvg.innerHTML = isPassword ? eyeSlashSvg : eyeOpenSvg;
+                }
+            });
+        }
+
+        // Quick Login helper
+        function quickLogin(email) {
+            const emailField = document.getElementById('email');
+            const pwField = document.getElementById('password');
+            if (emailField) emailField.value = email;
+            if (pwField) pwField.value = 'Password123!';
             document.getElementById('loginForm').submit();
         }
+        window.quickLogin = quickLogin;
+        window.modalQuickLogin = quickLogin;
+        // Exit button sets flags to prevent intro video on return to home
+        const exitBtn = document.getElementById('login-exit-btn');
+        if (exitBtn) {
+            exitBtn.addEventListener('click', function () {
+                try {
+                    sessionStorage.setItem('ps360_clicked_home', 'true');
+                    sessionStorage.setItem('ps360_logged_out', 'true');
+                    sessionStorage.setItem('ps360_from_login', 'true');
+                    document.cookie = "ps360_just_logged_out=1; path=/; max-age=60; SameSite=Lax";
+                } catch(e) {}
+            });
+        }
+
+        // Ensure right panel is strictly at top so logo is always fully visible
+        window.addEventListener('DOMContentLoaded', function () {
+            const rightPanel = document.querySelector('.lm-right');
+            if (rightPanel) {
+                rightPanel.scrollTop = 0;
+            }
+            window.scrollTo(0, 0);
+        });
     </script>
 </body>
 </html>

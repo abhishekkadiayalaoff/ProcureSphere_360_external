@@ -116,15 +116,24 @@ def custom_exception_handler(exc, context):
         return Response(custom_response_data, status=status_code)
 
     import logging
+    from django.conf import settings
+
     logger = logging.getLogger(__name__)
     logger.exception("Unhandled server error: %s", exc)
+
+    # Sanitize exception details in production to prevent CWE-209 information disclosure
+    details = (
+        str(exc)
+        if getattr(settings, "DEBUG", False)
+        else "An unexpected error occurred. Please contact the system administrator."
+    )
 
     return Response(
         {
             "error": {
                 "code": "INTERNAL_SERVER_ERROR",
                 "message": "An unexpected internal server error occurred.",
-                "details": str(exc),
+                "details": details,
             }
         },
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,

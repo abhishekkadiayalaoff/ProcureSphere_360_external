@@ -405,23 +405,17 @@
     display: none !important;
   }
 
-  .uiverse-card.is-active .box {
-    right: 0 !important;
-    top: 0 !important;
-    border-radius: 0 !important;
-    border: 1px solid transparent !important;
-    box-shadow: rgba(66, 66, 66, 0) 5px 0px 10px 0px inset !important;
-  }
-
-  .uiverse-card.is-active .box .content {
-    transform: translate(0, 0) !important;
-    opacity: 1 !important;
-  }
-
+  /* On mobile and tablet, keep all 4 card faces clean & readable; details are presented in the dedicated panel */
+  .uiverse-card .logo,
   .uiverse-card.is-active .logo {
-    opacity: 0 !important;
-    transform: scale(0.7) !important;
-    pointer-events: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+  .uiverse-card .title,
+  .uiverse-card.is-active .title {
+    opacity: 1 !important;
+    display: block !important;
   }
 
   .cinematic-cards-grid {

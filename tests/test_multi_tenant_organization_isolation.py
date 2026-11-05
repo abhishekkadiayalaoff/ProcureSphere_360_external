@@ -179,64 +179,23 @@ def test_superadmin_dashboard_organization_isolation(client, org_isolation_setup
 def test_django_admin_organization_isolation(client, org_isolation_setup):
     """
     In standard Django Admin (/admin/):
-    Tenant Admin (Nova) must ONLY see Nova legal entities, departments, cost centers,
-    and users. Access to HPE objects must return 404/403.
+    Tenant Admin (Nova) is strictly restricted from Django Admin (redirects to login).
+    Global Platform Superuser retains full access to Django Admin.
     """
     data = org_isolation_setup
     admin_nova = data["admin_nova"]
     client.force_login(admin_nova)
 
-    # 1. Organization changelist: /admin/organization/organization/
+    # 1. Organization changelist: /admin/organization/organization/ redirects to login
     org_list_url = reverse("admin:organization_organization_changelist")
     res_orgs = client.get(org_list_url)
-    assert res_orgs.status_code == 200
-    orgs_html = res_orgs.content.decode()
-    assert "Nova Technologies — Test" in orgs_html
-    assert "NOVA-TEST" in orgs_html
-    assert "Hewlett Packard Enterprise" not in orgs_html
-    assert "HPE-GLOBAL" not in orgs_html
+    assert res_orgs.status_code == 302
+    assert "/admin/login/" in res_orgs.url
 
-    # 2. Add Organization permission denied in Django admin
-    add_org_url = reverse("admin:organization_organization_add")
-    res_add_org = client.get(add_org_url)
-    assert res_add_org.status_code == 403
-
-    # 3. Direct access to HPE organization in Django Admin redirects or returns 404 (out of scope)
-    change_hpe_url = reverse("admin:organization_organization_change", args=[data["org_hpe"].id])
-    res_change_hpe = client.get(change_hpe_url)
-    assert res_change_hpe.status_code in (302, 404)
-
-    # 4. Department changelist: /admin/organization/department/
-    dept_list_url = reverse("admin:organization_department_changelist")
-    res_depts = client.get(dept_list_url)
-    assert res_depts.status_code == 200
-    depts_html = res_depts.content.decode()
-    assert "Nova Engineering Labs" in depts_html
-    assert "HPE Compliance & Audit" not in depts_html
-
-    # 5. CostCenter changelist: /admin/organization/costcenter/
-    cc_list_url = reverse("admin:organization_costcenter_changelist")
-    res_ccs = client.get(cc_list_url)
-    assert res_ccs.status_code == 200
-    ccs_html = res_ccs.content.decode()
-    assert "NOVA-CC-001" in ccs_html
-    assert "HPE-CC-001" not in ccs_html
-
-    # 6. User changelist: /admin/accounts/user/
-    user_list_url = reverse("admin:accounts_user_changelist")
-    res_users = client.get(user_list_url)
-    assert res_users.status_code == 200
-    users_html = res_users.content.decode()
-    assert "kadiyalaabhishek33@gmail.com" in users_html
-    assert "admin@hpe.com" not in users_html
-
-    # 7. Django Admin Index: dashboard_organizations only has Nova
-    admin_index_url = reverse("admin:index")
-    res_index = client.get(admin_index_url)
-    assert res_index.status_code == 200
-    index_html = res_index.content.decode()
-    assert "NOVA-TEST" in index_html
-    assert "HPE-GLOBAL" not in index_html
+    # 2. Global Superuser has access
+    client.force_login(data["global_superuser"])
+    res_global = client.get(org_list_url)
+    assert res_global.status_code == 200
 
 
 @pytest.mark.django_db
@@ -340,13 +299,10 @@ def test_vendor_management_organization_isolation(client, org_isolation_setup):
     res_hpe_detail = client.get(reverse("vendor_detail", args=[vendor_hpe.id]))
     assert res_hpe_detail.status_code == 404
 
-    # 4. Django Admin vendor changelist: /admin/vendors/vendor/
+    # 4. Django Admin vendor changelist: tenant admin is blocked (302)
     admin_vendor_url = reverse("admin:vendors_vendor_changelist")
     res_admin_vendors = client.get(admin_vendor_url)
-    assert res_admin_vendors.status_code == 200
-    admin_vendors_html = res_admin_vendors.content.decode()
-    assert "Nova Cyber Systems LLC" in admin_vendors_html
-    assert "Acme Technology Solutions Inc" not in admin_vendors_html
+    assert res_admin_vendors.status_code == 302
 
     # 5. Global platform superuser sees both vendors
     client.force_login(global_superuser)
@@ -391,3 +347,39 @@ def test_hpe_admin_sees_only_hpe_organization_and_no_add_button(client, org_isol
     assert "+ Add Organization" not in content
 
 
+
+
+@pytest.mark.django_db
+def test_all_tenant_admins_see_no_create_organization_on_dashboard(client, org_isolation_setup):
+    """
+    Verifies that across ALL tenant organizations (HPE, FCB, etc.):
+    When an organization administrator logs into /superadmin/dashboard/ or /superadmin/:
+    1. They are strictly scoped to their organization (Organization Admin Dashboard).
+    2. 'Create Organization' and '+ New Org' buttons are NOT visible.
+    3. Global tenant lifecycle and 'Total Organizations' cards are NOT visible.
+    4. Trying to access /superadmin/organizations/create/ directly returns 403 Forbidden.
+    """
+    data = org_isolation_setup
+    admin_hpe = data["admin_hpe"]
+    client.force_login(admin_hpe)
+
+    # 1. Check dashboard view
+    res = client.get("/superadmin/dashboard/")
+    assert res.status_code == 200
+    content = res.content.decode()
+
+    # Must show Organization Admin heading, not Super Admin Tenant Management
+    assert "Organization Admin Dashboard" in content
+    assert "ORG ADMIN" in content
+    assert "Hewlett Packard Enterprise" in content
+
+    # Must NOT show 'Create Organization', '+ New Org', or 'Tenant Organization Lifecycle'
+    assert "Create Organization" not in content
+    assert "New Org" not in content
+    assert "Tenant Organization Lifecycle & Provisioning" not in content
+    assert "Managed client entities" not in content
+
+    # 2. Check direct GET to create organization returns 403 Forbidden
+    create_res = client.get(reverse("superadmin:org_create"))
+    assert create_res.status_code == 403
+    assert "Permission Denied: Only platform administrators without an assigned organization can register new legal entities." in create_res.content.decode()

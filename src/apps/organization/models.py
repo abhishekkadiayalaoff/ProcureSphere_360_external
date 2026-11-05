@@ -21,6 +21,36 @@ class Organization(TimeStampedModel):
         related_name="administered_organizations",
         help_text="Primary administrator user for this organization",
     )
+    procurement_manager = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="proc_managed_organizations",
+        help_text="Dedicated Procurement Manager for this organization",
+    )
+    compliance_auditor = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audited_organizations",
+        help_text="Dedicated Compliance Auditor for this organization",
+    )
+
+    @property
+    def dedicated_proc_manager(self):
+        if self.procurement_manager:
+            return self.procurement_manager
+        from apps.accounts.models import Role
+        return self.org_users.filter(role__code=Role.PROC_MGR).first()
+
+    @property
+    def dedicated_auditor(self):
+        if self.compliance_auditor:
+            return self.compliance_auditor
+        from apps.accounts.models import Role
+        return self.org_users.filter(role__code=Role.AUDITOR).first()
 
     def __str__(self):
         return f"{self.name} ({self.code})"
@@ -72,3 +102,23 @@ class FiscalPeriod(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.start_date} to {self.end_date})"
+
+
+class Location(TimeStampedModel):
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE, related_name="locations"
+    )
+    name = models.CharField(max_length=150)
+    code = models.CharField(max_length=50)
+    city = models.CharField(max_length=100, blank=True)
+    country = models.CharField(max_length=100, blank=True, default="India")
+    address = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Location"
+        verbose_name_plural = "Locations"
+        unique_together = ("organization", "code")
+
+    def __str__(self):
+        return f"{self.name} [{self.code}]"

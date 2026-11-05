@@ -75,6 +75,11 @@
         </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+        {% if metrics.pending_pr_approvals > 0 %}
+        <a href="#pr-approvals-section" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold shadow-sm text-nowrap text-dark">
+            <i class="fa-solid fa-file-signature me-1"></i> {{ metrics.pending_pr_approvals }} PR Approval{{ metrics.pending_pr_approvals|pluralize }}
+        </a>
+        {% endif %}
         {% if metrics.pending_budget_exceptions > 0 %}
         <a href="#budget-exceptions-section" class="btn btn-danger btn-sm rounded-pill px-3 fw-bold shadow-sm text-nowrap">
             <i class="fa-solid fa-scale-unbalanced me-1"></i> {{ metrics.pending_budget_exceptions }} Overrun{% if metrics.pending_budget_exceptions > 1 %}s{% endif %}
@@ -98,7 +103,7 @@
                     <span class="badge bg-dark text-white rounded-pill px-3 py-2 me-2">
                         <i class="fa-solid fa-filter me-1"></i> Scope
                     </span>
-                    <span class="fw-bold text-secondary small text-uppercase">Central View:</span>
+                    <span class="fw-bold text-secondary small text-uppercase">{% if user_org_name %}{{ user_org_name }} Scope:{% else %}Central View:{% endif %}</span>
                 </div>
                 <div class="col-12 col-sm-6 col-md-4 col-lg-3">
                     <label for="deptSelect" class="visually-hidden">Department</label>
@@ -262,6 +267,56 @@
                                     <div class="mb-3"><i class="fa-solid fa-check-circle text-success fs-1 opacity-50"></i></div>
                                     <h6>All Clear!</h6>
                                     <p class="mb-0 small">There are currently no open invoice match exceptions.</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    <!-- PRs Awaiting Finance Approval -->
+    <div class="col-12 mt-4" id="pr-approvals-section">
+        <div class="card {% if metrics.pending_pr_approvals > 0 %}border border-2 border-primary{% else %}border-0{% endif %} shadow-sm rounded-4">
+            <div class="card-header bg-white border-bottom-0 pt-3 pt-sm-4 pb-0 px-3 px-sm-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h5 class="fw-bold mb-0 fs-6 fs-sm-5"><i class="fa-solid fa-file-signature text-primary me-2"></i> Requisitions Awaiting Finance Approval ({{ metrics.pending_pr_approvals }})</h5>
+                <a href="/requisitions/" class="btn btn-sm btn-outline-primary rounded-pill px-3">View All Requisitions</a>
+            </div>
+            <div class="card-body p-3 p-sm-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-nowrap">
+                        <thead class="table-light text-muted small text-uppercase">
+                            <tr>
+                                <th class="ps-3 rounded-start">PR Number</th>
+                                <th>Title</th>
+                                <th>Requester</th>
+                                <th>Department & Cost Center</th>
+                                <th>Requested Amount</th>
+                                <th>Date Submitted</th>
+                                <th class="text-end pe-3 rounded-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pr in pending_finance_prs %}
+                            <tr>
+                                <td class="ps-3 fw-bold text-dark">{{ pr.pr_number }}</td>
+                                <td>{{ pr.title }}</td>
+                                <td>{{ pr.requester.email }}</td>
+                                <td>{{ pr.department.name }} &bull; {{ pr.cost_center.code }}</td>
+                                <td><span class="text-primary fw-bold">${{ pr.total_amount|floatformat:2 }}</span></td>
+                                <td class="text-muted small">{{ pr.updated_at|date:"M d, Y" }}</td>
+                                <td class="text-end pe-3">
+                                    <a href="{% url 'requisition_detail' pr.id %}" class="btn btn-sm btn-success rounded-pill px-3 fw-semibold">
+                                        <i class="fa-solid fa-check me-1"></i> Review & Approve
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <div class="mb-2"><i class="fa-solid fa-circle-check text-success fs-2 opacity-50"></i></div>
+                                    <h6>No Pending PR Approvals</h6>
+                                    <p class="mb-0 small">All within-budget purchase requisitions have been approved.</p>
                                 </td>
                             </tr>
                             {% endfor %}

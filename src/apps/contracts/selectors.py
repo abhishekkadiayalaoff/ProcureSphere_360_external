@@ -2,8 +2,36 @@ from django.db.models import Q, Sum
 from django.utils import timezone
 
 from apps.accounts.models import Role
+from apps.organization.selectors import resolve_user_scope_organization
 
 from .models import Contract, ContractAlert, ContractMilestone, ContractObligation
+
+
+def _scope_contracts_by_org(qs, user=None):
+    """
+    Organization isolation for contract data: a user bound to an organization
+    only ever sees contracts owned by users of that organization (or contracts
+    executed against that organization's POs).
+    """
+    org = resolve_user_scope_organization(user)
+    if org:
+        qs = qs.filter(
+            Q(contract_owner__organization=org)
+            | Q(contract_owner__department__organization=org)
+            | Q(po__cost_center__department__organization=org)
+        )
+    return qs
+
+
+def _scope_contract_children_by_org(qs, user=None, prefix="contract"):
+    org = resolve_user_scope_organization(user)
+    if org:
+        joint_q = Q(
+            **{f"{prefix}__contract_owner__organization": org}
+        ) | Q(**{f"{prefix}__contract_owner__department__organization": org})
+        joint_q |= Q(**{f"{prefix}__po__cost_center__department__organization": org})
+        qs = qs.filter(joint_q)
+    return qs
 
 
 def get_contracts_qs(user=None, status=None, search=None):
@@ -21,6 +49,15 @@ def get_contracts_qs(user=None, status=None, search=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(vendor=vendor) if vendor else qs.none()
+        elif not getattr(user, "is_superuser", False):
+            scoped_org = getattr(user, "effective_organization", None)
+            if scoped_org:
+                qs = qs.filter(
+                    Q(vendor__organization=scoped_org)
+                    | Q(contract_owner__organization=scoped_org)
+                ).distinct()
+
+    qs = _scope_contracts_by_org(qs, user)
 
     if status:
         qs = qs.filter(status=status)
@@ -56,8 +93,10 @@ def get_contract_by_id(contract_id):
     )
 
 
-def get_contracts_pending_legal_review():
-    return get_contracts_qs(status=Contract.STATUS_LEGAL_REVIEW)
+def get_contracts_pending_legal_review(user=None):
+    return _scope_contracts_by_org(
+        get_contracts_qs(status=Contract.STATUS_LEGAL_REVIEW), user
+    )
 
 
 def get_expiring_contracts(days=30, user=None):
@@ -74,6 +113,7 @@ def get_expiring_contracts(days=30, user=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(vendor=vendor) if vendor else qs.none()
+    qs = _scope_contracts_by_org(qs, user)
     return qs.order_by("end_date")
 
 
@@ -88,6 +128,7 @@ def get_pending_obligations(user=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(contract__vendor=vendor) if vendor else qs.none()
+    qs = _scope_contract_children_by_org(qs, user)
     return qs.order_by("due_date")
 
 
@@ -112,6 +153,8 @@ def get_contract_obligations_qs(
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(contract__vendor=vendor) if vendor else qs.none()
+
+    qs = _scope_contract_children_by_org(qs, user)
 
     if due_status:
         st = str(due_status).upper().strip()
@@ -153,6 +196,7 @@ def get_pending_milestones(user=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(contract__vendor=vendor) if vendor else qs.none()
+    qs = _scope_contract_children_by_org(qs, user)
     return qs.order_by("due_date")
 
 
@@ -167,6 +211,7 @@ def get_active_contract_alerts(user=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(contract__vendor=vendor) if vendor else qs.none()
+    qs = _scope_contract_children_by_org(qs, user)
     return qs.order_by("-triggered_at")
 
 
@@ -180,6 +225,7 @@ def get_legal_dashboard_metrics(user=None):
         if role_code == Role.VENDOR_USER:
             vendor = getattr(user, "vendor", None)
             qs = qs.filter(vendor=vendor) if vendor else qs.none()
+    qs = _scope_contracts_by_org(qs, user)
 
     total_contracts = qs.count()
     active_contracts = qs.filter(
@@ -207,16 +253,28 @@ def get_legal_dashboard_metrics(user=None):
             milestones_qs = (
                 milestones_qs.filter(contract__vendor=vendor) if vendor else milestones_qs.none()
             )
+    obligations_qs = _scope_contract_children_by_org(obligations_qs, user)
+    milestones_qs = _scope_contract_children_by_org(milestones_qs, user)
 
     open_obligations = obligations_qs.filter(is_fulfilled=False).count()
     overdue_obligations = obligations_qs.filter(is_fulfilled=False, due_date__lt=today).count()
     open_milestones = milestones_qs.filter(is_completed=False).count()
 
+    from apps.organization.selectors import resolve_user_scope_organization as _resolve_org
     from apps.vendors.models import VendorCredentialDispatch
 
-    pending_vendor_verifications = VendorCredentialDispatch.objects.filter(
+    scoped_org = _resolve_org(user)
+    pending_verifications_qs = VendorCredentialDispatch.objects.filter(
         legal_verification_status=VendorCredentialDispatch.LEGAL_STATUS_PENDING
-    ).count()
+    )
+    if scoped_org:
+        pending_verifications_qs = pending_verifications_qs.filter(
+            Q(vendor__organization=scoped_org)
+            | Q(vendor__organization__isnull=True)
+            | Q(created_by__organization=scoped_org)
+            | Q(created_by__department__organization=scoped_org)
+        )
+    pending_vendor_verifications = pending_verifications_qs.count()
 
     return {
         "total_contracts": total_contracts,
@@ -231,18 +289,22 @@ def get_legal_dashboard_metrics(user=None):
     }
 
 
-def get_pending_vendor_verifications_qs():
+def get_pending_vendor_verifications_qs(user=None):
     """
     Returns list of records pending Legal Manager verification with pre-evaluated KYC compliance reports.
     Includes:
     1. VendorCredentialDispatch records pending legal verification.
     2. Vendors with replacement/renewed KYC documents in PENDING status,
        ensuring replacement documents enter the Legal review queue even when no credential dispatch is pending.
+    Results are scoped to the requesting user's organization.
     """
-    from django.db.models import Prefetch
+    from django.db.models import Prefetch, Q
 
+    from apps.organization.selectors import resolve_user_scope_organization
     from apps.vendors.kyc_policy import evaluate_vendor_kyc_compliance
     from apps.vendors.models import Vendor, VendorCredentialDispatch, VendorDocument
+
+    scoped_org = resolve_user_scope_organization(user)
 
     doc_prefetch = Prefetch(
         "vendor__documents",
@@ -251,11 +313,18 @@ def get_pending_vendor_verifications_qs():
         ).prefetch_related("review_history"),
     )
 
-    dispatches = list(
-        VendorCredentialDispatch.objects.filter(
-            legal_verification_status=VendorCredentialDispatch.LEGAL_STATUS_PENDING
+    dispatches_qs = VendorCredentialDispatch.objects.filter(
+        legal_verification_status=VendorCredentialDispatch.LEGAL_STATUS_PENDING
+    )
+    if scoped_org:
+        dispatches_qs = dispatches_qs.filter(
+            Q(vendor__organization=scoped_org)
+            | Q(vendor__organization__isnull=True)
+            | Q(created_by__organization=scoped_org)
+            | Q(created_by__department__organization=scoped_org)
         )
-        .select_related("vendor", "vendor__category", "user", "created_by")
+    dispatches = list(
+        dispatches_qs.select_related("vendor", "vendor__category", "user", "created_by")
         .prefetch_related(doc_prefetch)
         .order_by("-created_at")
     )
@@ -275,8 +344,16 @@ def get_pending_vendor_verifications_qs():
     )
 
     # Include vendors that have pending documents but no pending credential dispatch
+    vendors_qs = Vendor.objects.filter(documents__status=VendorDocument.STATUS_PENDING)
+    if scoped_org:
+        vendors_qs = vendors_qs.filter(
+            Q(organization=scoped_org)
+            | Q(organization__isnull=True)
+            | Q(created_by__organization=scoped_org)
+            | Q(created_by__department__organization=scoped_org)
+        )
     vendors_with_pending_docs = (
-        Vendor.objects.filter(documents__status=VendorDocument.STATUS_PENDING)
+        vendors_qs
         .exclude(id__in=seen_vendor_ids)
         .select_related("category", "created_by")
         .prefetch_related(vendor_doc_prefetch, vendor_dispatch_prefetch)

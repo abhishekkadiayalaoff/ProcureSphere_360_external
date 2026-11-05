@@ -43,6 +43,10 @@ def scope_purchase_orders_queryset(qs, user):
             | Q(cost_center__isnull=True, requisition__isnull=True)
         )
 
+    # Internal roles with no resolvable organization (e.g. seeded single-org
+    # deployments) retain access; any configured organization locks them down.
+    if role_code:
+        return qs
     if getattr(user, "is_staff", False):
         return qs
 

@@ -1,6 +1,6 @@
 {% extends 'layouts/requester_base.html' %}
 
-{% block title %}Requester Dashboard — ProcureSphere 360{% endblock %}
+{% block requester_title %}Requester Dashboard{% endblock %}
 
 {% block content %}
 <style>
@@ -10,167 +10,243 @@
         display: block;
         height: 100%;
     }
-    .metric-card-link:hover .stat-card {
-        transform: translateY(-3px);
+    .metric-card-link:hover .metric-card {
+        transform: translateY(-2px);
         box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08) !important;
-    }
-    /* Responsive table: under 768px transforms to stacked cards */
-    @media (max-width: 767.98px) {
-        .responsive-table thead { display: none; }
-        .responsive-table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #dee2e6; border-radius: 0.5rem; background-color: #fff; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); }
-        .responsive-table tbody td { display: flex; justify-content: space-between; padding: 0.75rem 1rem; border: none; border-bottom: 1px solid #e9ecef; }
-        .responsive-table tbody td:last-child { border-bottom: none; justify-content: flex-start; }
-        .responsive-table tbody td .label { font-weight: bold; font-size: 0.875rem; color: #333; flex-shrink: 0; }
-        .responsive-table tbody td .value { flex-grow: 1; font-weight: normal; font-size: 0.875rem; text-align: right; color: #444; }
-        .responsive-table tbody tr:last-child td { border-bottom: none; }
     }
 </style>
 
 <div class="container-fluid px-0">
-    <!-- Unread Notifications Alert -->
+    <!-- Unread Notifications Alert Card (Vendor Design Standard) -->
     {% if unread_notifications_count > 0 %}
-    <div class="alert alert-warning border-0 shadow-sm rounded-4 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between p-3 mb-4 gap-3" role="alert">
-        <div class="d-flex align-items-center gap-3">
-            <div class="bg-warning text-dark rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 42px; height: 42px;">
-                <i class="fa-solid fa-bell fs-5"></i>
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="background-color: #FFFFFF; border: 1px solid #DEE2E6 !important;">
+        <div class="card-body p-3 p-md-3.5 d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="brand-icon-box flex-shrink-0" style="width: 42px; height: 42px; background: rgba(0, 184, 217, 0.12); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-bell text-cyan fs-5"></i>
+                </div>
+                <div>
+                    <div class="fw-bold text-dark" style="font-size: 0.95rem;">You have {{ unread_notifications_count }} unread notification{{ unread_notifications_count|pluralize }}</div>
+                    <div class="text-secondary small">Review approvals, status changes, and updates regarding your purchase requisitions.</div>
+                </div>
             </div>
-            <div>
-                <div class="fw-bold text-dark">You have {{ unread_notifications_count }} unread notification{{ unread_notifications_count|pluralize }}</div>
-                <div class="text-secondary small">Review approvals, status changes, and updates regarding your purchase requisitions.</div>
-            </div>
+            <a href="/notifications/" class="btn btn-primary btn-sm rounded-pill px-3.5 py-1.5 fw-bold text-nowrap shadow-sm align-self-stretch align-self-sm-center text-center" style="background-color: #0D6EFD; border-color: #0D6EFD;">
+                View Notifications <i class="fa-solid fa-arrow-right ms-1"></i>
+            </a>
         </div>
-        <a href="/notifications/" class="btn btn-warning btn-sm rounded-pill px-3 py-1.5 fw-bold text-dark text-nowrap align-self-sm-center">
-            View Notifications <i class="fa-solid fa-arrow-right ms-1"></i>
-        </a>
     </div>
     {% endif %}
 
-    <!-- Welcome Header & Quick Actions (Vendor Design Standard) -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <!-- Welcome Header & Quick Actions (Matching Vendor Portal Standard) -->
+    <div class="d-flex flex-wrap justify-content-between align-items-start align-items-sm-center mb-4 gap-3">
         <div>
-            <h3 class="fw-bold text-dark mb-1">
+            <h2 class="fw-bold mb-1" style="color: #172033; font-size: 1.65rem; letter-spacing: -0.01em;">
                 Requester Dashboard
-            </h3>
-            <p class="text-muted mb-0 small">
+            </h2>
+            <p class="text-secondary mb-0 small">
                 Welcome, <strong>{{ user.email }}</strong> &bull; Purchase Requisitions, line item creation, and tracking department approvals.
             </p>
         </div>
-        <div class="d-flex gap-2 flex-wrap">
-            <a href="/requisitions/create/" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm">
-                <i class="fa-solid fa-plus me-1"></i> New Requisition
+        <div class="d-flex gap-2 flex-wrap w-100 w-sm-auto justify-content-start justify-content-sm-end">
+            <a href="/requisitions/create/" class="btn btn-primary rounded-pill px-3.5 py-2 fw-bold flex-grow-1 flex-sm-grow-0 text-center shadow-sm d-inline-flex align-items-center justify-content-center" style="background-color: #0D6EFD; border-color: #0D6EFD;">
+                <i class="fa-solid fa-plus me-1.5"></i> New Requisition
             </a>
-            <a href="/requisitions/" class="btn btn-outline-dark btn-sm rounded-pill px-3">
-                <i class="fa-solid fa-list me-1"></i> View All PRs
+            <a href="/requisitions/" class="btn btn-outline-dark rounded-pill px-3.5 py-2 fw-semibold flex-grow-1 flex-sm-grow-0 text-center d-inline-flex align-items-center justify-content-center" style="border-color: #DEE2E6; background-color: #FFFFFF; color: #172033;">
+                <i class="fa-solid fa-list-check me-1.5"></i> View All PRs
             </a>
         </div>
     </div>
 
-    <!-- 3 Summary Metric Cards (Clickable & Matching Vendor Reference) -->
+    <!-- 3 Summary Metric Cards (Matching Vendor Reference Bordered Cards) -->
     <div class="row g-3 mb-4">
-        <!-- 1. Total PRs -->
+        <!-- 1. Total PRs (Royal Blue / Cyan Accent) -->
         <div class="col-12 col-md-4">
             <a href="/requisitions/" class="metric-card-link">
-                <div class="stat-card glass-card h-100 border-start border-4 border-primary">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Total PRs</span>
-                        <div class="brand-icon-box" style="width: 32px; height: 32px; background: rgba(13, 110, 253, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-file-invoice-dollar text-primary"></i>
-                        </div>
+                <div class="card metric-card h-100 shadow-sm border-0 rounded-4 p-3 p-md-4 transition-all" style="border: 2px solid #00B8D9 !important; background-color: #FFFFFF;">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <span class="text-secondary small fw-bold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Total PRs</span>
+                        <span class="badge rounded-pill bg-info bg-opacity-10 text-dark fw-semibold px-2.5 py-1" style="font-size: 0.7rem;">Requisitions</span>
                     </div>
-                    <div class="fs-3 fw-bold text-dark metric-value">{{ metrics.total_my_prs }}</div>
-                    <div class="text-muted small mt-1">
-                        <span class="text-primary">View all requests &rarr;</span>
+                    <div class="fw-bold mb-2" style="font-size: 2.1rem; color: #00B8D9; line-height: 1.1;">{{ metrics.total_my_prs|default:"0" }}</div>
+                    <div class="mt-auto pt-2 border-top small text-secondary d-flex justify-content-between align-items-center" style="font-size: 0.8rem; border-color: #DEE2E6 !important;">
+                        <span>All my requests</span>
+                        <span class="fw-semibold text-primary">View all <i class="fa-solid fa-arrow-right ms-1"></i></span>
                     </div>
                 </div>
             </a>
         </div>
 
-        <!-- 2. Pending Approval -->
+        <!-- 2. Pending Approval (Warning Amber Accent) -->
         <div class="col-12 col-md-4">
             <a href="/requisitions/?status=PENDING" class="metric-card-link">
-                <div class="stat-card glass-card h-100 border-start border-4 border-warning">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Pending Approval</span>
-                        <div class="brand-icon-box" style="width: 32px; height: 32px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-clock-rotate-left text-warning"></i>
-                        </div>
+                <div class="card metric-card h-100 shadow-sm border-0 rounded-4 p-3 p-md-4 transition-all" style="border: 2px solid #FFC107 !important; background-color: #FFFFFF;">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <span class="text-secondary small fw-bold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Pending Approval</span>
+                        <span class="badge rounded-pill bg-warning bg-opacity-15 text-dark fw-semibold px-2.5 py-1" style="font-size: 0.7rem; color: #854d0e !important;">Pending</span>
                     </div>
-                    <div class="fs-3 fw-bold text-dark metric-value">{{ metrics.pending_prs }}</div>
-                    <div class="text-muted small mt-1">
-                        <span class="text-warning">Awaiting review &rarr;</span>
+                    <div class="fw-bold mb-2" style="font-size: 2.1rem; color: #d97706; line-height: 1.1;">{{ metrics.pending_prs|default:"0" }}</div>
+                    <div class="mt-auto pt-2 border-top small text-secondary d-flex justify-content-between align-items-center" style="font-size: 0.8rem; border-color: #DEE2E6 !important;">
+                        <span>Awaiting authorization</span>
+                        <span class="fw-semibold text-warning" style="color: #d97706 !important;">Review <i class="fa-solid fa-arrow-right ms-1"></i></span>
                     </div>
                 </div>
             </a>
         </div>
 
-        <!-- 3. Approved PRs -->
+        <!-- 3. Approved PRs (Success Green Accent) -->
         <div class="col-12 col-md-4">
             <a href="/requisitions/?status=APPROVED" class="metric-card-link">
-                <div class="stat-card glass-card h-100 border-start border-4 border-success">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-muted small fw-semibold text-uppercase">Approved PRs</span>
-                        <div class="brand-icon-box" style="width: 32px; height: 32px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                            <i class="fa-solid fa-circle-check text-success"></i>
-                        </div>
+                <div class="card metric-card h-100 shadow-sm border-0 rounded-4 p-3 p-md-4 transition-all" style="border: 2px solid #198754 !important; background-color: #FFFFFF;">
+                    <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <span class="text-secondary small fw-bold text-uppercase" style="font-size: 0.72rem; letter-spacing: 0.05em;">Approved PRs</span>
+                        <span class="badge rounded-pill bg-success bg-opacity-10 text-success fw-semibold px-2.5 py-1" style="font-size: 0.7rem;">Approved</span>
                     </div>
-                    <div class="fs-3 fw-bold text-dark metric-value">{{ metrics.approved_prs }}</div>
-                    <div class="text-muted small mt-1">
-                        <span class="text-success">Ready for sourcing &rarr;</span>
+                    <div class="fw-bold mb-2" style="font-size: 2.1rem; color: #198754; line-height: 1.1;">{{ metrics.approved_prs|default:"0" }}</div>
+                    <div class="mt-auto pt-2 border-top small text-secondary d-flex justify-content-between align-items-center" style="font-size: 0.8rem; border-color: #DEE2E6 !important;">
+                        <span>Ready for sourcing</span>
+                        <span class="fw-semibold text-success">Approved <i class="fa-solid fa-arrow-right ms-1"></i></span>
                     </div>
                 </div>
             </a>
         </div>
     </div>
 
-    <!-- Recent Activity Table -->
-    <div class="card glass-card border-0 shadow-sm mb-4">
-        <div class="card-header bg-transparent border-bottom border-light-subtle py-3 px-4 d-flex justify-content-between align-items-center">
-            <h5 class="fw-bold text-dark mb-0 fs-6"><i class="fa-solid fa-list-ul text-primary me-2"></i>Recent Requisitions</h5>
-            <a href="/requisitions/" class="btn btn-sm btn-outline-dark rounded-pill px-3">View All</a>
+    <!-- Recent Activity Table (Vendor Design Standard) -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" style="border: 1px solid #DEE2E6 !important; background-color: #FFFFFF;">
+        <div class="card-header bg-white pt-3 pt-md-4 pb-3 px-3 px-md-4 border-bottom d-flex justify-content-between align-items-start align-items-sm-center flex-column flex-sm-row gap-2">
+            <div>
+                <h5 class="fw-bold mb-1 text-dark" style="font-size: 1.05rem;"><i class="fa-solid fa-list-check text-cyan me-2"></i>Recent Requisitions</h5>
+                <p class="text-muted small mb-0">Recent purchase requisitions submitted for department approval.</p>
+            </div>
+            <a href="/requisitions/" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-medium">View All</a>
         </div>
         <div class="card-body p-0">
             {% if my_recent_prs %}
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0 text-nowrap responsive-table">
+            <!-- Desktop / Tablet Table View (>= 768px) -->
+            <div class="table-responsive d-none d-md-block">
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="text-uppercase text-secondary small fw-bold px-4 py-3" data-label="PR Number">PR Number</th>
-                            <th class="text-uppercase text-secondary small fw-bold py-3" data-label="Title">Title</th>
-                            <th class="text-uppercase text-secondary small fw-bold py-3" data-label="Date">Date</th>
-                            <th class="text-uppercase text-secondary small fw-bold text-end py-3" data-label="Amount">Amount</th>
-                            <th class="text-uppercase text-secondary small fw-bold text-center px-4 py-3" data-label="Status">Status</th>
+                            <th class="ps-4 py-3 text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">PR NUMBER</th>
+                            <th class="py-3 text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">TITLE</th>
+                            <th class="py-3 text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">DATE</th>
+                            <th class="py-3 text-end text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">AMOUNT</th>
+                            <th class="py-3 text-center text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">STATUS</th>
+                            <th class="pe-4 py-3 text-end text-secondary" style="font-size: 0.72rem; letter-spacing: 0.05em; font-weight: 700;">ACTION</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for pr in my_recent_prs %}
                         <tr>
-                            <td class="px-4 py-3">
-                                <a href="/requisitions/{{ pr.id }}/" class="fw-bold text-primary text-decoration-none">
-                                    <code>{{ pr.pr_number }}</code>
+                            <td class="ps-4 fw-bold font-monospace">
+                                <a href="/requisitions/{{ pr.id }}/" class="text-primary text-decoration-none">
+                                    {{ pr.pr_number }}
                                 </a>
                             </td>
-                            <td class="py-3 text-dark fw-medium" data-label="{{ pr.title|truncatechars:40 }}">{{ pr.title|truncatechars:40 }}</td>
-                            <td class="py-3 text-muted small" data-label="Date">{{ pr.created_at|date:"M d, Y" }}</td>
-                            <td class="py-3 text-end fw-semibold text-dark" data-label="Amount">${{ pr.total_amount|floatformat:2 }}</td>
-                            <td class="px-4 py-3 text-center" data-label="Status">
-                                <span class="badge rounded-pill {% if pr.status == 'APPROVED' %}bg-success{% elif pr.status == 'REJECTED' %}bg-danger{% elif pr.status == 'DRAFT' %}bg-secondary{% else %}bg-warning text-dark{% endif %} px-3 py-1">
-                                    {{ pr.get_status_display }}
+                            <td class="fw-semibold text-dark">{{ pr.title|truncatechars:45 }}</td>
+                            <td class="text-secondary small">{{ pr.created_at|date:"M d, Y" }}</td>
+                            <td class="text-end fw-bold text-dark font-monospace">${{ pr.total_amount|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if pr.status == 'PO_ISSUED' or pr.purchase_orders.exists %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    <i class="fa-solid fa-file-invoice-dollar me-1"></i> PO Issued
                                 </span>
+                                {% elif pr.status == 'SOURCING' or pr.sourcing_events.exists %}
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    <i class="fa-solid fa-gavel me-1"></i> In Sourcing
+                                </span>
+                                {% elif pr.status == 'APPROVED' %}
+                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    <i class="fa-solid fa-check me-1"></i> Approved
+                                </span>
+                                {% elif pr.status == 'REJECTED' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    <i class="fa-solid fa-xmark me-1"></i> Rejected
+                                </span>
+                                {% elif pr.status == 'DRAFT' %}
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    Draft
+                                </span>
+                                {% elif pr.status == 'BUDGET_REVIEW' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Budget Exceeded
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill px-2.5 py-1 fw-semibold" style="color: #854d0e !important;">
+                                    <i class="fa-solid fa-clock me-1"></i> {{ pr.get_status_display }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="pe-4 text-end">
+                                <a href="/requisitions/{{ pr.id }}/" class="btn btn-sm btn-outline-info rounded-pill px-2.5 py-1 fw-medium" title="View Requisition">
+                                    <i class="fa-solid fa-eye me-1"></i> View
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            {% else %}
-            <div class="text-center py-5">
-                <div class="brand-icon-box mx-auto mb-3" style="width: 48px; height: 48px; background: rgba(13, 110, 253, 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-file-circle-plus text-primary fs-4"></i>
+
+            <!-- Mobile Card View (< 768px) -->
+            <div class="list-group list-group-flush d-md-none">
+                {% for pr in my_recent_prs %}
+                <div class="list-group-item p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <div class="min-width-0">
+                            <a href="/requisitions/{{ pr.id }}/" class="text-primary fw-bold font-monospace small text-decoration-none d-block">
+                                {{ pr.pr_number }}
+                            </a>
+                            <div class="fw-bold text-dark fs-6 mt-1 text-truncate" title="{{ pr.title }}">{{ pr.title }}</div>
+                        </div>
+                        <div class="text-end flex-shrink-0">
+                            <div class="fw-bold text-dark font-monospace">${{ pr.total_amount|floatformat:2 }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex align-items-center justify-content-between text-muted small my-2 py-1 bg-light rounded px-2">
+                        <span><i class="fa-solid fa-calendar me-1.5 text-secondary"></i>{{ pr.created_at|date:"M d, Y" }}</span>
+                        {% if pr.status == 'APPROVED' or pr.status == 'SOURCING' or pr.status == 'PO_ISSUED' %}
+                        <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-0.5 fw-semibold">
+                            Approved
+                        </span>
+                        {% elif pr.status == 'REJECTED' %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-0.5 fw-semibold">
+                            Rejected
+                        </span>
+                        {% elif pr.status == 'DRAFT' %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 rounded-pill px-2 py-0.5 fw-semibold">
+                            Draft
+                        </span>
+                        {% elif pr.status == 'BUDGET_REVIEW' %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-0.5 fw-semibold">
+                            Budget Alert
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill px-2 py-0.5 fw-semibold">
+                            Pending
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 pt-2">
+                        <a href="/requisitions/{{ pr.id }}/" class="btn btn-sm btn-outline-info rounded-pill px-3 py-1 flex-fill text-center fw-semibold">
+                            <i class="fa-solid fa-eye me-1"></i> View Details
+                        </a>
+                    </div>
                 </div>
-                <h6 class="fw-bold text-dark mb-1">No Requisitions Found</h6>
-                <p class="text-muted small mb-3">You have not submitted any Purchase Requisitions yet.</p>
-                <a href="/requisitions/create/" class="btn btn-sm btn-primary rounded-pill px-4 shadow-sm">
-                    <i class="fa-solid fa-plus me-1"></i> Create First PR
+                {% endfor %}
+            </div>
+            {% else %}
+            <!-- Empty State -->
+            <div class="p-4 p-md-5 text-center">
+                <div class="brand-icon-box mx-auto mb-3" style="width: 52px; height: 52px; background: rgba(0, 184, 217, 0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-file-circle-plus text-cyan fs-3"></i>
+                </div>
+                <h5 class="fw-bold text-dark mb-1">No Requisitions Found</h5>
+                <p class="text-secondary small mb-3">You have not submitted any Purchase Requisitions yet.</p>
+                <a href="/requisitions/create/" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm" style="background-color: #0D6EFD; border-color: #0D6EFD;">
+                    <i class="fa-solid fa-plus me-1.5"></i> Create First PR
                 </a>
             </div>
             {% endif %}

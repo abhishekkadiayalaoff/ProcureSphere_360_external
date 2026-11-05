@@ -12,9 +12,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
 <!-- Custom Design System Styles -->
-<link href="/static/css/style.css?v=unified_v2" rel="stylesheet">
+<link href="/static/css/style.css?v=ps_dialog_v3" rel="stylesheet">
 
 <style>
+  :root {
+    --body-bg: #f8fafc !important;
+    --body-fg: #1e293b !important;
+    color-scheme: light !important;
+  }
+
   /* Reset default Django admin wrappers to allow full-bleed modern layout */
   html, body {
     margin: 0 !important;
@@ -23,6 +29,85 @@
     background-color: #f8fafc !important;
     color: #1e293b !important;
     overflow-x: hidden;
+  }
+
+  /* Force pristine white inputs in Admin & Modals regardless of dark mode */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="url"],
+  input[type="number"],
+  input[type="tel"],
+  textarea,
+  select,
+  .form-control,
+  .form-select,
+  .modal input,
+  .modal textarea,
+  .modal select {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    -webkit-text-fill-color: #1e293b !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus,
+  .form-control:focus,
+  .form-select:focus {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #3b82f6 !important;
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15) !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder,
+  .form-control::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+  }
+
+  /* Seamless tabs scroll hiding */
+  .sa-tabs-scroll,
+  .nav-tabs-scroll,
+  ul[role="tablist"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+  .sa-tabs-scroll::-webkit-scrollbar,
+  .nav-tabs-scroll::-webkit-scrollbar,
+  ul[role="tablist"]::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
+  .sa-tabs-scroll::-webkit-scrollbar-thumb,
+  .nav-tabs-scroll::-webkit-scrollbar-thumb,
+  ul[role="tablist"]::-webkit-scrollbar-thumb {
+    display: none !important;
+    background: transparent !important;
+  }
+  .sa-tabs-scroll::-webkit-scrollbar-track,
+  .nav-tabs-scroll::-webkit-scrollbar-track,
+  ul[role="tablist"]::-webkit-scrollbar-track {
+    display: none !important;
+    background: transparent !important;
+  }
+  .sa-tabs-scroll::-webkit-scrollbar-button,
+  .nav-tabs-scroll::-webkit-scrollbar-button,
+  ul[role="tablist"]::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   #container {
@@ -217,7 +302,7 @@
                 <i class="fa-solid fa-shield-halved text-warning fa-lg me-2"></i>
                 <div>
                     <div class="fw-bold lh-1 text-white" style="font-size: 0.95rem;">ProcureSphere <span class="fw-light">360</span></div>
-                    {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+                    {% if is_global_superadmin and not scoped_org %}
                     <span class="badge bg-danger rounded-pill fw-bold mt-1" style="font-size: 0.62rem; letter-spacing: 0.04em;">SUPER ADMIN</span>
                     {% else %}
                     <span class="badge bg-info text-dark rounded-pill fw-bold mt-1" style="font-size: 0.62rem; letter-spacing: 0.04em;">ORG ADMIN</span>
@@ -235,7 +320,7 @@
                     </a>
                 </li>
 
-                {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+                {% if is_global_superadmin and not scoped_org %}
                 {# ========================================================================= #}
                 {# GLOBAL SUPER ADMIN: DEDICATED SOLELY TO TENANT ORGANIZATIONS              #}
                 {# ========================================================================= #}
@@ -315,7 +400,7 @@
                         <div class="small fw-semibold text-white text-truncate" title="{{ request.user.email }}">
                             {{ request.user.email|default:"Admin" }}
                         </div>
-                        {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+                        {% if is_global_superadmin and not scoped_org %}
                         <div class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">Super Admin</div>
                         {% else %}
                         <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Org Admin</div>
@@ -347,7 +432,7 @@
                     <div class="fw-bold text-dark small text-truncate">
                         {{ request.user.email|default:"superadmin@procuresphere.com" }}
                     </div>
-                    {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+                    {% if is_global_superadmin and not scoped_org %}
                     <div class="badge bg-danger rounded-pill" style="font-size: 0.65rem;">Super Admin</div>
                     {% else %}
                     <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Org Admin</div>
@@ -378,7 +463,7 @@
             <div class="glass-card-dark p-3 p-md-4 mb-4">
                 <div class="row align-items-center g-3">
                     <div class="col-lg-7">
-                        {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+                        {% if is_global_superadmin and not scoped_org %}
                         <span class="badge bg-danger rounded-pill fw-bold px-3 py-1 mb-2">
                             <i class="fa-solid fa-shield-halved me-1"></i> SUPER ADMIN &bull; TENANT MANAGEMENT
                         </span>
@@ -396,7 +481,7 @@
                         <div class="badge bg-success bg-opacity-25 text-white border border-success border-opacity-50 rounded-pill px-3 py-2 fw-semibold d-flex align-items-center">
                             <span class="sa-status-dot me-2"></span> SYSTEM CONFIG ACTIVE
                         </div>
-                        {% if can_add_organization %}
+                        {% if can_add_organization and not scoped_org %}
                         <button type="button" hx-get="/superadmin/organizations/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-warning text-dark rounded-pill fw-bold px-4 shadow-sm">
                             <i class="fa-solid fa-plus me-1"></i> Create Organization
                         </button>
@@ -411,7 +496,7 @@
             </div>
 
             <!-- 3 KPI CARDS -->
-            {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+            {% if is_global_superadmin and not scoped_org %}
             {# ========================================================================= #}
             {# GLOBAL SUPER ADMIN KPIS: DEDICATED SOLELY TO TENANT ORGANIZATIONS         #}
             {# ========================================================================= #}
@@ -551,7 +636,7 @@
                         <p class="text-muted small mb-0">Tenant legal entities provisioned in ProcureSphere 360.</p>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        {% if can_add_organization %}
+                        {% if can_add_organization and not scoped_org %}
                         <button type="button" hx-get="/superadmin/organizations/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-sm btn-warning text-dark rounded-pill px-3 fw-bold shadow-sm">
                             <i class="fa-solid fa-plus me-1"></i> Add Organization
                         </button>
@@ -629,7 +714,7 @@
                 </div>
             </div>
 
-            {% if is_global_superadmin or request.user.is_superuser and not request.user.effective_organization %}
+            {% if is_global_superadmin and not scoped_org %}
             {# ========================================================================= #}
             {# GLOBAL SUPER ADMIN: TENANT LIFECYCLE GUIDE & AUDIT ACTIONS                #}
             {# ========================================================================= #}

@@ -451,8 +451,11 @@ def test_day20_vendor_user_blocked_from_all_stores_queues_and_views(client, batc
         f"/receipts/create/{po.id}/",
     ]:
         resp = client.get(path, follow=False)
-        assert resp.status_code == 302
-        assert "/vendor" in resp.url or "/login/" in resp.url or "/orders/" in resp.url
+        # Vendors are hard-blocked at the portal-isolation middleware (403) or
+        # redirected back to their dashboard (302) depending on auth path.
+        assert resp.status_code in (302, 403)
+        if resp.status_code == 302:
+            assert "/vendor" in resp.url or "/login/" in resp.url or "/orders/" in resp.url
 
 
 @pytest.mark.django_db
@@ -492,10 +495,16 @@ def test_day20_drf_api_rbac_stores_vs_unauthorized_roles(batch4_setup):
     resp_receiver = api_client.get("/api/v1/receipts/")
     assert resp_receiver.status_code == 200
 
-    # 3. Vendor User -> 403
+    # 3. Vendor User -> 200 but strictly scoped to its own PO receipts (TC-RBAC-088)
     api_client.force_authenticate(user=vendor_user)
     resp_vendor = api_client.get("/api/v1/receipts/")
-    assert resp_vendor.status_code == 403
+    assert resp_vendor.status_code == 200
+    payload = resp_vendor.json()
+    rows = payload.get("results", []) if isinstance(payload, dict) else payload
+    assert all(
+        PurchaseOrder.objects.get(pk=row["po"]).vendor_id == vendor_user.vendor_id
+        for row in rows
+    )
 
     # 4. Auditor -> 200
     api_client.force_authenticate(user=auditor)

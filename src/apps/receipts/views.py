@@ -84,6 +84,8 @@ def _filter_receipts_queryset(
 
 @login_required(login_url="/login/")
 def receipts_list_view(request):
+    from apps.organization.selectors import resolve_user_scope_organization
+
     role_code = getattr(request.user, "role_code", None) or (
         request.user.role.code if hasattr(request.user, "role") and request.user.role else None
     )
@@ -94,17 +96,30 @@ def receipts_list_view(request):
         )
         return redirect("vendor_dashboard")
 
+    if role_code in (Role.REQUESTER, "REQUESTER"):
+        messages.info(
+            request,
+            "Goods receipt operations are managed by Stores. Requesters can track receipts from their requisitions.",
+        )
+        return redirect("requisitions_list")
+
     search_query = request.GET.get("q", "").strip()
     status_filter = request.GET.get("status", "").strip().upper()
     po_filter = request.GET.get("po", "").strip()
     date_from_str = request.GET.get("date_from", "").strip()
     date_to_str = request.GET.get("date_to", "").strip()
 
+    scoped_org = resolve_user_scope_organization(request.user)
     base_qs = (
         GoodsReceipt.objects.select_related("po__vendor", "received_by")
         .prefetch_related("lines__po_line", "lines__inspection", "lines__rejections")
         .order_by("-received_date")
     )
+    if scoped_org:
+        base_qs = base_qs.filter(
+            Q(po__cost_center__department__organization=scoped_org)
+            | Q(po__requisition__department__organization=scoped_org)
+        )
 
     receipts_qs = _filter_receipts_queryset(
         base_qs,
@@ -132,12 +147,15 @@ def receipts_list_view(request):
         ]
     ).select_related("vendor")
 
-    po_list = (
-        PurchaseOrder.objects.filter(receipts__isnull=False)
-        .distinct()
-        .order_by("po_number")
-        .values("id", "po_number")
-    )
+    po_list_qs = PurchaseOrder.objects.filter(receipts__isnull=False).distinct()
+    if scoped_org:
+        org_po_direct = Q(cost_center__department__organization=scoped_org) | Q(
+            requisition__department__organization=scoped_org
+        )
+        open_pos = open_pos.filter(org_po_direct)
+        po_list_qs = po_list_qs.filter(org_po_direct)
+
+    po_list = po_list_qs.order_by("po_number").values("id", "po_number")
 
     query_params = request.GET.copy()
     if "page" in query_params:
@@ -170,14 +188,38 @@ def receipts_list_view(request):
 
 @login_required(login_url="/login/")
 def receipt_detail_view(request, grn_id):
+    from apps.organization.selectors import resolve_user_scope_organization
+
     grn = get_object_or_404(
         GoodsReceipt.objects.select_related(
-            "po__vendor", "po__cost_center", "received_by"
+            "po__vendor",
+            "po__cost_center",
+            "po__cost_center__department",
+            "po__requisition__department",
+            "received_by",
+            "dispatched_by",
         ).prefetch_related(
             "lines__po_line", "lines__inspection__inspected_by", "lines__rejections"
         ),
         id=grn_id,
     )
+
+    # Organization isolation: users cannot open another organization's GRN
+    scoped_org = resolve_user_scope_organization(request.user)
+    if scoped_org:
+        grn_org = (
+            grn.po.cost_center.department.organization
+            if grn.po.cost_center_id and grn.po.cost_center.department_id
+            else None
+        ) or (
+            grn.po.requisition.department.organization
+            if grn.po.requisition and grn.po.requisition.department
+            else None
+        )
+        if grn_org and grn_org.id != scoped_org.id:
+            from django.http import Http404
+
+            raise Http404()
     from apps.audit.models import AuditLog
 
     line_ids = [str(line.id) for line in grn.lines.all()]
@@ -192,6 +234,20 @@ def receipt_detail_view(request, grn_id):
         .order_by("-timestamp")
     )
 
+    role_code = getattr(request.user, "role_code", "") or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else ""
+    )
+    layout_map = {
+        "FINANCE_AP": "layouts/finance_base.html",
+        "STORES_RECEIVER": "layouts/stores_base.html",
+        "REQUESTER": "layouts/requester_base.html",
+        "DEPT_APPROVER": "layouts/approver_base.html",
+        "LEGAL_MGR": "layouts/legal_base.html",
+        "PROC_MGR": "manager/base_manager.html",
+        "AUDITOR": "audit/base_auditor.html",
+        "SUPER_ADMIN": "layouts/superadmin_base.html",
+    }
+    base_layout = layout_map.get(role_code, "base.html")
     return render(
         request,
         "receipts/receipt_detail.html",
@@ -200,6 +256,8 @@ def receipt_detail_view(request, grn_id):
             "po": grn.po,
             "lines": grn.lines.all(),
             "audit_logs": audit_logs,
+            "base_layout": base_layout,
+            "user_role": role_code,
         },
     )
 
@@ -966,9 +1024,12 @@ def receipt_line_correct_view(request, line_id):
 def get_stores_dashboard_data(user=None):
     """
     Computes mutually exclusive, database-backed operational metrics for Stores/Receiver desk.
+    All queries are scoped to the user's organization; a user of organization X never sees
+    data created under organization Y.
     """
     from apps.audit.models import AuditLog
     from apps.orders.models import PurchaseOrder
+    from apps.organization.selectors import resolve_user_scope_organization
     from apps.receipts.models import (
         GoodsReceipt,
         InspectionRecord,
@@ -976,9 +1037,24 @@ def get_stores_dashboard_data(user=None):
         StockHandoffRecord,
     )
 
+    scoped_org = resolve_user_scope_organization(user)
+    org_po_q = None
+    org_po_join = None
+    if scoped_org:
+        org_po_q = Q(
+            po__cost_center__department__organization=scoped_org
+        ) | Q(po__requisition__department__organization=scoped_org)
+        org_po_join = Q(cost_center__department__organization=scoped_org) | Q(
+            requisition__department__organization=scoped_org
+        )
+
+    all_grns_qs = GoodsReceipt.objects.select_related(
+        "po__vendor", "received_by", "po__cost_center__department"
+    )
+    if org_po_q:
+        all_grns_qs = all_grns_qs.filter(org_po_q)
     all_grns = list(
-        GoodsReceipt.objects.select_related("po__vendor", "received_by")
-        .prefetch_related(
+        all_grns_qs.prefetch_related(
             "lines__po_line",
             "lines__inspection",
             "lines__rejections",
@@ -997,26 +1073,46 @@ def get_stores_dashboard_data(user=None):
         1 for g in all_grns if g.overall_inspection_status == "PARTIALLY_INSPECTED"
     )
 
-    pending_deliveries = PurchaseOrder.objects.filter(
+    pending_deliveries_qs = PurchaseOrder.objects.filter(
         status__in=[
             PurchaseOrder.STATUS_ISSUED,
             PurchaseOrder.STATUS_ACKNOWLEDGED,
             PurchaseOrder.STATUS_PARTIAL_RECEIPT,
         ]
-    ).count()
-    partially_received_pos = PurchaseOrder.objects.filter(
-        status=PurchaseOrder.STATUS_PARTIAL_RECEIPT
-    ).count()
-    completed_pos = PurchaseOrder.objects.filter(status=PurchaseOrder.STATUS_COMPLETED).count()
-
-    all_rejections = list(
-        RejectionRecord.objects.select_related("receipt_line__receipt", "receipt_line__po_line")
     )
+    partially_received_qs = PurchaseOrder.objects.filter(status=PurchaseOrder.STATUS_PARTIAL_RECEIPT)
+    completed_qs = PurchaseOrder.objects.filter(status=PurchaseOrder.STATUS_COMPLETED)
+    if scoped_org:
+        org_po_join = Q(cost_center__department__organization=scoped_org) | Q(
+            requisition__department__organization=scoped_org
+        )
+        pending_deliveries_qs = pending_deliveries_qs.filter(org_po_join)
+        partially_received_qs = partially_received_qs.filter(org_po_join)
+        completed_qs = completed_qs.filter(org_po_join)
+    pending_deliveries = pending_deliveries_qs.count()
+    partially_received_pos = partially_received_qs.count()
+    completed_pos = completed_qs.count()
+
+    all_rejections_qs = RejectionRecord.objects.select_related(
+        "receipt_line__receipt", "receipt_line__po_line"
+    )
+    if scoped_org:
+        all_rejections_qs = all_rejections_qs.filter(
+            Q(receipt_line__receipt__po__cost_center__department__organization=scoped_org)
+            | Q(receipt_line__receipt__po__requisition__department__organization=scoped_org)
+        )
+    all_rejections = list(all_rejections_qs)
     total_rejections = len(all_rejections)
     returned_to_vendor_count = sum(1 for r in all_rejections if r.returned_to_vendor)
     pending_vendor_returns_count = sum(1 for r in all_rejections if not r.returned_to_vendor)
 
-    stock_handoffs_count = StockHandoffRecord.objects.count()
+    stock_handoffs_qs = StockHandoffRecord.objects.all()
+    if scoped_org:
+        stock_handoffs_qs = stock_handoffs_qs.filter(
+            Q(receipt_line__receipt__po__cost_center__department__organization=scoped_org)
+            | Q(receipt_line__receipt__po__requisition__department__organization=scoped_org)
+        )
+    stock_handoffs_count = stock_handoffs_qs.count()
     eligible_handoff_grns = [
         g
         for g in all_grns
@@ -1029,16 +1125,26 @@ def get_stores_dashboard_data(user=None):
         1 for g in eligible_handoff_grns if g.stock_handoff_status == "HANDED_OFF"
     )
 
-    quantity_corrections_count = (
+    quantity_corrections_qs = (
         AuditLog.objects.filter(
             target_model="ReceiptLine",
             action=AuditLog.ACTION_UPDATE,
         )
         .filter(new_state__action="QUANTITY_CORRECTION")
-        .count()
     )
+    if scoped_org:
+        quantity_corrections_qs = quantity_corrections_qs.filter(
+            Q(actor__organization=scoped_org) | Q(actor__department__organization=scoped_org)
+        )
+    quantity_corrections_count = quantity_corrections_qs.count()
 
-    total_inspections = InspectionRecord.objects.count()
+    total_inspections_qs = InspectionRecord.objects.all()
+    if scoped_org:
+        total_inspections_qs = total_inspections_qs.filter(
+            Q(receipt_line__receipt__po__cost_center__department__organization=scoped_org)
+            | Q(receipt_line__receipt__po__requisition__department__organization=scoped_org)
+        )
+    total_inspections = total_inspections_qs.count()
 
     metrics = {
         "total_grns": total_grns,
@@ -1063,15 +1169,17 @@ def get_stores_dashboard_data(user=None):
     recent_grns = all_grns[:10]
 
     # 1. Pending Deliveries: POs issued or in partial receipt awaiting dock receiving
+    pending_deliveries_qs = PurchaseOrder.objects.filter(
+        status__in=[
+            PurchaseOrder.STATUS_ISSUED,
+            PurchaseOrder.STATUS_ACKNOWLEDGED,
+            PurchaseOrder.STATUS_PARTIAL_RECEIPT,
+        ]
+    )
+    if scoped_org:
+        pending_deliveries_qs = pending_deliveries_qs.filter(org_po_join)
     pending_deliveries_items = list(
-        PurchaseOrder.objects.filter(
-            status__in=[
-                PurchaseOrder.STATUS_ISSUED,
-                PurchaseOrder.STATUS_ACKNOWLEDGED,
-                PurchaseOrder.STATUS_PARTIAL_RECEIPT,
-            ]
-        )
-        .select_related("vendor", "cost_center")
+        pending_deliveries_qs.select_related("vendor", "cost_center")
         .prefetch_related("lines")
         .order_by("-created_at")[:15]
     )
@@ -1089,10 +1197,16 @@ def get_stores_dashboard_data(user=None):
     ][:15]
 
     # 4. Rejections & Returns: Receipt lines rejected during quality inspection
-    pending_rejections_items = list(
-        ReceiptLine.objects.filter(
-            Q(quantity_rejected__gt=Decimal("0.00")) | Q(rejections__isnull=False)
+    pending_rejections_qs = ReceiptLine.objects.filter(
+        Q(quantity_rejected__gt=Decimal("0.00")) | Q(rejections__isnull=False)
+    )
+    if scoped_org:
+        pending_rejections_qs = pending_rejections_qs.filter(
+            Q(receipt__po__cost_center__department__organization=scoped_org)
+            | Q(receipt__po__requisition__department__organization=scoped_org)
         )
+    pending_rejections_items = list(
+        pending_rejections_qs
         .select_related(
             "receipt__po__vendor",
             "receipt__received_by",
@@ -1287,13 +1401,22 @@ def receipt_delivery_performance_report_view(request):
 @login_required(login_url="/login/")
 def receipt_send_notification_view(request, grn_id):
     """
-    Explicit action for Store Receiver to dispatch/send GRN Receipt Note
+    Explicit single-use action for Store Receiver to dispatch/send GRN Receipt Note
     to Finance & AP, Vendor Portal, and Procurement Executive/Manager.
+
+    - Backend RBAC: Stores Receiver or Super Admin only.
+    - Organization isolation: GRNs of another organization cannot be dispatched.
+    - Idempotent: once dispatched (persisted server-side), the action is locked and
+      the button becomes disabled; no duplicate notifications can be created.
     """
     from django.core.exceptions import PermissionDenied
+    from django.http import Http404
 
-    from apps.accounts.models import Role, User
-    from apps.notifications.models import Notification
+    from apps.organization.selectors import resolve_user_scope_organization
+    from apps.receipts.services import (
+        dispatch_grn_to_stakeholders_service,
+        resolve_grn_organization,
+    )
 
     role_code = getattr(request.user, "role_code", None) or (
         request.user.role.code if hasattr(request.user, "role") and request.user.role else None
@@ -1302,55 +1425,39 @@ def receipt_send_notification_view(request, grn_id):
         raise PermissionDenied("Only Stores Receiver or Super Admin can send GRN notifications.")
 
     grn = get_object_or_404(
-        GoodsReceipt.objects.select_related("po__vendor"),
+        GoodsReceipt.objects.select_related(
+            "po__vendor", "po__cost_center__department", "po__requisition__department"
+        ),
         id=grn_id,
     )
-    po = grn.po
 
-    # 1. Notify Finance & AP
-    fin_users = User.objects.filter(role__code=Role.FINANCE_AP, is_active=True)
-    for fin_u in fin_users:
-        Notification.objects.create(
-            recipient=fin_u,
-            notification_type=Notification.TYPE_GOODS_RECEIVED,
-            title=f"GRN Receipt Note Dispatched: {grn.grn_number} (PO {po.po_number})",
-            message=(
-                f"Stores Receiver has dispatched Goods Receipt Note {grn.grn_number} for PO {po.po_number}. "
-                f"Status: {grn.overall_inspection_status}. Ready for 3-way match upon invoice arrival."
-            ),
-            target_url=f"/receipts/{grn.id}/",
+    # Organization isolation: never dispatch/notify across organization boundaries
+    user_org = resolve_user_scope_organization(request.user)
+    grn_org = resolve_grn_organization(grn)
+    if user_org and grn_org and user_org.id != grn_org.id:
+        raise Http404()
+
+    if grn.finance_dispatched_at:
+        from django.utils import timezone
+
+        messages.info(
+            request,
+            f"GRN {grn.grn_number} was already dispatched to Finance & Vendor on "
+            f"{timezone.localtime(grn.finance_dispatched_at).strftime('%b %d, %Y %H:%M')}."
+            " This send action is available only once.",
         )
+        return redirect("receipt_detail", grn_id=grn.id)
 
-    # 2. Notify Vendor
-    if po.vendor:
-        for v_u in User.objects.filter(vendor=po.vendor, is_active=True):
-            Notification.objects.create(
-                recipient=v_u,
-                notification_type=Notification.TYPE_GOODS_RECEIVED,
-                title=f"GRN Receipt Note Delivered: {grn.grn_number}",
-                message=(
-                    f"Goods Receipt Note {grn.grn_number} for PO {po.po_number} is completed. "
-                    f"Status: {grn.overall_inspection_status}. You can now raise an invoice for inspected goods."
-                ),
-                target_url=f"/vendor/purchase-orders/{po.id}/",
-            )
-
-    # 3. Notify Procurement Executive & Manager
-    pe_pm_users = User.objects.filter(
-        role__code__in=[Role.PROC_EXEC, Role.PROC_MGR], is_active=True
-    )
-    for staff_u in pe_pm_users:
-        Notification.objects.create(
-            recipient=staff_u,
-            notification_type=Notification.TYPE_GOODS_RECEIVED,
-            title=f"GRN Dispatched: {grn.grn_number} (PO {po.po_number})",
-            message=f"Goods Receipt Note {grn.grn_number} on PO {po.po_number} has been shared with Finance and Vendor.",
-            target_url=f"/receipts/{grn.id}/",
-        )
+    try:
+        dispatch_grn_to_stakeholders_service(grn=grn, dispatched_by=request.user)
+    except ValidationError as ve:
+        messages.error(request, str(ve))
+        return redirect("receipt_detail", grn_id=grn.id)
 
     messages.success(
         request,
-        f"Goods Receipt Note {grn.grn_number} successfully dispatched to Finance & Accounts Payable and Vendor ({po.vendor.legal_name}).",
+        f"Goods Receipt Note {grn.grn_number} successfully dispatched to Finance & Accounts Payable "
+        f"and Vendor ({grn.po.vendor.legal_name}). This action is now locked.",
     )
     return redirect("receipt_detail", grn_id=grn.id)
 

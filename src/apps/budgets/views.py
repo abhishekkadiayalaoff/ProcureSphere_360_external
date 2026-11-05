@@ -48,7 +48,7 @@ def list_view(request):
     selected_cc_id = request.GET.get("cost_center") or ""
     selected_period_id = request.GET.get("period") or ""
 
-    scoped_org = getattr(request.user, "effective_organization", None) if not request.user.is_superuser else None
+    scoped_org = getattr(request.user, "effective_organization", None) if not (request.user.is_superuser and not getattr(request.user, "organization_id", None)) else None
     role_code = getattr(request.user, "role_code", None) or (
         request.user.role.code if hasattr(request.user, "role") and request.user.role else None
     )
@@ -169,7 +169,7 @@ def ledger_view(request):
     selected_cc_id = request.GET.get("cost_center") or ""
     selected_entry_type = request.GET.get("entry_type") or ""
 
-    scoped_org = getattr(request.user, "effective_organization", None) if not request.user.is_superuser else None
+    scoped_org = getattr(request.user, "effective_organization", None) if not (request.user.is_superuser and not getattr(request.user, "organization_id", None)) else None
     role_code = getattr(request.user, "role_code", None) or (
         request.user.role.code if hasattr(request.user, "role") and request.user.role else None
     )
@@ -243,7 +243,7 @@ def budget_exceptions_view(request):
     selected_dept_id = request.GET.get("dept") or ""
     selected_cc_id = request.GET.get("cost_center") or ""
 
-    scoped_org = getattr(request.user, "effective_organization", None) if not request.user.is_superuser else None
+    scoped_org = getattr(request.user, "effective_organization", None) if not (request.user.is_superuser and not getattr(request.user, "organization_id", None)) else None
     role_code = getattr(request.user, "role_code", None) or (
         request.user.role.code if hasattr(request.user, "role") and request.user.role else None
     )

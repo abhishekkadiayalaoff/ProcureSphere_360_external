@@ -4,18 +4,81 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="{{ page_description|default:'ProcureSphere 360 — Intelligent Enterprise Procurement Platform' }}" />
-  <title>{{ page_title|default:'ProcureSphere 360' }}</title>
 
-  <!-- Canonical & SEO -->
-  <link rel="canonical" href="{{ request.build_absolute_uri }}" />
-  <meta name="robots" content="index, follow" />
-  <meta property="og:title" content="{{ page_title|default:'ProcureSphere 360' }}" />
-  <meta property="og:description" content="{{ page_description|default:'Connect requests, approvals, suppliers, sourcing, purchase orders, invoices, contracts and financial control in one intelligent procurement platform.' }}" />
+  <!-- Primary SEO Meta -->
+  <title>{{ page_title|default:'ProcureSphere 360 — Enterprise Procurement Platform' }}</title>
+  <meta name="description" content="{{ page_description|default:'ProcureSphere 360 — Intelligent Enterprise Procurement Platform connecting requisitions, approvals, sourcing, purchase orders, invoices, contracts and financial control.' }}" />
+  <meta name="robots" content="{{ page_robots|default:'index, follow' }}" />
+  <link rel="canonical" href="{{ canonical_url|default:request.build_absolute_uri }}" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:site_name" content="{{ site_name|default:'ProcureSphere 360' }}" />
   <meta property="og:type" content="website" />
+  <meta property="og:title" content="{{ og_title|default:page_title|default:'ProcureSphere 360 — Enterprise Procurement Platform' }}" />
+  <meta property="og:description" content="{{ og_description|default:page_description|default:'Enterprise procurement platform for requisitions, approvals, sourcing, purchase orders, invoices, contracts and financial control.' }}" />
+  <meta property="og:url" content="{{ canonical_url|default:request.build_absolute_uri }}" />
+  <meta property="og:image" content="{{ og_image|default:default_og_image }}" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:locale" content="en_US" />
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="{% static 'landing/images/procuresphere_360_emblem.png' %}" />
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:site" content="{{ site_twitter_handle|default:'@procuresphere' }}" />
+  <meta name="twitter:title" content="{{ og_title|default:page_title|default:'ProcureSphere 360' }}" />
+  <meta name="twitter:description" content="{{ og_description|default:page_description|default:'Enterprise procurement platform for requisitions, approvals, sourcing, purchase orders, invoices, contracts and financial control.' }}" />
+  <meta name="twitter:image" content="{{ og_image|default:default_og_image }}" />
+
+  <!-- Additional SEO -->
+  <meta name="application-name" content="ProcureSphere 360" />
+  <meta name="author" content="ProcureSphere 360" />
+
+  <!-- JSON-LD Structured Data -->
+  {% block json_ld %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "ProcureSphere 360",
+    "url": "{{ site_url|default:'https://procuresphere.com' }}",
+    "description": "Enterprise Procurement, Vendor Management, and Source-to-Pay Platform"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "ProcureSphere 360",
+    "url": "{{ site_url|default:'https://procuresphere.com' }}"
+  }
+  </script>
+  {% endblock json_ld %}
+
+    <!-- Production WebP Favicon Suite -->
+    <link rel="icon" type="image/webp" sizes="32x32" href="{% static 'icons/favicon-32x32.webp' %}">
+    <link rel="icon" type="image/webp" sizes="16x16" href="{% static 'icons/favicon-16x16.webp' %}">
+    <link rel="icon" type="image/webp" href="{% static 'icons/favicon.webp' %}">
+    <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.webp' %}">
+    <link rel="manifest" href="{% static 'icons/site.webmanifest' %}">
+        <meta name="theme-color" content="#ffffff">
+    <style>
+      html, body {
+        background-color: #f6f8fb;
+      }
+
+      /* Prevent mobile overlay menu from ever flashing on desktop or when closed */
+      .overlay-menu-container:not(.is-open) {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+      @media (min-width: 1025px) {
+        .overlay-menu-container {
+          display: none !important;
+        }
+      }
+    </style>
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />

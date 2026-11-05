@@ -232,8 +232,9 @@ def resolve_exception_view(request, exception_id):
 @login_required(login_url="/login/")
 def ready_for_payment_view(request):
     _enforce_internal_invoice_access(request)
-    invoices = SupplierInvoice.objects.filter(
-        status=SupplierInvoice.STATUS_READY_FOR_PAYMENT
+    invoices = scope_invoices_queryset(
+        SupplierInvoice.objects.filter(status=SupplierInvoice.STATUS_READY_FOR_PAYMENT),
+        request.user,
     ).order_by("-created_at")
     return render(request, "pages/invoices/ready_list.html", {"invoices": invoices})
 
@@ -274,10 +275,26 @@ def create_invoice_view(request):
         request,
         allowed_roles=[Role.FINANCE_AP, Role.SUPER_ADMIN, Role.PROC_MGR, Role.PROC_EXEC, "FINANCE_AP", "SUPER_ADMIN", "PROC_MGR", "PROC_EXEC"],
     )
-    vendors = Vendor.objects.filter(status="ACTIVE").order_by("legal_name")
+    scoped_org = getattr(request.user, "effective_organization", None) if not (getattr(request.user, "is_superuser", False) and not getattr(request.user, "organization_id", None)) else None
+    vendors = Vendor.objects.filter(status="ACTIVE")
+    if scoped_org:
+        vendors = vendors.filter(organization=scoped_org)
+    elif not getattr(request.user, "is_superuser", False):
+        vendors = vendors.none()
+    vendors = vendors.order_by("legal_name")
+
     pos = PurchaseOrder.objects.filter(
         status__in=["ISSUED", "PARTIAL_RECEIPT", "ACKNOWLEDGED"]
-    ).select_related("vendor").order_by("-created_at")
+    ).select_related("vendor")
+    if scoped_org:
+        pos = pos.filter(
+            Q(cost_center__department__organization=scoped_org)
+            | Q(requisition__department__organization=scoped_org)
+            | Q(vendor__organization=scoped_org)
+        )
+    elif not getattr(request.user, "is_superuser", False):
+        pos = pos.none()
+    pos = pos.order_by("-created_at")
 
     form_data = {}
 

@@ -1,4 +1,15 @@
 {% load static %}
+<style id="nav-mobile-critical">
+  @media (max-width: 1024px) {
+    .navarino-links-desktop { display: none !important; }
+    .navarino-blue-btn { display: none !important; }
+    .navarino-mobile-toggle { display: inline-flex !important; }
+    .nav-inner { justify-content: space-between !important; min-height: 64px !important; }
+  }
+  @media (max-width: 540px) {
+    .nav-login-btn { display: none !important; }
+  }
+</style>
 <header class="site-nav navarino-nav {% if scrolled %}is-scrolled{% endif %}" id="site-navbar" style="z-index:1000;">
   <div class="nav-inner navarino-inner">
 
@@ -31,26 +42,26 @@
             <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </a>
           <div class="nav-dropdown-menu nav-dropdown-menu--about">
-            <a href="/about/#about-overview" class="nav-dropdown-link nav-dropdown-link--overview">
+            <a href="/about/platform-introduction/" class="nav-dropdown-link nav-dropdown-link--overview">
               <div class="d-title-row">
                 <span class="d-title">Platform Introduction</span>
                 <span class="d-badge">PLATFORM</span>
               </div>
             </a>
             <div class="dropdown-divider-subtle"></div>
-            <a href="/about/#mission-purpose" class="nav-dropdown-link">
+            <a href="/about/mission-purpose/" class="nav-dropdown-link">
               <span class="d-title">Platform Mission &amp; Purpose</span>
             </a>
-            <a href="/about/#financial-control" class="nav-dropdown-link">
+            <a href="/about/financial-control/" class="nav-dropdown-link">
               <span class="d-title">Financial Integrity &amp; Control</span>
             </a>
-            <a href="/about/#connected-pillars" class="nav-dropdown-link">
+            <a href="/about/connected-pillars/" class="nav-dropdown-link">
               <span class="d-title">The Four Connected Pillars</span>
             </a>
-            <a href="/about/#enterprise-capabilities" class="nav-dropdown-link">
+            <a href="/about/enterprise-capabilities/" class="nav-dropdown-link">
               <span class="d-title">Enterprise Capabilities</span>
             </a>
-            <a href="/about/#platform-architecture" class="nav-dropdown-link">
+            <a href="/about/platform-architecture/" class="nav-dropdown-link">
               <span class="d-title">Platform Architecture &amp; Controls</span>
             </a>
           </div>
@@ -62,32 +73,32 @@
             <svg class="nav-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
           </a>
           <div class="nav-dropdown-menu nav-dropdown-menu--solutions">
-            <a href="/solutions/#solutions-overview" class="nav-dropdown-link nav-dropdown-link--overview">
+            <a href="/solutions/" class="nav-dropdown-link nav-dropdown-link--overview">
               <div class="d-title-row">
                 <span class="d-title">Solutions Portfolio</span>
                 <span class="d-badge">ALL SOLUTIONS</span>
               </div>
             </a>
             <div class="dropdown-divider-subtle"></div>
-            <a href="/solutions/#vendors" class="nav-dropdown-link">
+            <a href="/solutions/vendor-management/" class="nav-dropdown-link">
               <span class="d-title">Vendor Management &amp; KYC</span>
             </a>
-            <a href="/solutions/#pr" class="nav-dropdown-link">
+            <a href="/solutions/purchase-requisition/" class="nav-dropdown-link">
               <span class="d-title">Requisitions &amp; Budget Reserve</span>
             </a>
-            <a href="/solutions/#sourcing" class="nav-dropdown-link">
+            <a href="/solutions/strategic-sourcing/" class="nav-dropdown-link">
               <span class="d-title">Strategic Sourcing &amp; RFx</span>
             </a>
-            <a href="/solutions/#po" class="nav-dropdown-link">
+            <a href="/solutions/purchase-orders/" class="nav-dropdown-link">
               <span class="d-title">Purchase Order Management</span>
             </a>
-            <a href="/solutions/#grn" class="nav-dropdown-link">
+            <a href="/solutions/goods-receipt/" class="nav-dropdown-link">
               <span class="d-title">Goods Receipt &amp; Quality Inspection</span>
             </a>
-            <a href="/solutions/#match" class="nav-dropdown-link">
+            <a href="/solutions/invoice-matching/" class="nav-dropdown-link">
               <span class="d-title">Autonomous 3-Way Match</span>
             </a>
-            <a href="/solutions/#clm" class="nav-dropdown-link">
+            <a href="/solutions/contract-lifecycle/" class="nav-dropdown-link">
               <span class="d-title">Contract Lifecycle &amp; SLAs</span>
             </a>
           </div>
@@ -109,8 +120,8 @@
 
     <!-- Right: Login + CTA + Mobile Toggle -->
     <div class="nav-right-group">
-      <button type="button" id="login-btn" class="nav-login-btn" aria-label="Login to Portal">Login</button>
-      <a href="/#contact" class="navarino-blue-btn" id="nav-demo-btn">Request a Demo</a>
+      <a href="/login/" id="login-btn" class="nav-login-btn" aria-label="Login to Portal" style="text-decoration:none;">Login</a>
+      <a href="/" class="navarino-blue-btn" id="nav-demo-btn" onclick="goToContact(event)">Contact Us</a>
       <button type="button" id="mobile-menu-toggle" class="navarino-mobile-toggle" aria-label="Open Navigation" aria-expanded="false">
         <svg id="hamburger-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="4" y1="7" x2="20" y2="7"/>

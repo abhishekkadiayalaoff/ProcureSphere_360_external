@@ -8,6 +8,7 @@ from apps.core.models import TimeStampedModel
 class PurchaseOrder(TimeStampedModel):
     STATUS_DRAFT = "DRAFT"
     STATUS_APPROVAL = "APPROVAL"
+    STATUS_APPROVED = "APPROVED"
     STATUS_ISSUED = "ISSUED"
     STATUS_ACKNOWLEDGED = "ACKNOWLEDGED"
     STATUS_PARTIAL_RECEIPT = "PARTIAL_RECEIPT"
@@ -17,7 +18,8 @@ class PurchaseOrder(TimeStampedModel):
 
     STATUS_CHOICES = [
         (STATUS_DRAFT, "Draft"),
-        (STATUS_APPROVAL, "In Approval"),
+        (STATUS_APPROVAL, "Pending Approval"),
+        (STATUS_APPROVED, "Approved"),
         (STATUS_ISSUED, "Issued"),
         (STATUS_ACKNOWLEDGED, "Acknowledged by Vendor"),
         (STATUS_PARTIAL_RECEIPT, "Partial Receipt"),
@@ -46,6 +48,14 @@ class PurchaseOrder(TimeStampedModel):
         blank=True,
         related_name="purchase_orders",
     )
+    award = models.ForeignKey(
+        "sourcing.AwardDecision",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="purchase_orders",
+        help_text="Approved award decision this PO was generated from",
+    )
     cost_center = models.ForeignKey(
         "organization.CostCenter",
         on_delete=models.PROTECT,
@@ -66,6 +76,37 @@ class PurchaseOrder(TimeStampedModel):
     )
 
     terms_and_conditions = models.TextField(blank=True)
+
+    submitted_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="submitted_pos",
+    )
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_purchase_orders",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    issued_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="issued_pos",
+    )
+    issued_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Approver rejection or change-request notes",
+    )
+
     acknowledged_at = models.DateTimeField(null=True, blank=True)
     acknowledged_by = models.ForeignKey(
         "accounts.User",
@@ -75,6 +116,12 @@ class PurchaseOrder(TimeStampedModel):
         related_name="acknowledged_pos",
     )
     acknowledgement_notes = models.TextField(blank=True, default="")
+    vendor_rejection_reason = models.TextField(
+        blank=True,
+        default="",
+        help_text="Reason given when the vendor rejects the issued PO",
+    )
+    vendor_rejected_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.po_number} V{self.version} - {self.vendor.legal_name} (${self.total_amount})"

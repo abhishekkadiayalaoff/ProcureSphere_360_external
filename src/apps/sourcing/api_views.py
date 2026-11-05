@@ -343,20 +343,22 @@ class SourcingEventViewSet(
     @extend_schema(request=GeneratePOPayload, responses=None)
     @action(detail=True, methods=["post"], url_path="generate-po")
     def generate_po(self, request, pk=None):
-        from apps.organization.models import CostCenter
-
-        _require_manage(request)
-        payload = GeneratePOPayload(data=request.data)
-        payload.is_valid(raise_exception=True)
-        event = self.get_object()
-        cc_id = payload.validated_data.get("cost_center_id")
-        cost_center = get_object_or_404(CostCenter, pk=cc_id) if cc_id else None
-        po = services.generate_po_from_award_service(
-            event=event, user=request.user, cost_center=cost_center
-        )
+        """
+        Deprecated: purchase order generation moved to the Purchase Orders module
+        (POST /api/v1/purchase-orders/generate-from-award/). This endpoint now
+        returns 410 Gone pointing callers at the new location.
+        """
         return Response(
-            {"id": str(po.id), "po_number": po.po_number, "status": po.status},
-            status=status.HTTP_201_CREATED,
+            {
+                "error": {
+                    "code": "endpoint_moved",
+                    "message": (
+                        "Purchase order generation moved to the Purchase Orders module. "
+                        "Use POST /api/v1/purchase-orders/generate-from-award/ instead."
+                    ),
+                }
+            },
+            status=status.HTTP_410_GONE,
         )
 
 

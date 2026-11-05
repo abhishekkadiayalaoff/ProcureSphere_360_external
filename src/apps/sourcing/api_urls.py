@@ -22,10 +22,7 @@ from .services import evaluate_and_award_sourcing_event_service
 
 def get_user_org(user):
     if user and user.is_authenticated and not user.is_superuser:
-        if getattr(user, "department_id", None) and getattr(
-            user.department, "organization_id", None
-        ):
-            return user.department.organization
+        return getattr(user, "effective_organization", None)
     return None
 
 
@@ -57,13 +54,18 @@ class PendingAwardsAPIView(APIView):
             .order_by("-updated_at")
         )
         if org:
-            events = events.filter(
+            is_hpe_org = org.code in ["ORG-HPE-01", "HPE-GLOBAL"] or "Hewlett Packard" in org.name
+            org_filter = (
                 models.Q(requisition__department__organization=org)
-                | (
-                    models.Q(requisition__isnull=True)
-                    & models.Q(created_by__department__organization=org)
-                )
+                | models.Q(requisition__requester__organization=org)
+                | models.Q(created_by__organization=org)
+                | models.Q(created_by__department__organization=org)
             )
+            if is_hpe_org:
+                org_filter |= models.Q(requisition__isnull=True, created_by__isnull=True)
+            events = events.filter(org_filter)
+        elif not request.user.is_superuser:
+            events = events.none()
 
         results = []
         for event in events:

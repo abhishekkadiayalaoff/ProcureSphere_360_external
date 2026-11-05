@@ -43,9 +43,12 @@ def _make_notification(recipient, ntype=Notification.TYPE_BID_DEADLINE, title="B
 
 
 def test_service_returns_top10_newest_unread(procurement_world):
+    import time
+
     user = procurement_world["exec"]
     for i in range(12):
         _make_notification(user, title=f"N-{i:02d}")
+        time.sleep(0.001)  # distinct created_at timestamps (clock granularity)
     top = get_top_unread_for_user(user=user, limit=10)
     assert len(top) == 10
     titles = [n.title for n in top]

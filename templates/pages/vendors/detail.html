@@ -41,7 +41,13 @@
 
             {# ── Credentials button ── #}
             {% if vendor.status != 'SUSPENDED' and vendor.status != 'REJECTED' %}
-                <form method="post" action="{% url 'vendor_issue_credentials' vendor.id %}" onsubmit="return confirm('Create or reset the vendor login and email credentials to {{ vendor.email|escapejs }}?');">
+                <form method="post" action="{% url 'vendor_issue_credentials' vendor.id %}"
+                      data-confirm-title="{% if last_dispatch %}Resend vendor credentials{% else %}Generate &amp; email vendor credentials{% endif %}"
+                      data-confirm-message="This will create or reset the vendor portal login and email the credentials to the registered contact. Any previous password will stop working."
+                      data-confirm-tone="info"
+                      data-confirm-icon="fa-envelope"
+                      data-confirm-confirm-label="{% if last_dispatch %}Yes, resend credentials{% else %}Generate &amp; email{% endif %}"
+                      data-confirm-details="Vendor = {{ vendor.vendor_number }} — {{ vendor.legal_name }};Recipient = {{ vendor.email }}">
                     {% csrf_token %}
                     <button class="btn btn-primary rounded-pill px-3" type="submit"{% if last_dispatch %} title="Last: {{ last_dispatch.get_status_display }} {{ last_dispatch.created_at|date:'d M Y H:i' }}"{% endif %}><i class="fa-solid fa-envelope me-1"></i>{% if last_dispatch %}Resend credentials{% else %}Generate &amp; email credentials{% endif %}</button>
                 </form>
@@ -55,9 +61,13 @@
             {# ── Delete vendor (DRAFT / REJECTED only) ── #}
             {% if vendor.status == 'DRAFT' or vendor.status == 'REJECTED' %}
                 <form method="post" action="{% url 'vendor_delete' vendor.id %}"
-                      onsubmit="return confirm('PERMANENTLY DELETE {{ vendor.vendor_number }} — {{ vendor.legal_name|escapejs }}?
-
-This cannot be undone. Only DRAFT and REJECTED vendors with no linked transactions can be deleted.');">
+                      data-confirm-title="Delete {{ vendor.legal_name }}?"
+                      data-confirm-message="You are about to permanently delete vendor {{ vendor.vendor_number }} — {{ vendor.legal_name }}."
+                      data-confirm-warning="This action cannot be undone. Only DRAFT and REJECTED vendors with no linked transactions can be deleted."
+                      data-confirm-tone="danger"
+                      data-confirm-icon="fa-trash-can"
+                      data-confirm-confirm-label="Yes, delete forever"
+                      data-confirm-cancel-label="Keep vendor">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-outline-danger rounded-pill px-3">
                         <i class="fa-solid fa-trash-can me-1"></i>Delete vendor

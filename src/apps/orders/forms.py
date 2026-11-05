@@ -61,3 +61,16 @@ class POAmendForm(forms.Form):
                 }
             )
         return items
+
+
+class PODraftEditForm(POAmendForm):
+    """Draft-PO edit form: per-line quantity/unit-price edits without a reason.
+
+    Reuses the change-order field layout but omits the amendment justification,
+    which is only meaningful for issued orders. Only DRAFT POs may use it.
+    """
+
+    def __init__(self, *args, po=None, **kwargs):
+        super().__init__(*args, po=po, **kwargs)
+        self.fields.pop("reason", None)
+

@@ -11,10 +11,21 @@
             <td class="text-end">
                 <form method="post" action="{% url 'orders_generate_from_award' e.id %}"
                       hx-post="{% url 'orders_generate_from_award' e.id %}"
-                      hx-target="#po-action-result" hx-swap="innerHTML">
+                      hx-target="#po-action-result" hx-swap="innerHTML"
+                      class="d-inline-flex gap-2 align-items-center justify-content-end flex-wrap">
                     {% csrf_token %}
+                    {% if cost_centers %}
+                    <select name="cost_center_id" class="form-select form-select-sm" style="max-width: 180px;" required>
+                        <option value="">Cost center…</option>
+                        {% for cc in cost_centers %}
+                        <option value="{{ cc.id }}"{% if e.requisition and cc.id == e.requisition.cost_center_id %} selected{% endif %}>{{ cc.code }}</option>
+                        {% endfor %}
+                    </select>
+                    {% elif e.requisition and e.requisition.cost_center_id %}
+                    <input type="hidden" name="cost_center_id" value="{{ e.requisition.cost_center_id }}">
+                    {% endif %}
                     <button class="btn btn-sm btn-primary rounded-pill px-3" type="submit">
-                        <i class="fa-solid fa-cart-plus me-1"></i>Generate PO
+                        <i class="fa-solid fa-cart-plus me-1"></i>Create Draft PO
                     </button>
                 </form>
             </td>
@@ -27,7 +38,7 @@
 {% else %}
 <div class="text-center py-4 text-muted">
     <i class="fa-solid fa-circle-check fa-2x text-success mb-2"></i>
-    <div class="fw-semibold">All awarded events have Purchase Orders.</div>
-    <div class="small">Approved awards appear here when PO generation is pending.</div>
+    <div class="fw-semibold">No awarded events are currently awaiting a Purchase Order.</div>
+    <div class="small">Approved awards appear here when PO generation is pending. If you just approved an award, refresh this panel.</div>
 </div>
 {% endif %}

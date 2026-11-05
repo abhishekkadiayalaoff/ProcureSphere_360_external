@@ -87,7 +87,15 @@
                             <span class="badge bg-warning text-dark rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
                                 <i class="fa-solid fa-clock me-1"></i> Pending Review
                             </span>
-                        {% elif pr.status == 'APPROVED' or pr.status == 'SOURCING' or pr.status == 'PO_ISSUED' %}
+                        {% elif pr.status == 'PO_ISSUED' or pr.purchase_orders.exists %}
+                            <span class="badge bg-success rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
+                                <i class="fa-solid fa-file-invoice-dollar me-1"></i> PO Issued
+                            </span>
+                        {% elif pr.status == 'SOURCING' or pr.sourcing_events.exists %}
+                            <span class="badge bg-info text-dark rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
+                                <i class="fa-solid fa-gavel me-1"></i> In Sourcing
+                            </span>
+                        {% elif pr.status == 'APPROVED' %}
                             <span class="badge bg-success rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">
                                 <i class="fa-solid fa-check me-1"></i> Approved
                             </span>
@@ -159,7 +167,15 @@
                                 <span class="badge bg-warning text-dark rounded-pill px-3 py-1">
                                     <i class="fa-solid fa-clock me-1"></i> Pending Review
                                 </span>
-                            {% elif pr.status == 'APPROVED' or pr.status == 'SOURCING' or pr.status == 'PO_ISSUED' %}
+                            {% elif pr.status == 'PO_ISSUED' or pr.purchase_orders.exists %}
+                                <span class="badge bg-success rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-file-invoice-dollar me-1"></i> PO Issued
+                                </span>
+                            {% elif pr.status == 'SOURCING' or pr.sourcing_events.exists %}
+                                <span class="badge bg-info text-dark rounded-pill px-3 py-1">
+                                    <i class="fa-solid fa-gavel me-1"></i> In Sourcing
+                                </span>
+                            {% elif pr.status == 'APPROVED' %}
                                 <span class="badge bg-success rounded-pill px-3 py-1">
                                     <i class="fa-solid fa-check me-1"></i> Approved
                                 </span>

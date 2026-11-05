@@ -15,6 +15,7 @@ from apps.orders.services import (
     acknowledge_purchase_order_service,
     approve_purchase_order_service,
     generate_purchase_order_service,
+    issue_purchase_order_service,
     submit_purchase_order_for_approval_service,
 )
 from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
@@ -141,10 +142,14 @@ def test_complete_po_workflow_from_draft_to_payment(workflow_setup):
     po = submit_purchase_order_for_approval_service(po=po, actor=proc_exec)
     assert po.status == PurchaseOrder.STATUS_APPROVAL
 
-    # Approve by Procurement Manager -> transitions to ISSUED and commits budget
+    # Approve by Procurement Manager -> APPROVED and commits budget
     po = approve_purchase_order_service(
         po=po, approver=proc_mgr, comments="Approved for Core Tech upgrade."
     )
+    assert po.status == PurchaseOrder.STATUS_APPROVED
+
+    # Issue by Procurement Executive -> ISSUED to the vendor
+    po = issue_purchase_order_service(po=po, actor=proc_exec)
     assert po.status == PurchaseOrder.STATUS_ISSUED
 
     data["budget"].refresh_from_db()

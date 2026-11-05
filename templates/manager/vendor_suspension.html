@@ -1,0 +1,599 @@
+{% extends 'manager/base_manager.html' %}
+
+{% block title %}Vendor Suspension & Governance Action — Procurement Manager{% endblock %}
+
+{% block manager_breadcrumbs %}
+<li class="breadcrumb-item"><a href="/manager/" class="text-decoration-none text-muted">Manager</a></li>
+<li class="breadcrumb-item"><a href="/manager/vendor-risk/" class="text-decoration-none text-muted">Vendor Risk</a></li>
+<li class="breadcrumb-item active text-dark fw-semibold" aria-current="page">Vendor Suspension</li>
+{% endblock manager_breadcrumbs %}
+
+{% block mobile_page_title %}Vendor Suspension Desk{% endblock mobile_page_title %}
+
+{% block manager_content %}
+<div class="container-fluid px-0">
+
+    <!-- Header Section (Matching Vendor Portal UI style) -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-bold px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.75rem; letter-spacing: 0.04em;">
+                    <i class="fa-solid fa-scale-balanced me-1 text-danger"></i> SANCTIONS &amp; ENFORCEMENT DESK
+                </span>
+                <span class="text-muted small">Supplier account restrictions, holds, and policy enforcement</span>
+            </div>
+            <h3 class="fw-bold text-dark mb-1">
+                Vendor Suspension &amp; Governance Desk
+            </h3>
+            <p class="text-muted mb-0 small">
+                Welcome, <strong>{{ user.email }}</strong> &bull; Enforce authoritative supplier sanctions, temporary holds, or reinstatements with live exposure analysis.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="/manager/vendor-risk/" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                <i class="fa-solid fa-arrow-left me-1"></i> Back to Risk Desk
+            </a>
+            <button onclick="reloadSuspensionDesk()" class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" id="suspensionRefreshBtn">
+                <i class="fa-solid fa-arrows-rotate me-1" id="suspensionRefreshIcon"></i> Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Governance KPI Metrics Grid (Matching Vendor User Dashboard Cards: rounded-4, border-2, fs-3) -->
+    <div class="row g-3 mb-4">
+        <!-- 1. Total Suppliers -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card bg-white rounded-4 p-3 border border-2 border-primary shadow-xs h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Monitored Suppliers</span>
+                    <div style="width: 32px; height: 32px; background: rgba(13, 110, 253, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-building text-primary"></i>
+                    </div>
+                </div>
+                <div class="fs-3 fw-bold text-dark metric-value" id="kpiTotalVendors">0</div>
+                <div class="text-muted small mt-1" id="kpiActiveVendors">0 active suppliers</div>
+            </div>
+        </div>
+
+        <!-- 2. Suspended Suppliers -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card bg-white rounded-4 p-3 border border-2 border-danger shadow-xs h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Suspended (Blacklisted)</span>
+                    <div style="width: 32px; height: 32px; background: rgba(220, 53, 69, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-ban text-danger"></i>
+                    </div>
+                </div>
+                <div class="fs-3 fw-bold text-danger metric-value" id="kpiSuspendedVendors">0</div>
+                <div class="text-muted small mt-1">Blocked from RFQs &amp; POs</div>
+            </div>
+        </div>
+
+        <!-- 3. On Hold Suppliers -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card bg-white rounded-4 p-3 border border-2 border-warning shadow-xs h-100">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.72rem;">Placed On Hold</span>
+                    <div style="width: 32px; height: 32px; background: rgba(255, 193, 7, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-clock-rotate-left text-warning"></i>
+                    </div>
+                </div>
+                <div class="fs-3 fw-bold text-dark metric-value" id="kpiOnHoldVendors">0</div>
+                <div class="text-muted small mt-1">Pending compliance audit</div>
+            </div>
+        </div>
+
+        <!-- 4. High-Risk Suppliers -->
+        <div class="col-6 col-md-3">
+            <div class="stat-card bg-white rounded-4 p-3 border border-2 border-danger shadow-xs h-100" style="border-color: #ef4444 !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="text-muted small fw-semibold text-uppercase text-danger" style="font-size: 0.72rem;">High Risk Suppliers</span>
+                    <div style="width: 32px; height: 32px; background: rgba(239, 68, 68, 0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-triangle-exclamation text-danger"></i>
+                    </div>
+                </div>
+                <div class="fs-3 fw-bold text-danger metric-value" id="kpiHighRiskVendors">0</div>
+                <div class="text-muted small mt-1">Action required immediately</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace Layout: Dedicated Action Module & Governance History -->
+    <div class="row g-4 mb-4">
+
+        <!-- Column 1: Authoritative Governance Action Execution Desk (7 cols) -->
+        <div class="col-lg-7">
+            <div class="card bg-white rounded-4 border shadow-xs p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">
+                            <i class="fa-solid fa-scale-balanced text-primary me-2"></i> Governance Action Formulation
+                        </h5>
+                        <p class="text-muted small mb-0">Select target supplier, inspect real-time transaction exposure, and record audit-backed status changes.</p>
+                    </div>
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-3 py-1 fw-bold" style="font-size: 0.7rem;">
+                        MANAGER RBAC
+                    </span>
+                </div>
+
+                <!-- Step 1: Select Supplier -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark mb-1">
+                        Select Target Supplier <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                        <select id="govVendorSelect" class="form-select" onchange="onVendorSelectionChanged()">
+                            <option value="">-- Choose a supplier to govern --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Supplier Profile & Context Panel (Dynamic) -->
+                <div id="govVendorProfileCard" class="p-3 rounded-4 border mb-3 d-none bg-light">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <div>
+                            <div class="fw-bold text-dark fs-6" id="govVendorLegalName">-</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="badge bg-white text-dark border font-monospace" id="govVendorNumber" style="font-size: 0.7rem;">-</span>
+                                <span class="text-muted small" id="govVendorCategory" style="font-size: 0.75rem;">-</span>
+                                <span class="text-muted small" id="govVendorTIN" style="font-size: 0.75rem;">-</span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-column align-items-end gap-1">
+                            <div id="govCurrentStatusBadge"></div>
+                            <div id="govCurrentRiskBadge"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Transaction & Exposure Analysis Panel -->
+                <div id="govExposurePanel" class="p-3 rounded-4 border mb-3 d-none bg-white">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold text-uppercase" style="font-size: 0.68rem;">Live Transaction Exposure</span>
+                        <span class="badge rounded-pill" id="govExposureSummaryBadge">Checking...</span>
+                    </div>
+
+                    <div class="row g-2 text-center mb-2">
+                        <div class="col-3">
+                            <div class="p-2 rounded-3 border bg-light">
+                                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.65rem;">Invitations</span>
+                                <div class="fw-bold text-dark" id="expInvites">0</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 rounded-3 border bg-light">
+                                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.65rem;">Sealed Bids</span>
+                                <div class="fw-bold text-dark" id="expBids">0</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 rounded-3 border bg-light">
+                                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.65rem;">Awards</span>
+                                <div class="fw-bold text-dark" id="expAwards">0</div>
+                            </div>
+                        </div>
+                        <div class="col-3">
+                            <div class="p-2 rounded-3 border bg-light">
+                                <span class="text-muted text-uppercase fw-semibold" style="font-size: 0.65rem;">Active POs</span>
+                                <div class="fw-bold text-dark" id="expPOs">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Downstream Policy Impact Warnings -->
+                    <div id="suspensionImpactWarning" class="alert alert-danger border-danger rounded-3 p-3 small mb-0 d-none" style="font-size: 0.75rem;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa-solid fa-triangle-exclamation text-danger fs-5 mt-1"></i>
+                            <div>
+                                <strong>Enforcement Impact:</strong> Suspending this vendor blocks new RFQ/RFP bidding invitations, disqualifies pending bids from award approval, and forbids issuance of any new purchase orders. Existing historical records remain preserved for audit compliance.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="holdImpactWarning" class="alert alert-warning border-warning rounded-3 p-3 small mb-0 d-none" style="font-size: 0.75rem;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa-solid fa-circle-exclamation text-warning-emphasis fs-5 mt-1"></i>
+                            <div>
+                                <strong>Hold Restriction:</strong> Placing this vendor on hold restricts them from PO issuance and bid submission until full KYC/compliance clearance is completed.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="reinstateNotice" class="alert alert-success border-success rounded-3 p-3 small mb-0 d-none" style="font-size: 0.75rem;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="fa-solid fa-circle-check text-success fs-5 mt-1"></i>
+                            <div>
+                                <strong>Reinstatement Clearance:</strong> Reinstating this vendor restores active status, permitting full participation in sourcing events, bid submission, and purchase order awards.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 2: Action Selection -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark mb-1">
+                        Select Governance Action <span class="text-danger">*</span>
+                    </label>
+                    <select id="govActionSelect" class="form-select" onchange="onActionOptionChanged()">
+                        <option value="SUSPENDED" selected>Suspend / Blacklist (Sanctions &amp; Material Regulatory Breach)</option>
+                        <option value="ON_HOLD">Place On Hold (Restricted Bidding &amp; POs)</option>
+                        <option value="ACTIVE">Release / Reinstate to Active</option>
+                    </select>
+                </div>
+
+                <!-- Step 3: Mandatory Rationale & Justification -->
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-dark mb-1">
+                        Governance Justification &amp; Audit Trail Note <span class="text-danger">*</span>
+                    </label>
+                    <textarea class="form-control" id="govReasonTextarea" rows="4" placeholder="Detail the governance basis (e.g., regulatory sanction screening match, severe KYC failure, contract default, or resolution of compliance issue)..."></textarea>
+                    <div class="form-text small text-muted">This rationale is permanently recorded in the append-only AuditLog with your identity and timestamp.</div>
+                </div>
+
+                <!-- Submit / Execution Actions -->
+                <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 gap-2 border-top">
+                    <a id="govFullVendorLink" href="#" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none">
+                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Open Full Vendor File
+                    </a>
+                    <div class="d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-light btn-sm rounded-pill px-3" onclick="resetGovernanceForm()">
+                            Cancel
+                        </button>
+                        <button type="button" class="btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-sm" id="govExecuteBtn" onclick="executeGovernanceAction()">
+                            <i class="fa-solid fa-shield-halved me-1"></i> Apply Governance Action
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Column 2: Governance Action History & Audit Trail (5 cols) -->
+        <div class="col-lg-5">
+            <div class="card bg-white rounded-4 border shadow-xs p-4 h-100 d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">
+                            <i class="fa-solid fa-history text-secondary me-2"></i> Audit Trail &amp; History
+                        </h5>
+                        <p class="text-muted small mb-0">Recent governance interventions and sanctions records.</p>
+                    </div>
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-1" onclick="loadAuditHistory()" title="Refresh Audit Log">
+                        <i class="fa-solid fa-rotate-right"></i>
+                    </button>
+                </div>
+
+                <div class="table-responsive border rounded-3 flex-grow-1 overflow-auto" style="max-height: 520px;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light small text-uppercase">
+                            <tr>
+                                <th class="ps-3" style="font-size: 0.68rem;">Supplier</th>
+                                <th style="font-size: 0.68rem;">Action / Status</th>
+                                <th style="font-size: 0.68rem;">Actor &amp; Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="govAuditHistoryBody">
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">
+                                    <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                                    Loading governance audit records...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mt-3 p-3 rounded-3 bg-light border small text-muted">
+                    <i class="fa-solid fa-lock text-primary me-1"></i>
+                    <strong>Integrity Guarantee:</strong> All actions taken from this desk enforce immutable audit trails. Unauthorized role bypasses are blocked by server-side RBAC validation.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const INITIAL_TARGET_VENDOR_ID = "{{ target_vendor_id|default:''|escapejs }}";
+    const INITIAL_ACTION = "{{ initial_action|default:''|escapejs }}";
+
+    let allVendorsCache = [];
+    let auditHistoryCache = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDeskData();
+    });
+
+    async function loadDeskData() {
+        await Promise.all([
+            loadVendorsList(),
+            loadKpiSummary(),
+            loadAuditHistory()
+        ]);
+
+        if (INITIAL_TARGET_VENDOR_ID) {
+            const selectEl = document.getElementById('govVendorSelect');
+            if (selectEl) {
+                selectEl.value = INITIAL_TARGET_VENDOR_ID;
+                await onVendorSelectionChanged();
+            }
+        }
+
+        if (INITIAL_ACTION) {
+            const actionEl = document.getElementById('govActionSelect');
+            if (actionEl) {
+                actionEl.value = INITIAL_ACTION;
+                onActionOptionChanged();
+            }
+        }
+    }
+
+    async function reloadSuspensionDesk() {
+        const icon = document.getElementById('suspensionRefreshIcon');
+        if (icon) icon.classList.add('fa-spin');
+        await loadDeskData();
+        if (icon) icon.classList.remove('fa-spin');
+        showManagerToast('Vendor Suspension Desk updated.', 'info');
+    }
+
+    async function loadVendorsList() {
+        try {
+            const res = await fetchManagerAPI('/api/v1/vendors/?page_size=200');
+            allVendorsCache = (res && res.results) ? res.results : (Array.isArray(res) ? res : []);
+            
+            const selectEl = document.getElementById('govVendorSelect');
+            if (!selectEl) return;
+
+            let html = '<option value="">-- Choose a supplier to govern --</option>';
+            allVendorsCache.forEach(v => {
+                const statusLabel = v.status_display || v.status;
+                const riskLabel = v.current_risk_level ? `[${v.current_risk_level} RISK]` : '';
+                html += `<option value="${v.id}">${v.legal_name} (${v.vendor_number}) — ${statusLabel} ${riskLabel}</option>`;
+            });
+            selectEl.innerHTML = html;
+        } catch (e) {
+            console.error('Failed to load vendors list', e);
+        }
+    }
+
+    async function loadKpiSummary() {
+        try {
+            const summary = await fetchManagerAPI('/api/v1/vendors/summary/');
+            if (summary) {
+                document.getElementById('kpiTotalVendors').textContent = summary.total_vendors || 0;
+                document.getElementById('kpiActiveVendors').textContent = (summary.active_vendors || 0) + ' active suppliers';
+                document.getElementById('kpiSuspendedVendors').textContent = summary.suspended_vendors || 0;
+                document.getElementById('kpiOnHoldVendors').textContent = summary.on_hold_vendors || 0;
+                document.getElementById('kpiHighRiskVendors').textContent = summary.high_risk_vendors || 0;
+            }
+        } catch (e) {
+            console.error('Failed to load vendor KPIs', e);
+        }
+    }
+
+    async function onVendorSelectionChanged() {
+        const vendorId = document.getElementById('govVendorSelect').value;
+        const profileCard = document.getElementById('govVendorProfileCard');
+        const exposurePanel = document.getElementById('govExposurePanel');
+        const fullLink = document.getElementById('govFullVendorLink');
+        const actionSelect = document.getElementById('govActionSelect');
+
+        if (!vendorId) {
+            profileCard.classList.add('d-none');
+            exposurePanel.classList.add('d-none');
+            fullLink.classList.add('d-none');
+            return;
+        }
+
+        const vendor = allVendorsCache.find(v => v.id === vendorId);
+        if (vendor) {
+            document.getElementById('govVendorLegalName').textContent = vendor.legal_name;
+            document.getElementById('govVendorNumber').textContent = vendor.vendor_number;
+            document.getElementById('govVendorCategory').textContent = vendor.category_name || vendor.category || 'General';
+            document.getElementById('govVendorTIN').textContent = vendor.tax_identification_number ? `TIN: ${vendor.tax_identification_number}` : '';
+
+            let statusBadge = 'bg-secondary text-white';
+            if (vendor.status === 'ACTIVE') statusBadge = 'bg-success text-white';
+            else if (vendor.status === 'ON_HOLD') statusBadge = 'bg-warning text-dark';
+            else if (vendor.status === 'SUSPENDED') statusBadge = 'bg-danger text-white';
+
+            let riskBadge = 'bg-success-subtle text-success border border-success-subtle';
+            if (vendor.current_risk_level === 'HIGH') riskBadge = 'bg-danger text-white border border-danger fw-bold';
+            else if (vendor.current_risk_level === 'MEDIUM') riskBadge = 'bg-warning-subtle text-warning-emphasis border border-warning';
+
+            document.getElementById('govCurrentStatusBadge').innerHTML = `
+                <span class="badge ${statusBadge} rounded-pill px-2 py-1" style="font-size: 0.7rem;">${vendor.status_display || vendor.status}</span>
+            `;
+            document.getElementById('govCurrentRiskBadge').innerHTML = `
+                <span class="badge ${riskBadge} rounded-pill px-2 py-1" style="font-size: 0.7rem;">${vendor.current_risk_level || 'LOW'} RISK</span>
+            `;
+
+            profileCard.classList.remove('d-none');
+
+            // Apply distinct border on profile card if high-risk or suspended
+            if (vendor.current_risk_level === 'HIGH' || vendor.status === 'SUSPENDED') {
+                profileCard.className = 'p-3 rounded-4 border border-2 border-danger mb-3 bg-danger-subtle bg-opacity-10';
+            } else {
+                profileCard.className = 'p-3 rounded-4 border mb-3 bg-light';
+            }
+
+            // Link to full profile
+            fullLink.href = `/vendors/${vendor.id}/`;
+            fullLink.classList.remove('d-none');
+
+            // Set sensible default action
+            if (vendor.status === 'SUSPENDED') {
+                actionSelect.value = 'ACTIVE';
+            } else if (vendor.status === 'ON_HOLD') {
+                actionSelect.value = 'SUSPENDED';
+            } else {
+                actionSelect.value = 'SUSPENDED';
+            }
+        }
+
+        // Fetch live exposure
+        exposurePanel.classList.remove('d-none');
+        document.getElementById('govExposureSummaryBadge').textContent = 'Checking...';
+        document.getElementById('govExposureSummaryBadge').className = 'badge bg-secondary rounded-pill';
+
+        try {
+            const expRes = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/exposure/`);
+            if (expRes && expRes.exposure) {
+                const exp = expRes.exposure;
+                const totalActive = (exp.open_invitations || 0) + (exp.open_bids || 0) + (exp.pending_awards || 0) + (exp.open_pos || 0);
+                
+                document.getElementById('expInvites').textContent = exp.open_invitations || 0;
+                document.getElementById('expBids').textContent = exp.open_bids || 0;
+                document.getElementById('expAwards').textContent = exp.pending_awards || 0;
+                document.getElementById('expPOs').textContent = exp.open_pos || 0;
+
+                const badgeEl = document.getElementById('govExposureSummaryBadge');
+                if (totalActive > 0) {
+                    badgeEl.textContent = `${totalActive} active transactions`;
+                    badgeEl.className = 'badge bg-warning text-dark rounded-pill fw-bold';
+                } else {
+                    badgeEl.textContent = 'Zero active exposure';
+                    badgeEl.className = 'badge bg-success text-white rounded-pill';
+                }
+            }
+        } catch (e) {
+            document.getElementById('govExposureSummaryBadge').textContent = 'Live check unavailable';
+        }
+
+        onActionOptionChanged();
+    }
+
+    function onActionOptionChanged() {
+        const action = document.getElementById('govActionSelect').value;
+        const suspWarning = document.getElementById('suspensionImpactWarning');
+        const holdWarning = document.getElementById('holdImpactWarning');
+        const reinNotice = document.getElementById('reinstateNotice');
+        const execBtn = document.getElementById('govExecuteBtn');
+
+        suspWarning.classList.add('d-none');
+        holdWarning.classList.add('d-none');
+        reinNotice.classList.add('d-none');
+
+        if (action === 'SUSPENDED') {
+            suspWarning.classList.remove('d-none');
+            execBtn.className = 'btn btn-danger btn-sm rounded-pill px-4 fw-bold shadow-sm';
+            execBtn.innerHTML = '<i class="fa-solid fa-ban me-1"></i> Apply Suspension';
+        } else if (action === 'ON_HOLD') {
+            holdWarning.classList.remove('d-none');
+            execBtn.className = 'btn btn-warning text-dark btn-sm rounded-pill px-4 fw-bold shadow-sm';
+            execBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left me-1"></i> Place On Hold';
+        } else if (action === 'ACTIVE') {
+            reinNotice.classList.remove('d-none');
+            execBtn.className = 'btn btn-success btn-sm rounded-pill px-4 fw-bold shadow-sm';
+            execBtn.innerHTML = '<i class="fa-solid fa-rotate-left me-1"></i> Reinstate to Active';
+        }
+    }
+
+    async function executeGovernanceAction() {
+        const vendorId = document.getElementById('govVendorSelect').value;
+        const action = document.getElementById('govActionSelect').value;
+        const reason = (document.getElementById('govReasonTextarea').value || '').trim();
+
+        if (!vendorId) {
+            showManagerToast('Please select a target supplier.', 'warning');
+            return;
+        }
+        if (!reason) {
+            showManagerToast('Governance justification / audit rationale is mandatory.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('govExecuteBtn');
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Executing...';
+
+        try {
+            const res = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/governance-status/`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    status: action,
+                    reason: reason
+                })
+            });
+
+            showManagerToast(res.message || `Governance action applied: Supplier status is now ${action}.`, 'success');
+            document.getElementById('govReasonTextarea').value = '';
+
+            // Refresh data
+            await loadVendorsList();
+            document.getElementById('govVendorSelect').value = vendorId;
+            await onVendorSelectionChanged();
+            await loadKpiSummary();
+            await loadAuditHistory();
+        } catch (err) {
+            showManagerToast(err.message || 'Failed to apply governance action.', 'danger');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+        }
+    }
+
+    async function loadAuditHistory() {
+        const tbody = document.getElementById('govAuditHistoryBody');
+        if (!tbody) return;
+
+        try {
+            const res = await fetchManagerAPI('/api/v1/manager/vendor-watchlist/');
+            const watchlist = (res && res.results) ? res.results : [];
+
+            if (watchlist.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted small">
+                            No governance status records on active watchlist.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = watchlist.map(v => {
+                let badgeClass = 'bg-secondary text-white';
+                if (v.status === 'ACTIVE') badgeClass = 'bg-success text-white';
+                else if (v.status === 'ON_HOLD') badgeClass = 'bg-warning text-dark';
+                else if (v.status === 'SUSPENDED') badgeClass = 'bg-danger text-white';
+
+                const notes = v.status_notes || 'Governance action applied';
+                const dateStr = v.updated_at ? new Date(v.updated_at).toLocaleDateString() : 'Recent';
+
+                return `
+                    <tr class="align-middle">
+                        <td class="ps-3 py-2">
+                            <a href="/vendors/${v.id}/" class="fw-bold text-dark text-decoration-none small hover-primary">${v.legal_name}</a>
+                            <div class="text-muted" style="font-size: 0.65rem;">${v.vendor_number}</div>
+                        </td>
+                        <td class="py-2">
+                            <span class="badge ${badgeClass} rounded-pill px-2 py-1" style="font-size: 0.65rem;">${v.status_display || v.status}</span>
+                            <div class="text-truncate text-muted mt-1" style="max-width: 130px; font-size: 0.65rem;" title="${notes}">${notes}</div>
+                        </td>
+                        <td class="py-2 text-muted" style="font-size: 0.68rem;">
+                            <div>${v.last_assessed_by_email || 'Procurement Mgr'}</div>
+                            <div style="font-size: 0.62rem;">${dateStr}</div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        } catch (e) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center py-4 text-danger small">
+                        Failed to load audit history.
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    function resetGovernanceForm() {
+        document.getElementById('govVendorSelect').value = '';
+        document.getElementById('govReasonTextarea').value = '';
+        onVendorSelectionChanged();
+    }
+</script>
+{% endblock manager_content %}
+

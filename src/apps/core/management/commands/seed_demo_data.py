@@ -87,12 +87,18 @@ class Command(BaseCommand):
             roles[code] = role
 
         # ── 2. Users ──────────────────────────────────────────────────────────
-        admin_hpe = self.get_or_create_user("admin@hpe.com", roles[Role.SUPER_ADMIN], is_superuser=True)
-        self.get_or_create_user("admin@procuresphere.com", roles[Role.SUPER_ADMIN], is_superuser=True, password="ProcureAdmin@360!")
+        # Platform Admin: strictly is_superuser=True, is_staff=True, organization=None, role=None
+        self.get_or_create_user("superadmin@procuresphere.com", None, is_superuser=True, password="ProcureAdmin@360!")
+        admin_hpe = self.get_or_create_user("admin@hpe.com", roles[Role.SUPER_ADMIN], is_superuser=False)
+        self.get_or_create_user("admin@procuresphere.com", roles[Role.SUPER_ADMIN], is_superuser=False, password="ProcureAdmin@360!")
         requester = self.get_or_create_user("requester@hpe.com", roles[Role.REQUESTER])
         self.get_or_create_user("requester01@procuresphere.com", roles[Role.REQUESTER], password="Requester@360!")
         approver = self.get_or_create_user("approver@hpe.com", roles[Role.DEPT_APPROVER])
-        app_ps = self.get_or_create_user("dept.approver01@procuresphere.com", roles[Role.DEPT_APPROVER], password="DeptApprover@360!")
+        approver01 = self.get_or_create_user(
+            "dept.approver01@procuresphere.com",
+            roles[Role.DEPT_APPROVER],
+            password="DeptApprover@360!",
+        )
         proc_exec = self.get_or_create_user("procexec@hpe.com", roles[Role.PROC_EXEC])
         self.get_or_create_user("proc.executive01@procuresphere.com", roles[Role.PROC_EXEC], password="ProcExec@360!")
         proc_mgr = self.get_or_create_user("procmgr@hpe.com", roles[Role.PROC_MGR])
@@ -128,9 +134,10 @@ class Command(BaseCommand):
         approver.organization = org
         approver.department = dept_it
         approver.save(update_fields=["organization", "department"])
-        app_ps.organization = org
-        app_ps.department = dept_it
-        app_ps.save(update_fields=["organization", "department"])
+
+        approver01.organization = org
+        approver01.department = dept_ops
+        approver01.save(update_fields=["organization", "department"])
 
         for u in [approver, requester]:
             if u.department != dept_it:
@@ -227,6 +234,7 @@ class Command(BaseCommand):
         for v in [vendor1, vendor2, vendor3]:
             doc = _ensure_kyc_doc(v)
             self._activate_vendor(v, doc, proc_exec, legal_user, proc_mgr)
+            v.refresh_from_db()
 
         vendor_user.vendor = vendor1
         vendor_user.save(update_fields=["vendor"])
@@ -250,7 +258,7 @@ class Command(BaseCommand):
                 department=None,
             )
             add_approval_step_service(policy=policy, step_number=1, approver_role=roles[Role.DEPT_APPROVER], description="Department Manager Approval")
-            add_approval_step_service(policy=policy, step_number=2, approver_role=roles[Role.PROC_MGR], description="Procurement Manager Approval")
+            add_approval_step_service(policy=policy, step_number=2, approver_role=roles[Role.FINANCE_AP], description="Finance / AP Approval")
 
         if not ApprovalPolicy.objects.filter(module=ApprovalPolicy.MODULE_PO_AMENDMENT, is_active=True).exists():
             po_amend_policy = create_approval_policy_service(
@@ -313,6 +321,7 @@ class Command(BaseCommand):
                     {"item_description": "100G SFP Transceiver Module", "quantity": 10, "unit_price": 1200.00},
                 ],
                 created_by_user=proc_exec,
+                initial_status=PurchaseOrder.STATUS_ISSUED,
             )
             acknowledge_purchase_order_service(po=po, vendor_user=vendor_user)
 

@@ -71,7 +71,7 @@ class TestLogin:
 
     def test_staff_login_lands_on_home_not_vendor_portal(self, client, procurement_world):
         resp = _post_login(client, procurement_world["exec"].email, GOOD)
-        assert resp.status_code == 302 and resp.url == "/"
+        assert resp.status_code == 302 and resp.url in ("/", "/procurement/")
         assert client.get("/vendor/").status_code in (302, 403)
 
     @pytest.mark.parametrize(

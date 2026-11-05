@@ -66,7 +66,11 @@ Enforced server-side in `apps/sourcing/permissions.py`, `apps/vendors/permission
 | Technical / commercial scoring, negotiation notes | `actions/technical-score`, `commercial-score`, `negotiation-note` | ✔ | ✔ | – | – | – | – | 403 |
 | Recommend award | `actions/recommend-award` | ✔ | ✔ | – | – | – | – | 403 |
 | Approve / reject award | `actions/approve-award`, `reject-award` | **✘** | ✔ | – | – | – | – | 403 |
-| Generate PO from award | `actions/generate-po` | ✔ | ✔ | – | – | – | – | 403 |
+| Generate draft PO from approved award | `/purchase-orders/htmx/generate-from-award/{event}/`, `POST /api/v1/purchase-orders/generate-from-award/` | ✔ | ✔ | – | – | – | – | 403 |
+| PO lifecycle: submit / approve / request changes / reject | `/purchase-orders/{id}/submit/`, `approve/`, `request-changes/`, `reject/` | submits | approves / returns / rejects | – | – | – | – | 403 |
+| Edit draft PO before submission | `/purchase-orders/{id}/edit/` | ✔ | ✔ | – | – | – | – | 403 |
+| Issue approved PO to vendor / cancel PO | `/purchase-orders/{id}/issue/`, `cancel/` | issues | cancels (releases commitment) | – | – | – | – | 403 |
+| Vendor acknowledge / reject PO (portal) | `/vendor/purchase-orders/{id}/acknowledge/`, `reject/` | – | – | – | – | – | Own PO only | 403/404 |
 | Withdraw bid (before close) | `POST /api/v1/sourcing-events/bids/{id}/withdraw/` | – | – | – | – | – | Own bid | 403/404 |
 | Vendor governance pages | `/vendors/`, `/vendors/governance/`, `/vendors/onboarding/`, `/vendors/{id}/` | ✔ | ✔ | R | R | – | – (portal only) | 403 |
 | Register vendor | `/vendors/create/`, `/vendors/htmx/register/` | ✔ | ✔ | – | – | – | – | 403 |

@@ -245,13 +245,46 @@ class User(AbstractUser):
             return self.organization
         if self.department_id and self.department:
             return self.department.organization
+        if self.cost_center_id and self.cost_center and self.cost_center.department:
+            return self.cost_center.department.organization
+        managed_cc_qs = getattr(self, "managed_cost_centers", None)
+        if managed_cc_qs is not None:
+            managed_cc = (
+                managed_cc_qs.select_related("department__organization")
+                .filter(department__isnull=False)
+                .first()
+            )
+            if managed_cc and managed_cc.department:
+                return managed_cc.department.organization
+        admin_org = getattr(self, "administered_organizations", None)
+        if admin_org:
+            first_org = admin_org.first()
+            if first_org:
+                return first_org
+        proc_org = getattr(self, "proc_managed_organizations", None)
+        if proc_org:
+            first_org = proc_org.first()
+            if first_org:
+                return first_org
+        audited_org = getattr(self, "audited_organizations", None)
+        if audited_org:
+            first_org = audited_org.first()
+            if first_org:
+                return first_org
         return None
 
     def save(self, *args, **kwargs):
-        # Enforce DEF-001: Only users with SUPER_ADMIN role can ever be superuser or staff
-        role_code = self.role_code
-        if role_code and role_code != Role.SUPER_ADMIN:
+        # Platform Admin (is_superuser=True with NO organization) is the only account allowed staff/superuser access.
+        # All organization-scoped users (including Organization Super Admins) must NEVER be staff or superuser.
+        if self.organization_id is not None or (self.role and self.role.code != Role.SUPER_ADMIN) or not self.is_superuser:
             self.is_superuser = False
             self.is_staff = False
+
+        # Only Requesters are tied to a Department and Cost Center.
+        # All other roles belong to the entire organization and have no department/cost center.
+        if self.role and self.role.code != Role.REQUESTER:
+            self.department = None
+            self.cost_center = None
+
         super().save(*args, **kwargs)
 

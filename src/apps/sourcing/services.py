@@ -214,6 +214,10 @@ def create_sourcing_event_service(
         created_by=created_by_user,
     )
 
+    if requisition and requisition.status == PurchaseRequisition.STATUS_APPROVED:
+        requisition.status = PurchaseRequisition.STATUS_SOURCING
+        requisition.save(update_fields=["status", "updated_at"])
+
     create_audit_log_service(
         actor=created_by_user,
         action=AuditLog.ACTION_CREATE,
@@ -363,6 +367,13 @@ def publish_sourcing_event_service(*, event: SourcingEvent, user: User) -> Sourc
         raise ValidationError(errors)
 
     _transition_event(event=event, to_status=SourcingEvent.STATUS_PUBLISHED, actor=user)
+
+    if event.requisition:
+        from apps.requisitions.models import PurchaseRequisition
+
+        if event.requisition.status == PurchaseRequisition.STATUS_APPROVED:
+            event.requisition.status = PurchaseRequisition.STATUS_SOURCING
+            event.requisition.save(update_fields=["status", "updated_at"])
 
     for invite in event.invitations.select_related("vendor"):
         _notify_invited_vendor(event, invite.vendor)
@@ -1661,8 +1672,10 @@ def cancel_sourcing_event_service(
 @transaction.atomic
 def generate_po_from_award_service(*, event: SourcingEvent, user: User, cost_center=None):
     """
-    Creates the Purchase Order for an AWARDED event from the approved winning bid lines,
-    reusing orders.generate_purchase_order_service (budget commitment, audit, numbering).
+    Creates the DRAFT Purchase Order for an AWARDED event from the approved winning bid lines,
+    reusing orders.generate_purchase_order_service (audit, numbering).
+    The PO starts in DRAFT and must pass the approval lifecycle before issue;
+    the approved award decision stays linked to the PO for traceability.
     """
     from apps.orders.models import PurchaseOrder
     from apps.orders.services import generate_purchase_order_service
@@ -1704,4 +1717,5 @@ def generate_po_from_award_service(*, event: SourcingEvent, user: User, cost_cen
         created_by_user=user,
         requisition=event.requisition,
         sourcing_event=event,
+        award=decision,
     )

@@ -78,9 +78,14 @@ def _draft_event(world, pr=None):
 
 
 def _issued_po(world):
-    from apps.orders.services import generate_purchase_order_service
+    from apps.orders.services import (
+        approve_purchase_order_service,
+        generate_purchase_order_service,
+        issue_purchase_order_service,
+        submit_purchase_order_for_approval_service,
+    )
 
-    return generate_purchase_order_service(
+    po = generate_purchase_order_service(
         vendor=world["vendor_a"],
         cost_center=world["cost_center"],
         line_items=[
@@ -88,6 +93,9 @@ def _issued_po(world):
         ],
         created_by_user=world["exec"],
     )
+    po = submit_purchase_order_for_approval_service(po=po, actor=world["exec"])
+    po = approve_purchase_order_service(po=po, approver=world["mgr"], comments="OK")
+    return issue_purchase_order_service(po=po, actor=world["exec"])
 
 
 class TestPillar1VendorQualification:

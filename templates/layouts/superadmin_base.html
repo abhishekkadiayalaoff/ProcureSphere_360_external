@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% block sa_title %}Admin Control Center{% endblock %} — ProcureSphere 360{% endblock %}
 
 {% block navbar %}{% endblock %}
 
@@ -6,27 +9,22 @@
 <div id="saSidebarBackdrop" class="sa-backdrop d-lg-none" onclick="toggleSaSidebar()"></div>
 <div class="sa-app d-flex min-vh-100 bg-light">
     <aside id="saSidebar" class="sa-sidebar bg-dark text-white d-flex flex-column flex-shrink-0">
-        <div
-            class="px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between">
+        <div class="px-3 py-3 border-bottom border-secondary border-opacity-25 d-flex align-items-center justify-content-between flex-shrink-0">
             <a href="/superadmin/" class="d-flex align-items-center text-white text-decoration-none min-width-0">
                 <i class="fa-solid fa-shield-halved text-warning fa-lg me-2"></i>
                 <div class="min-width-0">
-                    <div class="fw-bold lh-1 text-white" style="font-size: 0.95rem;">ProcureSphere <span
-                            class="fw-light">360</span></div>
-                    <span class="badge bg-danger rounded-pill fw-bold mt-1"
-                        style="font-size: 0.62rem; letter-spacing: 0.04em;">SUPER ADMIN</span>
+                    <div class="fw-bold lh-1 text-white" style="font-size: 0.95rem;">ProcureSphere <span class="fw-light">360</span></div>
+                    {% if request.user.is_superuser and not request.user.effective_organization %}<span class="badge bg-danger rounded-pill fw-bold mt-1" style="font-size: 0.62rem; letter-spacing: 0.04em;">SUPER ADMIN</span>{% else %}<span class="badge bg-info text-dark rounded-pill fw-bold mt-1" style="font-size: 0.62rem; letter-spacing: 0.04em;">ADMIN</span>{% endif %}
                 </div>
             </a>
-            <button class="btn btn-link text-white-50 p-1 d-lg-none" type="button" aria-label="Close navigation"
-                onclick="toggleSaSidebar()">
+            <button class="btn btn-link text-white-50 p-1 d-lg-none" type="button" aria-label="Close navigation" onclick="toggleSaSidebar()">
                 <i class="fa-solid fa-xmark fs-5"></i>
             </button>
         </div>
         <div class="flex-grow-1 overflow-y-auto px-2 py-3">
             <ul class="nav nav-pills flex-column gap-1" id="menu">
                 <li class="nav-item">
-                    <a href="/superadmin/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if request.path == '/superadmin/' or request.path == '/' %}active{% endif %}">
+                    <a href="/admin/dashboard/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if request.path == '/admin/dashboard/' or request.path == '/superadmin/' or request.path == '/' %}active{% endif %}">
                         <i class="fa-solid fa-gauge-high me-2"></i><span>Dashboard</span>
                     </a>
                 </li>
@@ -37,86 +35,80 @@
                 {# ========================================================================= #}
                 <li class="sa-nav-label">Organization Management</li>
                 <li class="nav-item">
-                    <a href="/superadmin/organizations/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/organizations/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/organizations/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/organizations/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-sitemap me-2"></i><span>Organizations</span>
                     </a>
                 </li>
 
                 {% else %}
                 {# ========================================================================= #}
-                {# ORGANIZATION ADMIN: EXISTING DESIGN (Depts, Cost Centers, Users, Rules)   #}
+                {# ORGANIZATION ADMIN: Masters, Users, Policies, Rules, Audits             #}
                 {# ========================================================================= #}
                 <li class="sa-nav-label">Organization &amp; Masters</li>
                 <li class="nav-item">
-                    <a href="/superadmin/organizations/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/organizations/' in request.path or '/superadmin/departments/' in request.path or '/superadmin/cost-centers/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/organizations/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/organizations/' in request.path or '/superadmin/departments/' in request.path or '/superadmin/cost-centers/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-sitemap me-2"></i><span>Departments &amp; Cost Centers</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/superadmin/users/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/users/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/locations/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/locations/' in request.path %}active{% endif %}">
+                        <i class="fa-solid fa-location-dot me-2"></i><span>Locations</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="/superadmin/users/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/users/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-users-gear me-2"></i><span>Manage Users &amp; Roles</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/vendors/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/vendors/' in request.path %}active{% endif %}">
+                    <a href="/vendors/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/vendors/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-building-user me-2"></i><span>Vendor Management</span>
                     </a>
                 </li>
                 <li class="sa-nav-label">Policies &amp; Rules</li>
                 <li class="nav-item">
-                    <a href="/superadmin/policies/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/policies/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/policies/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/policies/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-code-branch me-2"></i><span>Approval Policies</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/superadmin/budgets/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/budgets/' in request.path or '/budgets/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/budgets/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/budgets/' in request.path or '/budgets/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-sack-dollar me-2"></i><span>Budget Configuration</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/invoices/settings/tolerances/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/invoices/settings/' in request.path %}active{% endif %}">
+                    <a href="/invoices/settings/tolerances/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/invoices/settings/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-sliders me-2"></i><span>Business Rules</span>
                     </a>
                 </li>
                 <li class="sa-nav-label">Oversight &amp; Audit</li>
                 <li class="nav-item">
-                    <a href="/notifications/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/notifications/' in request.path %}active{% endif %}">
+                    <a href="/notifications/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/notifications/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-bell me-2"></i><span>Notifications &amp; Alerts</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/reports/hub/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/reports/' in request.path %}active{% endif %}">
+                    <a href="/reports/hub/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/reports/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-chart-line me-2"></i><span>Reports &amp; Analytics</span>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a href="/superadmin/audit/"
-                        class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/audit/' in request.path or '/audit/' in request.path %}active{% endif %}">
+                    <a href="/superadmin/audit/" class="nav-link sa-nav-link rounded-3 py-2 px-3 {% if '/superadmin/audit/' in request.path or '/audit/' in request.path %}active{% endif %}">
                         <i class="fa-solid fa-clock-rotate-left me-2"></i><span>Audit Logs</span>
                     </a>
                 </li>
                 {% endif %}
             </ul>
         </div>
-        <div class="border-top border-secondary border-opacity-25 px-3 py-3 mt-auto">
+        <div class="border-top border-secondary border-opacity-25 px-3 py-3 mt-auto flex-shrink-0">
             <div class="d-flex align-items-center justify-content-between gap-2 w-100">
                 <div class="d-flex align-items-center overflow-hidden me-2" style="min-width: 0; flex: 1 1 auto;">
-                    <span class="sa-avatar bg-primary text-white me-2 shadow-sm flex-shrink-0"><i
-                            class="fa-solid fa-user-shield"></i></span>
+                    <span class="sa-avatar bg-primary text-white me-2 shadow-sm flex-shrink-0"><i class="fa-solid fa-user-shield"></i></span>
                     <div class="overflow-hidden" style="min-width: 0; flex: 1 1 auto;">
                         <div class="small fw-semibold text-white text-truncate" title="{{ request.user.email|default:'Admin' }}">
                             {{ request.user.email|default:"Admin" }}
                         </div>
-                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Admin</div>
+                        <div class="badge {% if request.user.is_superuser and not request.user.effective_organization %}bg-danger{% else %}bg-info text-dark{% endif %} rounded-pill" style="font-size: 0.65rem;">{% if request.user.is_superuser and not request.user.effective_organization %}Super Admin{% else %}Admin{% if request.user.effective_organization %} — {{ request.user.effective_organization.code }}{% endif %}{% endif %}</div>
                     </div>
                 </div>
                 <a href="/logout/" class="btn btn-outline-light btn-sm rounded-circle flex-shrink-0 d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px; padding: 0;" title="Sign out">
@@ -126,19 +118,15 @@
             </div>
         </div>
     </aside>
+
     <div class="sa-main flex-grow-1 d-flex flex-column min-vh-100">
-        <header
-            class="sa-topbar sticky-top bg-white border-bottom px-2 px-sm-3 px-md-4 py-2 d-flex align-items-center justify-content-between gap-2">
+        <header class="sa-topbar sticky-top bg-white border-bottom px-2 px-sm-3 px-md-4 py-2 d-flex align-items-center justify-content-between gap-2">
             <div class="d-flex align-items-center gap-2 min-width-0">
-                <button
-                    class="btn btn-outline-secondary btn-sm rounded-3 d-lg-none d-flex align-items-center justify-content-center flex-shrink-0"
-                    type="button" aria-label="Open navigation" onclick="toggleSaSidebar()"
-                    style="width: 36px; height: 36px;">
+                <button class="btn btn-outline-secondary btn-sm rounded-3 d-lg-none d-flex align-items-center justify-content-center flex-shrink-0" type="button" aria-label="Open navigation" onclick="toggleSaSidebar()" style="width: 36px; height: 36px;">
                     <i class="fa-solid fa-bars"></i>
                 </button>
-                <a href="/superadmin/" class="d-lg-none d-flex align-items-center text-dark text-decoration-none min-width-0 ms-1">
-                    <i class="fa-solid fa-shield-halved text-warning me-1.5 fs-6 flex-shrink-0"></i>
-                    <span class="fw-bold text-dark text-truncate" style="font-size: 0.9rem;">ProcureSphere <span class="fw-light">360</span></span>
+                <a href="/superadmin/" class="dashboard-brand-badge me-2" aria-label="ProcureSphere 360 Home">
+                    <img src="{% static 'landing/images/procuresphere_360_nav_brand.png' %}" alt="ProcureSphere 360" class="dashboard-brand-logo">
                 </a>
             </div>
             <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
@@ -149,8 +137,7 @@
                     </div>
                     <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Admin</div>
                 </div>
-                <a href="/logout/"
-                    class="btn btn-outline-secondary btn-sm rounded-pill px-2 px-md-3 fw-semibold d-flex align-items-center gap-1">
+                <a href="/logout/" class="btn btn-outline-secondary btn-sm rounded-pill px-2 px-md-3 fw-semibold d-flex align-items-center gap-1">
                     <i class="fa-solid fa-arrow-right-from-bracket"></i>
                     <span class="d-none d-sm-inline">Sign out</span>
                 </a>
@@ -162,7 +149,44 @@
     </div>
 </div>
 
+<!-- Modal Container for HTMX popups -->
+<div class="modal fade" id="modal-container" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" id="modal-content-body">
+            <!-- Dynamically populated via HTMX -->
+        </div>
+    </div>
+</div>
+
 <style>
+    :root {
+        --body-bg: #f8fafc !important;
+        --body-fg: #1e293b !important;
+        color-scheme: light !important;
+    }
+
+    /* Force pristine white inputs in Admin & Modals regardless of dark mode */
+    input[type="text"], input[type="password"], input[type="email"], input[type="url"], input[type="number"], input[type="tel"], textarea, select, .form-control, .form-select, .modal input, .modal textarea, .modal select {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #1e293b !important;
+        -webkit-text-fill-color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+
+    input:focus, textarea:focus, select:focus, .form-control:focus, .form-select:focus {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15) !important;
+    }
+
+    input::placeholder, textarea::placeholder, .form-control::placeholder {
+        color: #94a3b8 !important;
+        opacity: 1 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+    }
+
     .min-width-0 {
         min-width: 0 !important;
     }
@@ -247,6 +271,18 @@
     .sa-nav-link {
         font-size: 0.875rem;
         color: rgba(255, 255, 255, 0.78) !important;
+        display: flex;
+        align-items: center;
+    }
+
+    .sa-nav-link i {
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+
+    .sa-nav-link span {
+        min-width: 0;
     }
 
     .sa-nav-link:hover {
@@ -331,12 +367,25 @@
         #saSidebar,
         .sa-sidebar,
         aside#saSidebar.bg-dark {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
             width: 268px !important;
             min-width: 268px !important;
             height: 100vh !important;
-            position: sticky !important;
-            top: 0 !important;
-            align-self: flex-start !important;
+            max-height: 100vh !important;
+            z-index: 1020 !important;
+            overflow-y: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+
+        .sa-main {
+            margin-left: 268px !important;
+            width: calc(100% - 268px) !important;
+            min-width: 0 !important;
+            flex: 1 1 auto !important;
         }
 
         .sa-backdrop {
@@ -364,6 +413,11 @@
             box-shadow: 0 0 30px rgba(0, 0, 0, 0.45);
         }
 
+        .sa-main {
+            margin-left: 0 !important;
+            width: 100% !important;
+        }
+
         .sa-backdrop {
             position: fixed;
             inset: 0;
@@ -380,18 +434,12 @@
         }
     }
 
-    /* Mobile-friendly table defaults */
-    .table-responsive > .table:not(.sa-meta-table) {
-        min-width: 640px;
-    }
-
     .table-responsive {
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
     }
 
     .table-responsive::-webkit-scrollbar {
-        height: 4px;
+        height: 6px;
     }
 
     .table-responsive::-webkit-scrollbar-thumb {
@@ -399,25 +447,45 @@
         border-radius: 4px;
     }
 
-    /* Horizontal scrollable tabs on mobile */
+    /* Neat horizontal scrollable tabs across all screens */
     .sa-tabs-scroll {
         display: flex !important;
         flex-wrap: nowrap !important;
         overflow-x: auto !important;
         -webkit-overflow-scrolling: touch;
-        scrollbar-width: thin;
-        gap: 0.25rem;
-        padding-bottom: 2px;
-        border-bottom: 1px solid #dee2e6;
+        scrollbar-width: none !important; /* Firefox */
+        -ms-overflow-style: none !important; /* IE 10+ */
+        gap: 0.35rem !important;
+        padding: 0.25rem 0.25rem 0 0.25rem !important;
+        border-bottom: 2px solid #e2e8f0 !important;
     }
 
-    .sa-tabs-scroll::-webkit-scrollbar {
-        height: 3px;
+    .sa-tabs-scroll::-webkit-scrollbar,
+    .nav-tabs-scroll::-webkit-scrollbar,
+    ul[role="tablist"]::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
     }
-
-    .sa-tabs-scroll::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
+    .sa-tabs-scroll::-webkit-scrollbar-thumb,
+    .nav-tabs-scroll::-webkit-scrollbar-thumb,
+    ul[role="tablist"]::-webkit-scrollbar-thumb {
+        display: none !important;
+        background: transparent !important;
+    }
+    .sa-tabs-scroll::-webkit-scrollbar-track,
+    .nav-tabs-scroll::-webkit-scrollbar-track,
+    ul[role="tablist"]::-webkit-scrollbar-track {
+        display: none !important;
+        background: transparent !important;
+    }
+    .sa-tabs-scroll::-webkit-scrollbar-button,
+    .nav-tabs-scroll::-webkit-scrollbar-button,
+    ul[role="tablist"]::-webkit-scrollbar-button {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
     }
 
     .sa-tabs-scroll .nav-item {
@@ -427,102 +495,112 @@
     .sa-tabs-scroll .nav-link {
         white-space: nowrap !important;
         flex-shrink: 0 !important;
+        border: none !important;
+        border-bottom: 2px solid transparent !important;
+        border-radius: 0 !important;
+        padding: 0.65rem 0.95rem !important;
+        font-size: 0.88rem !important;
+        font-weight: 500 !important;
+        color: #64748b !important;
+        background: transparent !important;
+        transition: all 0.2s ease-in-out !important;
+        margin-bottom: -2px !important;
+    }
+
+    .sa-tabs-scroll .nav-link:hover {
+        color: #0f172a !important;
+        border-bottom-color: #cbd5e1 !important;
+        background: rgba(241, 245, 249, 0.6) !important;
+        border-top-left-radius: 6px !important;
+        border-top-right-radius: 6px !important;
+    }
+
+    .sa-tabs-scroll .nav-link.active {
+        color: #2563eb !important;
+        font-weight: 700 !important;
+        border-bottom: 2px solid #2563eb !important;
+        background: transparent !important;
+    }
+
+    .sa-tabs-scroll .nav-link .badge {
+        font-size: 0.72rem !important;
+        padding: 0.25em 0.55em !important;
+        border-radius: 999px !important;
+        vertical-align: middle;
+        transition: all 0.2s ease;
+    }
+
+    .sa-tabs-scroll .nav-link.active .badge {
+        background-color: rgba(37, 99, 235, 0.12) !important;
+        color: #2563eb !important;
     }
 
     @media (max-width: 767.98px) {
         .sa-page {
-            padding: 0.75rem 0.85rem !important;
+            padding: 0.85rem !important;
         }
 
-        .sa-page h2 {
-            font-size: 1.25rem;
+        .sa-topbar {
+            padding: 0.5rem 0.75rem !important;
         }
 
-        .sa-page h3 {
-            font-size: 1.1rem;
-        }
-
-        .sa-page .table {
-            font-size: 0.8125rem;
+        .sa-topbar h1,
+        .sa-topbar h2,
+        .sa-topbar h3 {
+            font-size: 1.05rem !important;
         }
 
         .sa-page .metric-value {
-            font-size: clamp(1.35rem, 4.5vw, 1.75rem) !important;
+            font-size: 1.25rem !important;
         }
 
-        .sa-page .stat-card {
-            padding: 1rem !important;
+        .sa-page .card {
+            border-radius: 12px !important;
+        }
+
+        .sa-page .card-body {
+            padding: 0.85rem !important;
+        }
+
+        .sa-page .card-header {
+            padding: 0.75rem 0.85rem !important;
+        }
+
+        .sa-page .table td,
+        .sa-page .table th {
+            padding: 0.55rem 0.5rem !important;
         }
 
         .sa-page .breadcrumb {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch;
-            white-space: nowrap !important;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+            font-size: 0.78rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            white-space: nowrap;
             padding-bottom: 2px;
+            scrollbar-width: none;
         }
 
         .sa-page .breadcrumb::-webkit-scrollbar {
             display: none;
         }
 
-        .sa-page .breadcrumb-item {
-            flex-shrink: 0 !important;
-            display: inline-flex !important;
-            align-items: center;
-        }
-
-        .sa-page .row.mb-4>.col-12.d-flex,
-        .sa-page .card-header.d-flex {
-            flex-direction: column;
-            align-items: stretch !important;
-        }
-
-        .sa-page .row.mb-4>.col-12.d-flex {
-            flex-direction: column;
-            align-items: stretch !important;
-        }
-
-        .sa-page .card-header .form-select {
-            min-width: 0 !important;
-            width: 100%;
-        }
-
-        .sa-page .btn {
-            min-height: 36px;
-        }
-
-        .sa-page .row.mb-4>.col-12.d-flex>.btn,
-        .sa-page .card-header > .btn {
-            width: 100%;
+        .sa-tabs-scroll .nav-link {
+            padding: 0.55rem 0.7rem !important;
+            font-size: 0.82rem !important;
         }
     }
 
-    @media (max-width: 575.98px) {
-        .modal-dialog {
-            margin: 0.5rem;
+    @media (max-width: 480px) {
+        .sa-page {
+            padding: 0.65rem !important;
         }
-    }
 
-    /* Key-value meta tables on mobile */
-    @media (max-width: 576px) {
-        .sa-meta-table td {
-            display: block;
-            width: 100% !important;
-            padding: 0.2rem 0 !important;
+        .sa-page .metric-value {
+            font-size: 1.15rem !important;
         }
-        .sa-meta-table tr {
-            display: block;
-            margin-bottom: 0.55rem;
-            border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
-            padding-bottom: 0.35rem;
-        }
-        .sa-meta-table tr:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
+
+        .sa-page .badge {
+            font-size: 0.7rem !important;
         }
     }
 </style>
@@ -531,23 +609,45 @@
     function toggleSaSidebar() {
         var sidebar = document.getElementById("saSidebar");
         var backdrop = document.getElementById("saSidebarBackdrop");
-        if (sidebar && backdrop) {
-            sidebar.classList.toggle("show");
-            backdrop.classList.toggle("show");
-            document.body.style.overflow = sidebar.classList.contains("show") ? "hidden" : "";
+        if (!sidebar) return;
+        var isOpen = sidebar.classList.contains("show");
+        if (isOpen) {
+            sidebar.classList.remove("show");
+            if (backdrop) backdrop.classList.remove("show");
+            document.body.style.overflow = "";
+        } else {
+            sidebar.classList.add("show");
+            if (backdrop) backdrop.classList.add("show");
+            document.body.style.overflow = "hidden";
         }
     }
-    document.querySelectorAll("#saSidebar a.nav-link").forEach(function (link) {
-        link.addEventListener("click", function () {
-            if (window.innerWidth < 992 && document.getElementById("saSidebar") && document.getElementById("saSidebar").classList.contains("show")) {
+
+    document.addEventListener("DOMContentLoaded", function () {
+        var sidebar = document.getElementById("saSidebar");
+        if (!sidebar) return;
+
+        sidebar.querySelectorAll(".sa-nav-link").forEach(function (link) {
+            link.addEventListener("click", function () {
+                if (window.innerWidth < 992) {
+                    toggleSaSidebar();
+                }
+            });
+        });
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && sidebar && sidebar.classList.contains("show")) {
                 toggleSaSidebar();
             }
         });
-    });
-    document.addEventListener("keydown", function (e) {
-        if (e.key === "Escape" && document.getElementById("saSidebar") && document.getElementById("saSidebar").classList.contains("show")) {
-            toggleSaSidebar();
-        }
+
+        document.querySelectorAll('.sa-tabs-scroll').forEach(function (el) {
+            el.addEventListener('wheel', function (e) {
+                if (e.deltaY !== 0) {
+                    e.preventDefault();
+                    el.scrollLeft += e.deltaY;
+                }
+            }, { passive: false });
+        });
     });
 </script>
-{% endblock %}
+{% endblock layout %}

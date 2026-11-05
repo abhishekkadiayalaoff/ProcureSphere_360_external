@@ -271,7 +271,7 @@
                         </div>
                         <div class="col-sm-6">
                             <label class="text-muted small fw-semibold text-uppercase">Contact Telephone</label>
-                            <div class="fw-semibold text-dark">{{ vendor.phone|default:"—" }}</div>
+                            <div class="fw-semibold text-dark">{{ phone_digits|default:vendor.phone|default:"—" }}</div>
                         </div>
                         <div class="col-12">
                             <label class="text-muted small fw-semibold text-uppercase">Registered Corporate Address</label>
@@ -404,7 +404,7 @@
                             <th class="ps-4">Contact Name</th>
                             <th>Designation</th>
                             <th>Email Address</th>
-                            <th>Phone (+91)</th>
+                            <th>Phone Number</th>
                             <th>Type</th>
                             <th class="text-end pe-4">Actions</th>
                         </tr>
@@ -417,7 +417,7 @@
                             </td>
                             <td><span class="small text-muted">{{ c.designation|default:"—" }}</span></td>
                             <td><span class="small font-monospace text-dark">{{ c.email }}</span></td>
-                            <td><span class="small font-monospace text-dark">{{ c.phone|default:"—" }}</span></td>
+                            <td><span class="small font-monospace text-dark">{{ c.phone_digits|default:c.phone|default:"—" }}</span></td>
                             <td>
                                 {% if c.is_primary %}
                                 <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-1">
@@ -457,17 +457,147 @@
 
     <!-- Section 4: KYC Documents -->
     <div class="card glass-card border-0 shadow-sm mb-4" id="kyc-docs">
-        <div class="card-header bg-white border-bottom border-light py-3 d-flex justify-content-between align-items-center">
+        <div class="card-header bg-white border-bottom border-light py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
                 <h6 class="mb-0 fw-bold text-dark">
                     <i class="fa-solid fa-folder-open text-warning me-2"></i> KYC Verification Documents
                 </h6>
-                <small class="text-muted">Upload Certificate of Incorporation, Tax Clearance, and Bank Confirmation.</small>
+                <small class="text-muted">Mandatory compliance requirements: PAN Card, GST / TAX Certificate, and Bank Account Proof.</small>
             </div>
             <button class="btn btn-sm btn-primary rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#uploadKycModal">
-                <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload Document
+                <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload KYC Documents
             </button>
         </div>
+        
+        <!-- Mandatory Documents Compliance Status Grid -->
+        <div class="p-4 pb-0 bg-light bg-opacity-25 border-bottom border-light">
+            <div class="row g-3 mb-4">
+                <!-- 1. PAN Document -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="card border rounded-3 p-3 h-100 bg-white shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small"><i class="fa-solid fa-id-card text-primary me-1"></i> PAN Document</span>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Mandatory *</span>
+                        </div>
+                        <div class="mb-2">
+                            {% if doc_pan %}
+                                {% if doc_pan.is_verified %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-check me-1"></i> Verified
+                                    </span>
+                                {% elif doc_pan.status == 'REJECTED' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-xmark me-1"></i> Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-clock me-1"></i> Under Review
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Not Uploaded
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted text-truncate" title="Permanent Account Number Card">
+                            {% if doc_pan %}{{ doc_pan.title }} (v{{ doc_pan.version }}){% else %}Permanent Account Number{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. TAX Document -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="card border rounded-3 p-3 h-100 bg-white shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small"><i class="fa-solid fa-file-invoice text-success me-1"></i> TAX Document</span>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Mandatory *</span>
+                        </div>
+                        <div class="mb-2">
+                            {% if doc_tax %}
+                                {% if doc_tax.is_verified %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-check me-1"></i> Verified
+                                    </span>
+                                {% elif doc_tax.status == 'REJECTED' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-xmark me-1"></i> Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-clock me-1"></i> Under Review
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Not Uploaded
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted text-truncate" title="GST / Tax Certificate">
+                            {% if doc_tax %}{{ doc_tax.title }} (v{{ doc_tax.version }}){% else %}GST / Tax Certificate{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. BANK Document -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="card border rounded-3 p-3 h-100 bg-white shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small"><i class="fa-solid fa-landmark text-info me-1"></i> BANK Document</span>
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill" style="font-size: 0.65rem;">Mandatory *</span>
+                        </div>
+                        <div class="mb-2">
+                            {% if doc_bank %}
+                                {% if doc_bank.is_verified %}
+                                    <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-check me-1"></i> Verified
+                                    </span>
+                                {% elif doc_bank.status == 'REJECTED' %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-circle-xmark me-1"></i> Rejected
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1">
+                                        <i class="fa-solid fa-clock me-1"></i> Under Review
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1">
+                                    <i class="fa-solid fa-triangle-exclamation me-1"></i> Not Uploaded
+                                </span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted text-truncate" title="Bank Proof / Cancelled Cheque">
+                            {% if doc_bank %}{{ doc_bank.title }} (v{{ doc_bank.version }}){% else %}Bank Proof / Cheque{% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Other Supporting Documents -->
+                <div class="col-12 col-sm-6 col-xl-3">
+                    <div class="card border rounded-3 p-3 h-100 bg-white shadow-sm">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold text-dark small"><i class="fa-solid fa-folder-plus text-secondary me-1"></i> Supporting Docs</span>
+                            <span class="badge bg-secondary bg-opacity-10 text-muted border rounded-pill" style="font-size: 0.65rem;">Optional</span>
+                        </div>
+                        <div class="mb-2">
+                            {% if doc_other_list %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-1">
+                                    <i class="fa-solid fa-files me-1"></i> {{ doc_other_list|length }} Uploaded
+                                </span>
+                            {% else %}
+                                <span class="badge bg-light text-muted border rounded-pill px-2 py-1">None Uploaded</span>
+                            {% endif %}
+                        </div>
+                        <div class="small text-muted text-truncate" title="Certificate of Incorporation &amp; Others">
+                            Incorporation &amp; Address Proof
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="card-body p-0">
             {% if documents %}
             <div class="table-responsive">
@@ -518,8 +648,8 @@
                 <p class="text-muted mb-0">No KYC documents uploaded yet.</p>
                 <small class="text-secondary">Please upload your Certificate of Incorporation and Tax Clearance.</small>
                 <div class="mt-3">
-                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#uploadKycModal">
-                        Upload First Document
+                    <button class="btn btn-sm btn-primary rounded-pill px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#uploadKycModal">
+                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload Mandatory KYC Documents
                     </button>
                 </div>
             </div>
@@ -692,10 +822,10 @@
                             <input type="text" name="trade_name" class="form-control form-control-sm" value="{{ vendor.trade_name }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold" for="vendorPhoneDigits">Contact Telephone <span class="text-danger">*</span></label>
+                            <label class="form-label small fw-semibold" for="vendorPhoneDigits">Contact Telephone (10 digits) <span class="text-danger">*</span></label>
                             <div class="input-group input-group-sm">
-                                <span class="input-group-text bg-light fw-bold text-dark border-end-0" id="phoneAddon">
-                                    <i class="fa-solid fa-phone me-1 text-primary"></i> (+91)
+                                <span class="input-group-text bg-light text-muted border-end-0" id="phoneAddon">
+                                    <i class="fa-solid fa-phone text-primary"></i>
                                 </span>
                                 <input type="tel" 
                                        id="vendorPhoneDigits" 
@@ -713,7 +843,7 @@
                             <input type="hidden" name="phone" id="vendorPhoneFull" value="{{ vendor.phone }}">
                             <div class="d-flex justify-content-between align-items-center mt-1">
                                 <div class="form-text text-muted" style="font-size: 0.72rem;">
-                                    Country code <strong>(+91)</strong> is fixed. Enter <strong>10 numbers only</strong>.
+                                    Enter <strong>10 numbers only</strong> (e.g. 9876543210).
                                 </div>
                                 <div id="phoneDigitCounter" class="badge bg-light text-muted border" style="font-size: 0.7rem;">
                                     <span id="digitCount">0</span>/10 digits
@@ -762,45 +892,233 @@
     </div>
 </div>
 
-<!-- Modal: Upload KYC Document -->
+<!-- Modal: Upload KYC Compliance Documents (Mandatory PAN, TAX, BANK + Other) -->
 <div class="modal fade" id="uploadKycModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content glass-card">
-            <form method="POST" action="{% url 'vendor_profile' %}" enctype="multipart/form-data">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content glass-card border-0 shadow-lg">
+            <form method="POST" action="{% url 'vendor_profile' %}" enctype="multipart/form-data" id="mandatoryKycUploadForm">
                 {% csrf_token %}
                 <input type="hidden" name="action" value="upload_kyc">
-                <div class="modal-header border-bottom">
-                    <h5 class="modal-title fw-bold text-dark">Upload KYC Compliance Document</h5>
+                <input type="hidden" name="upload_mode" value="mandatory_bundle">
+                
+                <div class="modal-header border-bottom py-3 px-4">
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0">
+                            <i class="fa-solid fa-file-shield text-primary me-2"></i>Upload KYC Compliance Documents
+                        </h5>
+                        <small class="text-muted">All 3 mandatory compliance documents (PAN, TAX, BANK) must be uploaded together in supported formats.</small>
+                    </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+                
                 <div class="modal-body p-4">
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Document Classification</label>
-                        <select name="document_type" class="form-select form-select-sm" required>
-                            {% for code, label in doc_types %}
-                            <option value="{{ code }}">{{ label }}</option>
-                            {% endfor %}
-                        </select>
+                    <!-- Instruction Banner -->
+                    <div class="alert alert-info py-2 px-3 small mb-3 d-flex align-items-center gap-2 rounded-3">
+                        <i class="fa-solid fa-info-circle text-info fs-5 flex-shrink-0"></i>
+                        <div>
+                            <strong>Supported Formats:</strong> PDF, DOC, DOCX, XLSX, CSV (&le; 10MB per document). 
+                            <span class="text-danger fw-semibold">Image files (PNG, JPG, JPEG, GIF, WebP) are strictly prohibited.</span>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Document Title / Label</label>
-                        <input type="text" name="title" class="form-control form-control-sm" placeholder="e.g. 2026 Tax Clearance Certificate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Expiry Date (if applicable)</label>
-                        <input type="date" name="expiry_date" class="form-control form-control-sm">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-semibold">Select File (PDF, DOC, DOCX, XLSX, CSV &le; 10MB)</label>
-                        <input type="file" name="kyc_file" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
-                        <div class="form-text small text-muted">Supported formats: PDF, DOC, DOCX, XLSX, CSV (&le; 10MB). Image files (PNG, JPG, JPEG, GIF, WebP) are not permitted.</div>
+
+                    <!-- Overall Form Error Container -->
+                    <div id="kycFormOverallError" class="alert alert-danger py-2 small mb-3" style="display: none;"></div>
+
+                    <div class="row g-3">
+                        <!-- 1. PAN Document Card -->
+                        <div class="col-12">
+                            <div class="card border rounded-3 p-3 bg-light bg-opacity-50" id="panCardWrapper">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                                            <i class="fa-solid fa-id-card"></i>
+                                        </div>
+                                        <div>
+                                            <span class="fw-bold text-dark">1. PAN Document</span>
+                                            <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size: 0.65rem;">Mandatory *</span>
+                                            <div class="small text-muted" style="font-size: 0.72rem;">Permanent Account Number Card</div>
+                                        </div>
+                                    </div>
+                                    <div id="panStatusBadge">
+                                        {% if doc_pan %}
+                                            {% if doc_pan.is_verified %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-check me-1"></i> Current: Verified</span>
+                                            {% elif doc_pan.status == 'REJECTED' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-xmark me-1"></i> Current: Rejected</span>
+                                            {% else %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-clock me-1"></i> Current: Under Review</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1"><i class="fa-solid fa-circle-notch me-1"></i> Pending Selection</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="panFileInput">Choose PAN File <span class="text-danger">*</span></label>
+                                        <input type="file" name="pan_file" id="panFileInput" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+                                        <div id="panFileFeedback" class="text-danger small mt-1 fw-semibold" style="display: none; font-size: 0.73rem;"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="panTitleInput">Document Title / Label</label>
+                                        <input type="text" name="pan_title" id="panTitleInput" class="form-control form-control-sm" placeholder="e.g. Corporate PAN Card" value="{% if doc_pan %}{{ doc_pan.title }}{% else %}PAN Card{% endif %}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="panExpiryInput">Expiry Date (optional)</label>
+                                        <input type="date" name="pan_expiry" id="panExpiryInput" class="form-control form-control-sm" value="{% if doc_pan and doc_pan.expiry_date %}{{ doc_pan.expiry_date|date:'Y-m-d' }}{% endif %}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. TAX Document Card -->
+                        <div class="col-12">
+                            <div class="card border rounded-3 p-3 bg-light bg-opacity-50" id="taxCardWrapper">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-success bg-opacity-10 text-success p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                                            <i class="fa-solid fa-file-invoice"></i>
+                                        </div>
+                                        <div>
+                                            <span class="fw-bold text-dark">2. TAX Document</span>
+                                            <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size: 0.65rem;">Mandatory *</span>
+                                            <div class="small text-muted" style="font-size: 0.72rem;">GST Registration Certificate or Tax Clearance Certificate</div>
+                                        </div>
+                                    </div>
+                                    <div id="taxStatusBadge">
+                                        {% if doc_tax %}
+                                            {% if doc_tax.is_verified %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-check me-1"></i> Current: Verified</span>
+                                            {% elif doc_tax.status == 'REJECTED' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-xmark me-1"></i> Current: Rejected</span>
+                                            {% else %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-clock me-1"></i> Current: Under Review</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1"><i class="fa-solid fa-circle-notch me-1"></i> Pending Selection</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="taxFileInput">Choose TAX / GST File <span class="text-danger">*</span></label>
+                                        <input type="file" name="tax_file" id="taxFileInput" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+                                        <div id="taxFileFeedback" class="text-danger small mt-1 fw-semibold" style="display: none; font-size: 0.73rem;"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="taxTitleInput">Document Title / Label</label>
+                                        <input type="text" name="tax_title" id="taxTitleInput" class="form-control form-control-sm" placeholder="e.g. GST Registration Certificate" value="{% if doc_tax %}{{ doc_tax.title }}{% else %}GST Registration Certificate{% endif %}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="taxExpiryInput">Expiry Date (optional)</label>
+                                        <input type="date" name="tax_expiry" id="taxExpiryInput" class="form-control form-control-sm" value="{% if doc_tax and doc_tax.expiry_date %}{{ doc_tax.expiry_date|date:'Y-m-d' }}{% endif %}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. BANK Document Card -->
+                        <div class="col-12">
+                            <div class="card border rounded-3 p-3 bg-light bg-opacity-50" id="bankCardWrapper">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-info bg-opacity-10 text-info p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                                            <i class="fa-solid fa-landmark"></i>
+                                        </div>
+                                        <div>
+                                            <span class="fw-bold text-dark">3. BANK Document</span>
+                                            <span class="badge bg-danger text-white rounded-pill ms-1" style="font-size: 0.65rem;">Mandatory *</span>
+                                            <div class="small text-muted" style="font-size: 0.72rem;">Cancelled Cheque or Bank Account Proof</div>
+                                        </div>
+                                    </div>
+                                    <div id="bankStatusBadge">
+                                        {% if doc_bank %}
+                                            {% if doc_bank.is_verified %}
+                                                <span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-check me-1"></i> Current: Verified</span>
+                                            {% elif doc_bank.status == 'REJECTED' %}
+                                                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-xmark me-1"></i> Current: Rejected</span>
+                                            {% else %}
+                                                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-clock me-1"></i> Current: Under Review</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary bg-opacity-10 text-secondary border rounded-pill px-2 py-1"><i class="fa-solid fa-circle-notch me-1"></i> Pending Selection</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="bankFileInput">Choose Bank Proof File <span class="text-danger">*</span></label>
+                                        <input type="file" name="bank_file" id="bankFileInput" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
+                                        <div id="bankFileFeedback" class="text-danger small mt-1 fw-semibold" style="display: none; font-size: 0.73rem;"></div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="bankTitleInput">Document Title / Label</label>
+                                        <input type="text" name="bank_title" id="bankTitleInput" class="form-control form-control-sm" placeholder="e.g. Bank Account Proof" value="{% if doc_bank %}{{ doc_bank.title }}{% else %}Bank Account Proof{% endif %}">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="bankExpiryInput">Expiry Date (optional)</label>
+                                        <input type="date" name="bank_expiry" id="bankExpiryInput" class="form-control form-control-sm" value="{% if doc_bank and doc_bank.expiry_date %}{{ doc_bank.expiry_date|date:'Y-m-d' }}{% endif %}">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Other Supporting Document (Optional) -->
+                        <div class="col-12">
+                            <div class="card border rounded-3 p-3 bg-light bg-opacity-25" id="otherCardWrapper">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-secondary bg-opacity-10 text-secondary p-2 d-flex align-items-center justify-content-center" style="width: 34px; height: 34px;">
+                                            <i class="fa-solid fa-folder-plus"></i>
+                                        </div>
+                                        <div>
+                                            <span class="fw-bold text-dark">4. Other Supporting Document</span>
+                                            <span class="badge bg-secondary bg-opacity-10 text-muted border rounded-pill ms-1" style="font-size: 0.65rem;">Optional</span>
+                                            <div class="small text-muted" style="font-size: 0.72rem;">Certificate of Incorporation, Address Proof, or other KYC record</div>
+                                        </div>
+                                    </div>
+                                    <div id="otherStatusBadge">
+                                        <span class="badge bg-light text-muted border rounded-pill px-2 py-1">Optional Field</span>
+                                    </div>
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="otherDocTypeSelect">Classification</label>
+                                        <select name="other_doc_type" id="otherDocTypeSelect" class="form-select form-select-sm">
+                                            {% for code, label in doc_types %}
+                                            <option value="{{ code }}">{{ label }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="otherFileInput">Choose Other File</label>
+                                        <input type="file" name="other_file" id="otherFileInput" class="form-control form-control-sm" accept=".pdf,.doc,.docx,.xlsx,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv">
+                                        <div id="otherFileFeedback" class="text-danger small mt-1 fw-semibold" style="display: none; font-size: 0.73rem;"></div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="otherTitleInput">Document Title / Label</label>
+                                        <input type="text" name="other_title" id="otherTitleInput" class="form-control form-control-sm" placeholder="e.g. Certificate of Incorporation">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small fw-semibold text-dark mb-1" for="otherExpiryInput">Expiry Date</label>
+                                        <input type="date" name="other_expiry" id="otherExpiryInput" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="modal-footer border-top bg-light py-2 px-4 d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-semibold">
-                        <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload Document
-                    </button>
+
+                <div class="modal-footer border-top bg-light py-2 px-4 d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="small text-muted">
+                        <i class="fa-solid fa-shield-check text-success me-1"></i> Mandatory: PAN, TAX, BANK &bull; Max 10MB per file
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="uploadAllDocsBtn" class="btn btn-primary btn-sm rounded-pill px-4 shadow-sm fw-semibold">
+                            <i class="fa-solid fa-cloud-arrow-up me-1"></i> Upload All Documents
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -837,13 +1155,26 @@
                             <input type="text" name="designation" class="form-control form-control-sm" placeholder="e.g. Sales Director">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Phone (+91 10-digits)</label>
-                            <input type="tel" name="phone" class="form-control form-control-sm font-monospace" placeholder="+919876543210">
-                            <small class="text-muted" style="font-size: 0.7rem;">Format: +91 followed by 10 digits</small>
+                            <label class="form-label small fw-semibold" for="addContactPhone">Phone Number (10 digits)</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted border-end-0">
+                                    <i class="fa-solid fa-phone text-primary"></i>
+                                </span>
+                                <input type="tel" 
+                                       id="addContactPhone" 
+                                       name="phone" 
+                                       class="form-control form-control-sm font-monospace border-start-0" 
+                                       placeholder="9876543210"
+                                       maxlength="10"
+                                       pattern="[0-9]{10}"
+                                       inputmode="numeric"
+                                       autocomplete="tel-national">
+                            </div>
+                            <small class="text-muted" style="font-size: 0.7rem;">Format: 10-digit mobile number (e.g. 9876543210)</small>
                         </div>
                         <div class="col-12">
                             <div class="form-check form-switch mt-2">
-                                <input class="form-check-input" type="checkbox" name="is_primary" id="addContactIsPrimary" value="true">
+                                <input class="form-check-input" type="checkbox" name="is_primary" id="addContactIsPrimary" value="true" checked>
                                 <label class="form-check-label small fw-semibold text-dark" for="addContactIsPrimary">
                                     Set as Primary Contact for this Vendor
                                 </label>
@@ -894,9 +1225,23 @@
                             <input type="text" name="designation" class="form-control form-control-sm" value="{{ c.designation }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-semibold">Phone (+91 10-digits)</label>
-                            <input type="tel" name="phone" class="form-control form-control-sm font-monospace" value="{{ c.phone }}">
-                            <small class="text-muted" style="font-size: 0.7rem;">Format: +91 followed by 10 digits</small>
+                            <label class="form-label small fw-semibold" for="editContactPhone{{ c.id }}">Phone Number (10 digits)</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-light text-muted border-end-0">
+                                    <i class="fa-solid fa-phone text-primary"></i>
+                                </span>
+                                <input type="tel" 
+                                       id="editContactPhone{{ c.id }}" 
+                                       name="phone" 
+                                       class="form-control form-control-sm font-monospace border-start-0" 
+                                       value="{{ c.phone_digits|default:c.phone }}"
+                                       placeholder="9876543210"
+                                       maxlength="10"
+                                       pattern="[0-9]{10}"
+                                       inputmode="numeric"
+                                       autocomplete="tel-national">
+                            </div>
+                            <small class="text-muted" style="font-size: 0.7rem;">Format: 10-digit mobile number (e.g. 9876543210)</small>
                         </div>
                         <div class="col-12">
                             <div class="form-check form-switch mt-2">
@@ -1023,6 +1368,216 @@
             updatePhoneState();
         }
 
+        // Auto-sanitize all contact phone inputs to strictly 10 digits
+        document.querySelectorAll('input[name="phone"]').forEach(function(phoneInput) {
+            phoneInput.addEventListener('input', function() {
+                let digits = this.value.replace(/\D/g, "");
+                if (digits.length === 12 && digits.startsWith("91")) {
+                    digits = digits.slice(2);
+                } else if (digits.length === 11 && digits.startsWith("0")) {
+                    digits = digits.slice(1);
+                }
+                if (digits.length > 10) {
+                    digits = digits.slice(0, 10);
+                }
+                this.value = digits;
+            });
+        });
+
+        // =========================================================================
+        // Mandatory KYC Multi-Document Upload Validation (PAN, TAX, BANK + Other)
+        // =========================================================================
+        const kycForm = document.getElementById("mandatoryKycUploadForm");
+        const uploadAllBtn = document.getElementById("uploadAllDocsBtn");
+        const kycOverallError = document.getElementById("kycFormOverallError");
+
+        const panInput = document.getElementById("panFileInput");
+        const taxInput = document.getElementById("taxFileInput");
+        const bankInput = document.getElementById("bankFileInput");
+        const otherInput = document.getElementById("otherFileInput");
+
+        const panFeedback = document.getElementById("panFileFeedback");
+        const taxFeedback = document.getElementById("taxFileFeedback");
+        const bankFeedback = document.getElementById("bankFileFeedback");
+        const otherFeedback = document.getElementById("otherFileFeedback");
+
+        const panBadge = document.getElementById("panStatusBadge");
+        const taxBadge = document.getElementById("taxStatusBadge");
+        const bankBadge = document.getElementById("bankStatusBadge");
+        const otherBadge = document.getElementById("otherStatusBadge");
+
+        const ALLOWED_DOC_EXTENSIONS = ["pdf", "doc", "docx", "xlsx", "csv"];
+        const DISALLOWED_IMAGE_EXTENSIONS = [
+            "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "tiff", "ico", "avif", "heic", "heif"
+        ];
+        const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
+        function validateFileDoc(file, isMandatory, label) {
+            if (!file) {
+                if (isMandatory) {
+                    return { valid: false, message: label + " is mandatory. Please select a document file." };
+                }
+                return { valid: true, empty: true };
+            }
+
+            if (file.size === 0) {
+                return { valid: false, message: "Uploaded file is empty (0 bytes). Empty files are not permitted." };
+            }
+
+            if (file.size > MAX_FILE_SIZE_BYTES) {
+                return { valid: false, message: "File size exceeds the 10 MB limit (Current: " + (file.size / (1024 * 1024)).toFixed(1) + " MB)." };
+            }
+
+            const fileName = file.name || "";
+            const ext = fileName.includes(".") ? fileName.split(".").pop().toLowerCase() : "";
+            const mimeType = (file.type || "").toLowerCase();
+
+            if (DISALLOWED_IMAGE_EXTENSIONS.includes(ext) || mimeType.startsWith("image/")) {
+                const extLabel = ext ? ext.toUpperCase() : "Image";
+                return {
+                    valid: false,
+                    message: "Image files (" + extLabel + ") are strictly prohibited. Please upload a PDF, DOC, DOCX, XLSX, or CSV file."
+                };
+            }
+
+            if (!ALLOWED_DOC_EXTENSIONS.includes(ext)) {
+                return {
+                    valid: false,
+                    message: "File extension '." + ext + "' is not permitted. Only PDF, DOC, DOCX, XLSX, and CSV are allowed."
+                };
+            }
+
+            return {
+                valid: true,
+                fileName: fileName,
+                fileSize: (file.size / (1024 * 1024)).toFixed(2) + " MB"
+            };
+        }
+
+        function setupFileInputWatcher(input, feedbackEl, badgeEl, isMandatory, label) {
+            if (!input) return;
+            input.addEventListener("change", function() {
+                const file = input.files && input.files[0];
+                const res = validateFileDoc(file, isMandatory, label);
+
+                if (!res.valid) {
+                    input.classList.add("is-invalid");
+                    input.value = "";
+                    if (feedbackEl) {
+                        feedbackEl.textContent = res.message;
+                        feedbackEl.style.display = "block";
+                    }
+                    if (badgeEl) {
+                        badgeEl.innerHTML = '<span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-circle-xmark me-1"></i> Invalid File</span>';
+                    }
+                } else if (res.empty) {
+                    input.classList.remove("is-invalid");
+                    if (feedbackEl) {
+                        feedbackEl.textContent = "";
+                        feedbackEl.style.display = "none";
+                    }
+                    if (badgeEl && !isMandatory) {
+                        badgeEl.innerHTML = '<span class="badge bg-light text-muted border rounded-pill px-2 py-1">Optional Field</span>';
+                    }
+                } else {
+                    input.classList.remove("is-invalid");
+                    if (feedbackEl) {
+                        feedbackEl.textContent = "";
+                        feedbackEl.style.display = "none";
+                    }
+                    if (badgeEl) {
+                        const safeName = res.fileName.length > 20 ? res.fileName.substring(0, 17) + "..." : res.fileName;
+                        badgeEl.innerHTML = '<span class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-2 py-1"><i class="fa-solid fa-circle-check me-1"></i> Ready: ' + safeName + ' (' + res.fileSize + ')</span>';
+                    }
+                }
+            });
+        }
+
+        setupFileInputWatcher(panInput, panFeedback, panBadge, true, "PAN Document");
+        setupFileInputWatcher(taxInput, taxFeedback, taxBadge, true, "TAX Document");
+        setupFileInputWatcher(bankInput, bankFeedback, bankBadge, true, "BANK Document");
+        setupFileInputWatcher(otherInput, otherFeedback, otherBadge, false, "Other Document");
+
+        if (kycForm) {
+            kycForm.addEventListener("submit", function(e) {
+                let hasErrors = false;
+                const errorMessages = [];
+
+                // 1. Validate PAN
+                const panFile = panInput && panInput.files && panInput.files[0];
+                const panRes = validateFileDoc(panFile, true, "PAN Document");
+                if (!panRes.valid) {
+                    hasErrors = true;
+                    if (panInput) panInput.classList.add("is-invalid");
+                    if (panFeedback) {
+                        panFeedback.textContent = panRes.message;
+                        panFeedback.style.display = "block";
+                    }
+                    errorMessages.push(panRes.message);
+                }
+
+                // 2. Validate TAX
+                const taxFile = taxInput && taxInput.files && taxInput.files[0];
+                const taxRes = validateFileDoc(taxFile, true, "TAX Document");
+                if (!taxRes.valid) {
+                    hasErrors = true;
+                    if (taxInput) taxInput.classList.add("is-invalid");
+                    if (taxFeedback) {
+                        taxFeedback.textContent = taxRes.message;
+                        taxFeedback.style.display = "block";
+                    }
+                    errorMessages.push(taxRes.message);
+                }
+
+                // 3. Validate BANK
+                const bankFile = bankInput && bankInput.files && bankInput.files[0];
+                const bankRes = validateFileDoc(bankFile, true, "BANK Document");
+                if (!bankRes.valid) {
+                    hasErrors = true;
+                    if (bankInput) bankInput.classList.add("is-invalid");
+                    if (bankFeedback) {
+                        bankFeedback.textContent = bankRes.message;
+                        bankFeedback.style.display = "block";
+                    }
+                    errorMessages.push(bankRes.message);
+                }
+
+                // 4. Validate Other if provided
+                const otherFile = otherInput && otherInput.files && otherInput.files[0];
+                if (otherFile) {
+                    const otherRes = validateFileDoc(otherFile, false, "Other Document");
+                    if (!otherRes.valid) {
+                        hasErrors = true;
+                        if (otherInput) otherInput.classList.add("is-invalid");
+                        if (otherFeedback) {
+                            otherFeedback.textContent = otherRes.message;
+                            otherFeedback.style.display = "block";
+                        }
+                        errorMessages.push(otherRes.message);
+                    }
+                }
+
+                if (hasErrors) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (kycOverallError) {
+                        kycOverallError.innerHTML = '<div class="fw-bold mb-1"><i class="fa-solid fa-triangle-exclamation me-1"></i> Submission Blocked: All 3 mandatory documents must be selected</div><ul class="mb-0 ps-3">' + errorMessages.map(m => '<li>' + m + '</li>').join('') + '</ul>';
+                        kycOverallError.style.display = "block";
+                    }
+                    return false;
+                }
+
+                if (kycOverallError) {
+                    kycOverallError.style.display = "none";
+                }
+
+                if (uploadAllBtn) {
+                    uploadAllBtn.disabled = true;
+                    uploadAllBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Uploading All Documents...';
+                }
+            });
+        }
+
         if (profileForm) {
             profileForm.addEventListener("submit", function(e) {
                 const digits = phoneDigitsInput ? phoneDigitsInput.value.replace(/\D/g, "") : "";
@@ -1030,7 +1585,7 @@
                     e.preventDefault();
                     e.stopPropagation();
                     if (phoneError) {
-                        phoneError.textContent = "Phone number must have (+91) code and exactly 10 numbers only. You entered " + digits.length + " digits.";
+                        phoneError.textContent = "Phone number must have exactly 10 numbers. You entered " + digits.length + " digits.";
                         phoneError.style.display = "block";
                     }
                     if (phoneDigitsInput) {

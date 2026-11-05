@@ -175,13 +175,15 @@ class VendorContactForm(forms.Form):
         if not raw_phone:
             return ""
         clean_phone = re.sub(r"[\s\-\(\)\.]", "", raw_phone)
+        if re.match(r"^\d{10}$", clean_phone):
+            return clean_phone
         if re.match(r"^91\d{10}$", clean_phone):
-            clean_phone = f"+{clean_phone}"
-        if not re.match(r"^\+91\d{10}$", clean_phone):
-            raise forms.ValidationError(
-                "Phone number must have country code (+91) followed by exactly 10 digits (e.g., +919876543210)."
-            )
-        return clean_phone
+            return clean_phone[2:]
+        if re.match(r"^\+91\d{10}$", clean_phone):
+            return clean_phone[3:]
+        raise forms.ValidationError(
+            "Phone number must be exactly 10 digits (e.g., 9876543210)."
+        )
 
 
 class VendorChangesRequestForm(forms.Form):

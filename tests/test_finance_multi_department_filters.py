@@ -34,6 +34,7 @@ def finance_env(db):
         email="fin.filter.test@hpe.com",
         password="TestPassword123!",
         role=role_fin,
+        organization=org,
     )
     requester_user = User.objects.create_user(
         email="req.filter.test@hpe.com",

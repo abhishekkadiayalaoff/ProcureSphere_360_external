@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .manager_api_views import (
+    ManagerApprovalActionAPIView,
+    ManagerApprovalsAPIView,
     ManagerKPIsAPIView,
     ManagerPerformanceSummaryAPIView,
     ManagerPipelineAPIView,
@@ -12,16 +14,29 @@ from .manager_api_views import (
     ManagerSupplierPerformanceAPIView,
     ManagerSupplierPerformanceDetailAPIView,
     ManagerVendorWatchlistAPIView,
+    ManagerBudgetExceptionsAPIView,
 )
 
 urlpatterns = [
     path("kpis/", ManagerKPIsAPIView.as_view(), name="manager-kpis-api"),
     path("pipeline/", ManagerPipelineAPIView.as_view(), name="manager-pipeline-api"),
     path("pr-aging/", ManagerPRAgingAPIView.as_view(), name="manager-pr-aging-api"),
+    path("approvals/", ManagerApprovalsAPIView.as_view(), name="manager-approvals-api"),
+    path("approvals/action/", ManagerApprovalActionAPIView.as_view(), name="manager-approval-action-api"),
     path(
         "vendor-watchlist/",
         ManagerVendorWatchlistAPIView.as_view(),
         name="manager-vendor-watchlist-api",
+    ),
+    path(
+        "budget-exceptions/",
+        ManagerBudgetExceptionsAPIView.as_view(),
+        name="manager-budget-exceptions-api",
+    ),
+    path(
+        "policy-exceptions/",
+        ManagerBudgetExceptionsAPIView.as_view(),
+        name="manager-policy-exceptions-api",
     ),
     # Spend Analytics
     path("spend/", ManagerSpendAnalyticsAPIView.as_view(), name="manager-spend-api"),

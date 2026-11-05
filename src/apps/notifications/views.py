@@ -23,6 +23,20 @@ def notification_list_view(request):
     if request.GET.get("filter") == "unread":
         qs = qs.filter(is_read=False)
     page = Paginator(qs, 25).get_page(request.GET.get("page"))
+    role_code = getattr(request.user, "role_code", "") or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else ""
+    )
+    layout_map = {
+        "FINANCE_AP": "layouts/finance_base.html",
+        "REQUESTER": "layouts/requester_base.html",
+        "DEPT_APPROVER": "layouts/approver_base.html",
+        "STORES_RECEIVER": "layouts/stores_base.html",
+        "LEGAL_MGR": "layouts/legal_base.html",
+        "PROC_MGR": "manager/base_manager.html",
+        "AUDITOR": "audit/base_auditor.html",
+        "SUPER_ADMIN": "layouts/superadmin_base.html",
+    }
+    base_layout = layout_map.get(role_code, "base.html")
     return render(
         request,
         "notifications/notification_list.html",
@@ -34,6 +48,7 @@ def notification_list_view(request):
             ).count(),
             "only_unread": request.GET.get("filter") == "unread",
             "querystring": "filter=unread" if request.GET.get("filter") == "unread" else "",
+            "base_layout": base_layout,
         },
     )
 

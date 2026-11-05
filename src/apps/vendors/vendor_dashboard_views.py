@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.db.models import Q, Sum
 from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -21,7 +22,10 @@ from apps.invoices.models import InvoiceLine, SupplierInvoice
 from apps.invoices.services import create_supplier_invoice_service
 from apps.notifications.models import Notification
 from apps.orders.models import PurchaseOrder
-from apps.orders.services import acknowledge_purchase_order_service
+from apps.orders.services import (
+    acknowledge_purchase_order_service,
+    vendor_reject_purchase_order_service,
+)
 from apps.requisitions.models import PRAttachment
 from apps.scorecards.models import VendorScorecard
 from apps.sourcing.models import (
@@ -220,48 +224,117 @@ def vendor_profile_view(request):
             return redirect("vendor_profile")
 
         elif action == "upload_kyc":
-            doc_file = request.FILES.get("kyc_file")
-            doc_type = request.POST.get("document_type", VendorDocument.DOC_TYPE_OTHER)
-            title = request.POST.get("title", "").strip()
-            expiry_date_val = request.POST.get("expiry_date", "").strip() or None
+            # Check if this is a mandatory multi-document bundle upload (PAN, TAX, BANK + optional Other)
+            is_bundle = (
+                request.POST.get("upload_mode") == "mandatory_bundle"
+                or "pan_file" in request.FILES
+                or "tax_file" in request.FILES
+                or "bank_file" in request.FILES
+            )
 
-            if not doc_file:
-                messages.error(request, "Please select a valid document file to upload.")
-            else:
-                try:
-                    # Enforce document-only upload restrictions (reject image formats)
-                    file_name = getattr(doc_file, "name", "")
+            if is_bundle:
+                pan_file = request.FILES.get("pan_file")
+                tax_file = request.FILES.get("tax_file")
+                bank_file = request.FILES.get("bank_file")
+                other_file = request.FILES.get("other_file")
+
+                # Validation 1: All three mandatory documents must be selected
+                missing_fields = []
+                if not pan_file:
+                    missing_fields.append("PAN Document is mandatory. Please select your PAN Card file.")
+                if not tax_file:
+                    missing_fields.append("TAX Document is mandatory. Please select your GST or Tax Certificate.")
+                if not bank_file:
+                    missing_fields.append("BANK Document is mandatory. Please select your Bank Account Proof or Cancelled Cheque.")
+
+                if missing_fields:
+                    for err in missing_fields:
+                        messages.error(request, err)
+                    next_url = request.POST.get("next")
+                    return redirect(next_url if next_url else "vendor_profile")
+
+                # Prepare documents list for validation and atomic upload
+                files_to_process = [
+                    (
+                        "PAN Document",
+                        pan_file,
+                        VendorDocument.DOC_TYPE_PAN,
+                        request.POST.get("pan_title", "").strip() or f"PAN Card - {vendor.legal_name}",
+                        request.POST.get("pan_expiry", "").strip() or None,
+                    ),
+                    (
+                        "TAX Document",
+                        tax_file,
+                        VendorDocument.DOC_TYPE_GST,
+                        request.POST.get("tax_title", "").strip() or f"GST / Tax Certificate - {vendor.legal_name}",
+                        request.POST.get("tax_expiry", "").strip() or None,
+                    ),
+                    (
+                        "BANK Document",
+                        bank_file,
+                        VendorDocument.DOC_TYPE_BANK,
+                        request.POST.get("bank_title", "").strip() or f"Bank Proof - {vendor.legal_name}",
+                        request.POST.get("bank_expiry", "").strip() or None,
+                    ),
+                ]
+
+                if other_file:
+                    other_type = request.POST.get("other_doc_type", VendorDocument.DOC_TYPE_OTHER)
+                    other_title = request.POST.get("other_title", "").strip() or f"Supporting Document - {other_file.name}"
+                    other_expiry = request.POST.get("other_expiry", "").strip() or None
+                    files_to_process.append(("Other Document", other_file, other_type, other_title, other_expiry))
+
+                DISALLOWED_IMAGE_EXTENSIONS = {
+                    "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "tiff", "ico", "avif", "heic", "heif"
+                }
+                SUPPORTED_DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "xlsx", "csv"}
+                MAX_FILE_SIZE = 10 * 1024 * 1024
+
+                validation_errors = []
+                for label, f, _, _, _ in files_to_process:
+                    file_name = getattr(f, "name", "")
+                    file_size = getattr(f, "size", 0) or 0
                     ext = os.path.splitext(file_name)[1][1:].lower() if "." in file_name else ""
-                    raw_content_type = (getattr(doc_file, "content_type", "") or "").split(";")[0].strip().lower()
+                    raw_content_type = (getattr(f, "content_type", "") or "").split(";")[0].strip().lower()
 
-                    DISALLOWED_IMAGE_EXTENSIONS = {
-                        "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "tiff", "ico", "avif"
-                    }
-                    SUPPORTED_DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "xlsx", "csv"}
+                    if file_size == 0:
+                        validation_errors.append(f"{label}: Uploaded file '{file_name}' is empty (0 bytes).")
+                    elif file_size > MAX_FILE_SIZE:
+                        validation_errors.append(f"{label}: File '{file_name}' exceeds the maximum allowed limit of 10 MB.")
 
                     if ext in DISALLOWED_IMAGE_EXTENSIONS or raw_content_type.startswith("image/"):
-                        raise ValidationError(
-                            f"Image files (.{ext or 'image'}) are not supported for KYC compliance documents. "
-                            "Please upload supported document files only (PDF, DOC, DOCX, XLSX, CSV)."
+                        validation_errors.append(
+                            f"{label}: Image files (.{ext or 'image'}) are not allowed. Please upload a supported document format (PDF, DOC, DOCX, XLSX, CSV)."
+                        )
+                    elif ext not in SUPPORTED_DOCUMENT_EXTENSIONS:
+                        validation_errors.append(
+                            f"{label}: File extension '.{ext}' is not permitted. Only PDF, DOC, DOCX, XLSX, CSV are allowed."
                         )
 
-                    if ext not in SUPPORTED_DOCUMENT_EXTENSIONS:
-                        raise ValidationError(
-                            f"File extension '.{ext}' is not permitted. "
-                            "Please upload a supported document file (PDF, DOC, DOCX, XLSX, CSV)."
-                        )
+                if validation_errors:
+                    for err in validation_errors:
+                        messages.error(request, err)
+                    next_url = request.POST.get("next")
+                    return redirect(next_url if next_url else "vendor_profile")
 
-                    upload_vendor_document_service(
-                        vendor=vendor,
-                        user=request.user,
-                        file=doc_file,
-                        document_type=doc_type,
-                        title=title,
-                        expiry_date=expiry_date_val,
-                    )
+                # Validation passed: Upload all documents atomically
+                try:
+                    with transaction.atomic():
+                        for label, f, doc_type, title, expiry in files_to_process:
+                            upload_vendor_document_service(
+                                vendor=vendor,
+                                user=request.user,
+                                file=f,
+                                document_type=doc_type,
+                                title=title,
+                                expiry_date=expiry,
+                            )
                     messages.success(
-                        request, f"KYC document '{title or doc_file.name}' uploaded successfully."
+                        request,
+                        "All 3 mandatory KYC documents (PAN, TAX, BANK) uploaded successfully and submitted for compliance verification."
                     )
+                    if other_file:
+                        messages.success(request, f"Supporting document '{other_file.name}' uploaded successfully.")
                 except ValidationError as e:
                     msg = (
                         e.message
@@ -269,12 +342,68 @@ def vendor_profile_view(request):
                         else (e.messages[0] if hasattr(e, "messages") and e.messages else str(e))
                     )
                     messages.error(request, f"Upload validation failed: {msg}")
-                except Exception:
-                    messages.error(
-                        request, "Document upload failed. Please verify the file and try again."
-                    )
-            next_url = request.POST.get("next")
-            return redirect(next_url if next_url else "vendor_profile")
+                except Exception as e:
+                    messages.error(request, f"Document upload failed: {str(e)}")
+
+                next_url = request.POST.get("next")
+                return redirect(next_url if next_url else "vendor_profile")
+
+            else:
+                # Legacy single-file upload (preserves compatibility for individual endpoints/tests)
+                doc_file = request.FILES.get("kyc_file")
+                doc_type = request.POST.get("document_type", VendorDocument.DOC_TYPE_OTHER)
+                title = request.POST.get("title", "").strip()
+                expiry_date_val = request.POST.get("expiry_date", "").strip() or None
+
+                if not doc_file:
+                    messages.error(request, "Please select a valid document file to upload.")
+                else:
+                    try:
+                        file_name = getattr(doc_file, "name", "")
+                        ext = os.path.splitext(file_name)[1][1:].lower() if "." in file_name else ""
+                        raw_content_type = (getattr(doc_file, "content_type", "") or "").split(";")[0].strip().lower()
+
+                        DISALLOWED_IMAGE_EXTENSIONS = {
+                            "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "tiff", "ico", "avif"
+                        }
+                        SUPPORTED_DOCUMENT_EXTENSIONS = {"pdf", "doc", "docx", "xlsx", "csv"}
+
+                        if ext in DISALLOWED_IMAGE_EXTENSIONS or raw_content_type.startswith("image/"):
+                            raise ValidationError(
+                                f"Image files (.{ext or 'image'}) are not supported for KYC compliance documents. "
+                                "Please upload supported document files only (PDF, DOC, DOCX, XLSX, CSV)."
+                            )
+
+                        if ext not in SUPPORTED_DOCUMENT_EXTENSIONS:
+                            raise ValidationError(
+                                f"File extension '.{ext}' is not permitted. "
+                                "Please upload a supported document file (PDF, DOC, DOCX, XLSX, CSV)."
+                            )
+
+                        upload_vendor_document_service(
+                            vendor=vendor,
+                            user=request.user,
+                            file=doc_file,
+                            document_type=doc_type,
+                            title=title,
+                            expiry_date=expiry_date_val,
+                        )
+                        messages.success(
+                            request, f"KYC document '{title or doc_file.name}' uploaded successfully."
+                        )
+                    except ValidationError as e:
+                        msg = (
+                            e.message
+                            if hasattr(e, "message")
+                            else (e.messages[0] if hasattr(e, "messages") and e.messages else str(e))
+                        )
+                        messages.error(request, f"Upload validation failed: {msg}")
+                    except Exception:
+                        messages.error(
+                            request, "Document upload failed. Please verify the file and try again."
+                        )
+                next_url = request.POST.get("next")
+                return redirect(next_url if next_url else "vendor_profile")
 
         elif action == "submit_kyc":
             if not vendor.documents.exists():
@@ -355,6 +484,14 @@ def vendor_profile_view(request):
         .select_related("verified_by")
         .order_by("-created_at")
     )
+    doc_pan = documents.filter(document_type=VendorDocument.DOC_TYPE_PAN).first()
+    doc_tax = documents.filter(document_type__in=[VendorDocument.DOC_TYPE_GST, VendorDocument.DOC_TYPE_TAX]).first()
+    doc_bank = documents.filter(document_type=VendorDocument.DOC_TYPE_BANK).first()
+    doc_other_list = documents.exclude(
+        document_type__in=[VendorDocument.DOC_TYPE_PAN, VendorDocument.DOC_TYPE_GST, VendorDocument.DOC_TYPE_TAX, VendorDocument.DOC_TYPE_BANK]
+    )
+    has_all_mandatory_docs = bool(doc_pan and doc_tax and doc_bank)
+
     contacts = vendor.contacts.order_by("-is_primary", "first_name")
     onboarding = get_vendor_onboarding_progress(vendor)
     risk_records = vendor.risk_records.select_related("assessed_by").order_by("-created_at")
@@ -376,6 +513,11 @@ def vendor_profile_view(request):
         "vendor": vendor,
         "phone_digits": phone_digits,
         "documents": documents,
+        "doc_pan": doc_pan,
+        "doc_tax": doc_tax,
+        "doc_bank": doc_bank,
+        "doc_other_list": doc_other_list,
+        "has_all_mandatory_docs": has_all_mandatory_docs,
         "contacts": contacts,
         "onboarding": onboarding,
         "risk_records": risk_records,
@@ -1483,6 +1625,42 @@ def vendor_purchase_order_acknowledge_view(request, po_id):
     except ValidationError as ve:
         messages.error(
             request, f"Acknowledgement Failed: {ve.message if hasattr(ve, 'message') else str(ve)}"
+        )
+    except Exception as e:
+        messages.error(request, f"System Error: {str(e)}")
+
+    return redirect("vendor_purchase_order_detail", po_id=po.id)
+
+
+@vendor_required
+@require_POST
+def vendor_purchase_order_reject_view(request, po_id):
+    """
+    PO Rejection Action:
+    Vendor formally rejects an issued PO (e.g. cannot fulfil scope/pricing).
+    Enforces business restriction: Must be in ISSUED status and owned by vendor.
+    Returns the PO to APPROVED so procurement can resolve and re-issue or cancel.
+    """
+    vendor = request.vendor
+    po = get_object_or_404(PurchaseOrder, id=po_id)
+
+    if po.vendor != vendor and not request.user.is_superuser:
+        raise PermissionDenied("Access Denied: Unauthorized rejection attempt.")
+
+    reason = request.POST.get("rejection_reason", "").strip()
+
+    try:
+        vendor_reject_purchase_order_service(
+            po=po,
+            vendor_user=request.user,
+            reason=reason,
+        )
+        messages.success(
+            request, f"Purchase Order {po.po_number} rejected. Procurement has been notified."
+        )
+    except ValidationError as ve:
+        messages.error(
+            request, f"Rejection Failed: {ve.message if hasattr(ve, 'message') else str(ve)}"
         )
     except Exception as e:
         messages.error(request, f"System Error: {str(e)}")

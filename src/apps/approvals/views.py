@@ -8,21 +8,8 @@ from django.utils import timezone
 from apps.accounts.models import Role, User
 from apps.requisitions.models import PurchaseRequisition
 
-
-
-from .services import process_approval_action_service
-
-
-from .models import ApprovalDelegate
+from .models import ApprovalAction, ApprovalDelegate
 from .services import process_approval_action_service, set_approval_delegate_service
-
-from .models import ApprovalAction
-from .services import process_approval_action_service
-
-
-from .models import ApprovalDelegate
-from .services import process_approval_action_service, set_approval_delegate_service
-
 
 
 def _get_approval_querysets(user, role_code):
@@ -94,17 +81,24 @@ def _get_approval_querysets(user, role_code):
     )
 
 
-def _get_base_layout(user, role_code):
+def _get_base_layout(user_or_role, role_code=None):
     """Determine layout template based on user role."""
+    if role_code is None:
+        role_code = user_or_role
+        user = None
+    else:
+        user = user_or_role
     if (user and getattr(user, "is_superuser", False)) or role_code in [
         Role.SUPER_ADMIN,
         "SUPER_ADMIN",
         "ADMIN",
     ]:
         return "layouts/superadmin_base.html"
+    if role_code in [Role.PROC_MGR, "PROC_MGR"]:
+        return "manager/base_manager.html"
     if role_code in [Role.LEGAL_MGR, "LEGAL_MGR"]:
         return "layouts/legal_base.html"
-    if role_code in [Role.DEPT_APPROVER, Role.PROC_MGR, "DEPT_APPROVER", "PROC_MGR"]:
+    if role_code in [Role.DEPT_APPROVER, "DEPT_APPROVER"]:
         return "layouts/approver_base.html"
     if role_code in [Role.FINANCE_AP, "FINANCE_AP"]:
         return "layouts/finance_base.html"
@@ -157,6 +151,8 @@ def approvals_inbox_view(request):
     role_code = getattr(user, "role_code", None) or (
         user.role.code if hasattr(user, "role") and user.role else Role.SUPER_ADMIN
     )
+    if not user.is_superuser and role_code in [Role.PROC_MGR, "PROC_MGR"]:
+        return redirect("manager_approvals")
     if not user.is_superuser and (getattr(user, "is_vendor", False) or role_code in [Role.VENDOR_USER, "VENDOR_USER"]):
         from django.core.exceptions import PermissionDenied
         raise PermissionDenied("External vendors are not authorized to view the internal approval inbox.")
@@ -282,7 +278,7 @@ def delegation_view(request):
         role__code__in=[Role.DEPT_APPROVER, Role.PROC_MGR, Role.PROC_EXEC]
     ).exclude(pk=user.pk).select_related("role")
 
-    base_layout = _get_base_layout(role_code)
+    base_layout = _get_base_layout(user, role_code)
     return render(request, "pages/approvals/delegation.html", {
         "active_delegates": active_delegates,
         "eligible_delegates": eligible_delegates,

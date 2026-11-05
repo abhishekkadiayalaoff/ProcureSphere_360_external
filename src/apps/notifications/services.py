@@ -38,10 +38,18 @@ def notify_vendor_users(*, vendor, notification_type: str, title: str, message: 
 
 
 def notify_role_users(
-    *, role_codes, notification_type: str, title: str, message: str, target_url=""
+    *, role_codes, notification_type: str, title: str, message: str, target_url="", organization=None
 ):
-    """Notifies every active user holding one of the given role codes."""
+    """Notifies every active user holding one of the given role codes, scoped to organization if provided."""
+    from django.db.models import Q
+
     users = User.objects.filter(role__code__in=role_codes, is_active=True)
+    if organization:
+        users = users.filter(
+            Q(organization=organization)
+            | Q(department__organization=organization)
+            | Q(cost_center__department__organization=organization)
+        ).distinct()
     return notify_users(
         users=users,
         notification_type=notification_type,

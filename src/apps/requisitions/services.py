@@ -196,19 +196,34 @@ def submit_purchase_requisition_service(
         comments="PR submitted for approval workflow.",
     )
 
-    # Notify Department Approvers via Notification model
+    # Notify Department Approvers via Notification model scoped strictly to requisition organization
     from apps.accounts.models import Role, User
     from apps.notifications.models import Notification
+    from django.db.models import Q
+
+    target_org = (
+        requisition.department.organization
+        if requisition.department and requisition.department.organization
+        else (
+            requisition.cost_center.department.organization
+            if requisition.cost_center and requisition.cost_center.department
+            else getattr(requisition.requester, "effective_organization", None)
+        )
+    )
 
     approvers = User.objects.filter(role__code=Role.DEPT_APPROVER, is_active=True)
     if requisition.department:
         dept_approvers = approvers.filter(department=requisition.department)
         if dept_approvers.exists():
             approvers = dept_approvers
-        elif requisition.department.organization:
-            org_approvers = approvers.filter(organization=requisition.department.organization)
-            if org_approvers.exists():
-                approvers = org_approvers
+        elif target_org:
+            approvers = approvers.filter(
+                Q(organization=target_org) | Q(department__organization=target_org)
+            )
+    elif target_org:
+        approvers = approvers.filter(
+            Q(organization=target_org) | Q(department__organization=target_org)
+        )
 
     approver_list = list(approvers)
     if requisition.cost_center and requisition.cost_center.manager:
@@ -216,13 +231,17 @@ def submit_purchase_requisition_service(
             approver_list.append(requisition.cost_center.manager)
 
     if requisition.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
-        finance_users = User.objects.filter(role__code=Role.FINANCE_AP)
-        for fin_user in finance_users:
+        proc_users = User.objects.filter(role__code=Role.PROC_MGR, is_active=True)
+        if target_org:
+            proc_users = proc_users.filter(
+                Q(organization=target_org) | Q(department__organization=target_org)
+            )
+        for proc_user in proc_users:
             Notification.objects.create(
-                recipient=fin_user,
+                recipient=proc_user,
                 notification_type=Notification.TYPE_APPROVAL_REQUIRED,
-                title=f"Budget Alert: PR {requisition.pr_number} Exceeds Budget",
-                message=f"Requisition {requisition.pr_number} (${requisition.total_amount:,.2f}) exceeds available budget for Cost Center {requisition.cost_center.code} and requires budget exception approval.",
+                title=f"Budget Exception Alert: PR {requisition.pr_number} Exceeds Budget",
+                message=f"Requisition {requisition.pr_number} (${requisition.total_amount:,.2f}) exceeds available budget for Cost Center {requisition.cost_center.code} and requires Procurement Manager approval.",
                 target_url=f"/requisitions/{requisition.id}/",
             )
         for approver in approver_list:
@@ -230,7 +249,7 @@ def submit_purchase_requisition_service(
                 recipient=approver,
                 notification_type=Notification.TYPE_APPROVAL_REQUIRED,
                 title=f"Budget Alert: PR {requisition.pr_number} Exceeds Budget",
-                message=f"Requisition {requisition.pr_number} (${requisition.total_amount:,.2f}) exceeds available budget for Cost Center {requisition.cost_center.code} and is queued for budget exception review.",
+                message=f"Requisition {requisition.pr_number} (${requisition.total_amount:,.2f}) exceeds available budget for Cost Center {requisition.cost_center.code} and is queued for Procurement Manager budget exception review.",
                 target_url=f"/requisitions/{requisition.id}/",
             )
     else:
@@ -276,6 +295,57 @@ def approve_purchase_requisition_service(
     from apps.accounts.models import Role, User
     from apps.notifications.models import Notification
 
+    previous_status = requisition.status
+
+    if requisition.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
+        approver_role_code = getattr(approver, "role_code", None) or (
+            approver.role.code if hasattr(approver, "role") and approver.role else None
+        )
+        if not (approver.is_superuser or approver_role_code in [Role.PROC_MGR, Role.SUPER_ADMIN]):
+            raise ValidationError("Permission Denied: Only Procurement Manager can approve a budget overrun exception.")
+        # Procurement Manager is approving an overrun explicitly, force the reservation
+        check_and_reserve_budget_service(
+            requisition=requisition, requested_by_user=approver, force_overrun=True
+        )
+        requisition.status = PurchaseRequisition.STATUS_APPROVED
+        requisition.save(update_fields=["status", "updated_at"])
+
+        record_approval_action_service(
+            target_object_id=requisition.id,
+            target_model_name="PurchaseRequisition",
+            actor=approver,
+            action=ApprovalAction.ACTION_APPROVE,
+            previous_state=previous_status,
+            new_state=requisition.status,
+            comments=comments or "Budget overrun exception approved by Procurement Manager.",
+        )
+
+        if requisition.requester:
+            try:
+                Notification.objects.create(
+                    recipient=requisition.requester,
+                    notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+                    title=f"Requisition Approved: {requisition.pr_number}",
+                    message=f"Your requisition {requisition.pr_number} has been approved by Procurement Manager (Budget Overrun Exception) and is progressing to sourcing/PO execution.",
+                    target_url=f"/requisitions/{requisition.id}/",
+                )
+            except Exception:
+                pass
+        try:
+            proc_execs = User.objects.filter(role__code=Role.PROC_EXEC, is_active=True)
+            for pe in proc_execs:
+                Notification.objects.create(
+                    recipient=pe,
+                    notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+                    title="Approved PR Ready for Sourcing",
+                    message=f"Requisition {requisition.pr_number} has been approved by {approver.email} and is ready on your Sourcing Intake.",
+                    target_url=f"/requisitions/{requisition.id}/",
+                )
+        except Exception:
+            pass
+
+        return requisition
+
     # Evaluate approval chain for this requisition
     chain = evaluate_approval_chain(
         module=ApprovalPolicy.MODULE_PR,
@@ -319,20 +389,31 @@ def approve_purchase_requisition_service(
                         raise ValidationError("Department Approver can only approve requisitions for their own department.")
                 else:
                     is_authorized = True
+            elif approver_role_code in [Role.PROC_MGR, Role.SUPER_ADMIN]:
+                # Procurement Manager executive oversight on PR approval chain
+                is_authorized = True
+
+        # Enforce multi-tenant organization boundary: Approver must belong to the requisition's organization
+        target_org = (
+            requisition.department.organization
+            if requisition.department and requisition.department.organization
+            else (
+                requisition.cost_center.department.organization
+                if requisition.cost_center and requisition.cost_center.department
+                else getattr(requisition.requester, "effective_organization", None)
+            )
+        )
+        approver_org = getattr(approver, "effective_organization", None) or getattr(approver, "organization", None)
+        if target_org and approver_org and target_org.id != approver_org.id and not (approver.is_superuser and not approver.organization_id):
+            raise ValidationError(
+                f"Access Denied: You cannot approve requisitions belonging to another organization ({target_org.name})."
+            )
 
         if not is_authorized:
             raise ValidationError(
                 f"User '{approver.email}' is not authorized to approve step {step_info['step_number']}. "
                 f"Required role: '{required_role.name}'."
             )
-
-    previous_status = requisition.status
-
-    if requisition.status == PurchaseRequisition.STATUS_BUDGET_REVIEW:
-        # Finance is approving an overrun explicitly, force the reservation
-        check_and_reserve_budget_service(
-            requisition=requisition, requested_by_user=approver, force_overrun=True
-        )
 
     # Determine next status based on multi-step chain (SMK-PR-050)
     is_final_step = True
@@ -372,6 +453,12 @@ def approve_purchase_requisition_service(
                 pass
         try:
             proc_execs = User.objects.filter(role__code=Role.PROC_EXEC, is_active=True)
+            if target_org:
+                proc_execs = proc_execs.filter(
+                    Q(organization=target_org)
+                    | Q(department__organization=target_org)
+                    | Q(cost_center__department__organization=target_org)
+                ).distinct()
             for pe in proc_execs:
                 Notification.objects.create(
                     recipient=pe,
@@ -389,15 +476,18 @@ def approve_purchase_requisition_service(
             if next_step["effective_approver"]:
                 target_users = [next_step["effective_approver"]]
             else:
-                target_users = list(User.objects.filter(role=next_role, is_active=True))
+                target_users_qs = User.objects.filter(role=next_role, is_active=True)
+                if target_org:
+                    target_users_qs = target_users_qs.filter(
+                        Q(organization=target_org)
+                        | Q(department__organization=target_org)
+                        | Q(cost_center__department__organization=target_org)
+                    ).distinct()
+                target_users = list(target_users_qs)
                 if next_role.code == Role.DEPT_APPROVER and requisition.department:
                     dept_users = [u for u in target_users if u.department == requisition.department]
                     if dept_users:
                         target_users = dept_users
-                elif next_role.code == Role.PROC_MGR and requisition.department and getattr(requisition.department, "organization", None):
-                    org_mgrs = [u for u in target_users if u.organization == requisition.department.organization]
-                    if org_mgrs:
-                        target_users = org_mgrs
 
             for u in target_users:
                 Notification.objects.create(

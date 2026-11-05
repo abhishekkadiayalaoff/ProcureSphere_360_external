@@ -20,6 +20,7 @@ role_app_mapping = {
         "organization",
         "notifications",
         "reports",
+        "core",
     ],
     Role.FINANCE_AP: ["invoices", "budgets", "audit", "accounts", "orders"],
     Role.STORES_RECEIVER: ["receipts", "orders", "vendors", "accounts"],

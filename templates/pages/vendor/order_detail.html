@@ -185,10 +185,28 @@
                         <button type="button" class="btn btn-warning btn-sm text-dark fw-bold px-3 shadow-sm" data-bs-toggle="collapse" data-bs-target="#ackFormCollapse">
                             <i class="fa-solid fa-file-signature me-1"></i> Submit Acknowledgement
                         </button>
+                        <button type="button" class="btn btn-outline-danger btn-sm fw-bold px-3 shadow-sm" data-bs-toggle="collapse" data-bs-target="#rejectFormCollapse">
+                            <i class="fa-solid fa-ban me-1"></i> Reject PO
+                        </button>
                         {% endif %}
                     </div>
 
                     {% if can_acknowledge %}
+                    <div class="collapse mt-3 pt-3 border-top border-danger border-opacity-25" id="rejectFormCollapse">
+                        <form method="post" action="{% url 'vendor_purchase_order_reject' po_id=po.id %}">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold text-dark">Rejection Reason (Required)</label>
+                                <textarea name="rejection_reason" class="form-control" rows="2" required placeholder="e.g., We cannot fulfil this order at the quoted price / within the required timeline."></textarea>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="collapse" data-bs-target="#rejectFormCollapse">Cancel</button>
+                                <button type="submit" class="btn btn-danger btn-sm fw-bold px-3 shadow-sm">
+                                    <i class="fa-solid fa-ban me-1"></i> Reject Purchase Order
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                     <div class="collapse mt-3 pt-3 border-top border-warning border-opacity-25" id="ackFormCollapse">
                         <form method="post" action="{% url 'vendor_purchase_order_acknowledge' po_id=po.id %}">
                             {% csrf_token %}

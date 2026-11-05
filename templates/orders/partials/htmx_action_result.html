@@ -6,7 +6,7 @@
         amended to V{{ po.version }} (Amendment #{{ amendment.amendment_number }}). Prior version preserved.
     {% elif po %}
         <i class="fa-solid fa-circle-check me-1"></i>
-        Purchase Order <a href="{% url 'order_detail' po.id %}" class="alert-link">{{ po.po_number }}</a> generated.
+        Draft Purchase Order <a href="{% url 'order_detail' po.id %}" class="alert-link">{{ po.po_number }}</a> created from the approved award. Submit it for approval to continue the lifecycle.
     {% else %}
         <i class="fa-solid fa-circle-check me-1"></i>Action completed.
     {% endif %}

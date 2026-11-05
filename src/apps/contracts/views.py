@@ -629,7 +629,6 @@ def dashboard_view(request):
 
     from .selectors import (
         get_contracts_pending_legal_review,
-        get_contracts_qs,
         get_expiring_contracts,
         get_legal_dashboard_metrics,
         get_pending_milestones,
@@ -637,15 +636,12 @@ def dashboard_view(request):
         get_pending_vendor_verifications_qs,
     )
 
-    user_contracts = get_contracts_qs(user=request.user)
-    pending_legal = get_contracts_pending_legal_review().filter(
-        id__in=user_contracts.values_list("id", flat=True)
-    )
+    pending_legal = get_contracts_pending_legal_review(user=request.user)
     expiring_contracts = get_expiring_contracts(days=30, user=request.user)
     pending_obligations = get_pending_obligations(user=request.user)
     pending_milestones = get_pending_milestones(user=request.user)
     metrics = get_legal_dashboard_metrics(user=request.user)
-    pending_vendor_verifications = get_pending_vendor_verifications_qs()
+    pending_vendor_verifications = get_pending_vendor_verifications_qs(user=request.user)
 
     context = {
         "metrics": metrics,

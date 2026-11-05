@@ -566,6 +566,8 @@ def test_po_amendment_guards_against_reducing_below_received_quantity(rbac_users
         ],
         created_by_user=rbac_users["proc_exec"],
     )
+    po.status = PurchaseOrder.STATUS_ISSUED
+    po.save(update_fields=["status"])
     line = po.lines.first()
     line.quantity_received = Decimal("6.00")
     line.save(update_fields=["quantity_received"])
@@ -602,6 +604,8 @@ def test_po_amendment_unauthorized_role_rejected(rbac_users, base_org_data):
         ],
         created_by_user=rbac_users["proc_exec"],
     )
+    po.status = PurchaseOrder.STATUS_ISSUED
+    po.save(update_fields=["status"])
 
     with pytest.raises(ValidationError, match="Only procurement roles or Super Admin"):
         amend_purchase_order_service(

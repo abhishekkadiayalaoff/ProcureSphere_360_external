@@ -44,12 +44,11 @@ def get_sourcing_events_for_user(user):
         )
     if can_view_events(user):
         if not user.is_superuser:
-            user_dept = getattr(user, "department", None)
-            user_org = getattr(user_dept, "organization", None) if user_dept else None
+            user_org = getattr(user, "effective_organization", None)
             if user_org:
                 qs = qs.filter(
                     Q(requisition__department__organization=user_org)
-                    | Q(requisition__isnull=True, created_by__department__organization=user_org)
+                    | Q(requisition__isnull=True, created_by__organization=user_org)
                 )
         return qs
     return qs.none()
@@ -101,10 +100,22 @@ def search_sourcing_events(queryset, params):
     return queryset
 
 
-def get_sourcing_dashboard_metrics() -> dict:
-    """RFQ/RFP KPIs for the Procurement Executive dashboard (one aggregate query)."""
+def get_sourcing_dashboard_metrics(user=None) -> dict:
+    """RFQ/RFP KPIs for the Procurement Executive dashboard (one aggregate query).
+
+    Scoped to the requesting user's organization when one is resolvable, so a
+    new organization never sees another organization's sourcing activity."""
+    from apps.organization.selectors import resolve_user_scope_organization
+
     now = timezone.now()
-    return SourcingEvent.objects.aggregate(
+    qs = SourcingEvent.objects.all()
+    scoped_org = resolve_user_scope_organization(user)
+    if scoped_org:
+        qs = qs.filter(
+            Q(requisition__department__organization=scoped_org)
+            | Q(requisition__isnull=True, created_by__department__organization=scoped_org)
+        )
+    return qs.aggregate(
         total=Count("id"),
         draft=Count("id", filter=Q(status=SourcingEvent.STATUS_DRAFT)),
         published=Count("id", filter=Q(status=SourcingEvent.STATUS_PUBLISHED)),

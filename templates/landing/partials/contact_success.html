@@ -47,7 +47,7 @@
   <p style="font-size:16px;color:#64748b;max-width:460px;line-height:1.65;margin:0 0 8px 0;">
     Thank you, <strong>{{ name }}</strong>! Your RFP brief and workflow details have been successfully received.
   </p>
-  <p style="font-size:14px;color:#94a3b8;margin:0 0 32px 0;font-family:'DM Mono',monospace;">{{ email }}</p>
+  <p style="font-size:14px;color:#94a3b8;margin:0 0 32px 0;font-family:'DM Mono',monospace;">{{ email }}{% if phone %} • {{ phone }}{% endif %}</p>
 
   <!-- Back to form button -->
   <button
@@ -81,6 +81,13 @@
 
 <script>
 function resetContactForm() {
+  var img = document.getElementById('contact-vendor-img');
+  var cropper = document.querySelector('.contact-avatar-cropper');
+  if (img) {
+    img.src = '/static/landing/roles/vendor/idle.webp';
+    img.classList.remove('avatar-active-state');
+  }
+  
   var csrfToken = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
   document.getElementById('contact-form-wrapper').innerHTML = `
     <form class="rfp-form" id="contact-form"
@@ -91,22 +98,89 @@ function resetContactForm() {
       style="animation:contactSuccessIn 0.3s ease forwards;"
     >
       <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
-      <div class="form-grid">
-        <label><span>Name</span><input required name="name" placeholder="Your name" /></label>
-        <label><span>Email</span><input required type="email" name="email" placeholder="yourname@gmail.com" /></label>
-        <label><span>Company</span><input required name="company" placeholder="Company name" /></label>
-        <label><span>Procurement scope</span>
-          <select required name="scope"><option value="" disabled selected>Select a scope</option><option>Source-to-pay</option><option>Supplier management</option><option>Invoice and financial control</option><option>Contract lifecycle</option><option>Vendor participation</option></select>
+      <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <label>
+          <span>Name</span>
+          <input
+            required
+            type="text"
+            name="name"
+            id="contact-name"
+            placeholder="Your name"
+            pattern="^[A-Za-z\\s]{2,60}$"
+            title="Numbers and special characters are not allowed. Please enter letters only."
+            oninvalid="if(this.validity.patternMismatch){this.setCustomValidity('Numbers and special characters are not allowed in Name. Please use letters only.')}else{this.setCustomValidity('')}"
+            oninput="this.setCustomValidity('')"
+          />
+        </label>
+        <label>
+          <span>Mobile Number</span>
+          <div class="phone-input-group" style="display:flex;gap:8px;align-items:stretch;">
+            <select
+              name="country_code"
+              id="contact-country-code"
+              style="width:90px;flex-shrink:0;padding:14px 6px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;outline:none;"
+              onchange="updatePhoneValidation(this)"
+            >
+              <option value="+91" data-len="10" data-ph="9876543210" data-pat="^[6-9][0-9]{9}$" selected>🇮🇳 +91</option>
+              <option value="+1" data-len="10" data-ph="2025550143" data-pat="^[2-9][0-9]{9}$">🇺🇸 +1</option>
+              <option value="+44" data-len="10" data-ph="7911123456" data-pat="^[1-9][0-9]{9}$">🇬🇧 +44</option>
+              <option value="+971" data-len="9" data-ph="501234567" data-pat="^[5][0-9]{8}$">🇦🇪 +971</option>
+              <option value="+65" data-len="8" data-ph="81234567" data-pat="^[89][0-9]{7}$">🇸🇬 +65</option>
+              <option value="+61" data-len="9" data-ph="412345678" data-pat="^[4][0-9]{8}$">🇦🇺 +61</option>
+              <option value="+49" data-len="10" data-ph="1512345678" data-pat="^[1][0-9]{9,10}$">🇩🇪 +49</option>
+              <option value="+966" data-len="9" data-ph="501234567" data-pat="^[5][0-9]{8}$">🇸🇦 +966</option>
+            </select>
+            <input
+              required
+              type="tel"
+              name="phone"
+              id="contact-phone"
+              placeholder="9876543210"
+              maxlength="10"
+              minlength="10"
+              pattern="^[6-9][0-9]{9}$"
+              title="Please enter valid 10-digit mobile number"
+              oninput="this.value = this.value.replace(/\\D/g, '')"
+              style="flex:1;min-width:0;"
+            />
+          </div>
         </label>
       </div>
-      <label><span>Message</span><textarea required name="message" rows="5" placeholder="Tell us what you want to connect..."></textarea></label>
+      <label>
+        <span>Email</span>
+        <input
+          required
+          type="email"
+          name="email"
+          id="contact-email"
+          placeholder="yourname@gmail.com"
+          pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+          title="Please enter a valid email address with @"
+        />
+      </label>
+      <label>
+        <span>Message</span>
+        <textarea
+          required
+          name="message"
+          id="contact-message"
+          rows="5"
+          placeholder="Tell us what you want to connect..."
+          minlength="10"
+          maxlength="2000"
+          style="font-family: inherit !important; font-size: 14px !important;"
+        ></textarea>
+      </label>
       <div class="form-actions">
-        <button class="button button-primary" type="submit">Request a Demo
+        <button class="button button-primary" type="submit">
+          Contact Us
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>
         </button>
       </div>
     </form>`;
   if (typeof htmx !== 'undefined') htmx.process(document.getElementById('contact-form'));
+  if (typeof updatePhoneValidation === 'function') updatePhoneValidation();
   // Reset vendor image if visible
   var img = document.getElementById('contact-vendor-img');
   if (img) {
@@ -115,4 +189,18 @@ function resetContactForm() {
     img.style.filter = '';
   }
 }
+</script>
+
+<script>
+(function() {
+  var img = document.getElementById('contact-vendor-img');
+  var cropper = document.querySelector('.contact-avatar-cropper');
+  if (img) {
+    img.src = '/static/landing/roles/vendor/active.webp';
+    img.classList.remove('avatar-active-state');
+    void img.offsetWidth;
+    img.classList.add('avatar-active-state');
+  }
+  
+})();
 </script>

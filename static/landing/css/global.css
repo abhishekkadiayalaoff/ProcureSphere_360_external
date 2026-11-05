@@ -2769,3 +2769,39 @@ button { border: 0; cursor: pointer; }
 
 
 
+
+/* Responsive Navigation Guard (Prevents double navbars and mobile link wrapping) */
+@media (max-width: 1024px) {
+  .navarino-links-desktop {
+    display: none !important;
+  }
+  .navarino-blue-btn {
+    display: none !important;
+  }
+  .navarino-mobile-toggle {
+    display: inline-flex !important;
+  }
+  .nav-inner {
+    justify-content: space-between !important;
+    min-height: 64px !important;
+    height: 64px !important;
+  }
+}
+@media (max-width: 540px) {
+  .nav-login-btn {
+    display: none !important;
+  }
+}
+
+/* Overlay menu display guards */
+.overlay-menu-container:not(.is-open) {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+@media (min-width: 1025px) {
+  .overlay-menu-container {
+    display: none !important;
+  }
+}

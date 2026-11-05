@@ -1,53 +1,187 @@
 {% with p=request.path st=request.GET.status %}
-<aside class="offcanvas-lg offcanvas-start bg-dark text-white border-end border-secondary border-opacity-25" tabindex="-1" id="procExecSidebar" aria-labelledby="procExecSidebarLabel" style="width: 268px; flex-shrink: 0;">
-    <div class="d-flex flex-column h-100 w-100 sticky-lg-top" style="max-height: 100vh;">
-        <!-- Mobile Drawer Header (Hidden on Desktop) -->
-        <div class="d-flex d-lg-none align-items-center justify-content-between px-3 py-2.5 border-bottom border-secondary border-opacity-25">
-            <span class="fw-bold text-white small" id="procExecSidebarLabel"><i class="fa-solid fa-layer-group text-primary me-2"></i>Procurement Desk</span>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#procExecSidebar" aria-label="Close menu"></button>
-        </div>
+<style>
+    @media (min-width: 992px) {
+        aside.proc-exec-sidebar-desktop,
+        .proc-exec-sidebar-desktop,
+        aside#procExecSidebar {
+            width: 260px !important;
+            min-width: 260px !important;
+            flex-shrink: 0 !important;
+            position: sticky !important;
+            top: 58px !important;
+            height: calc(100vh - 58px) !important;
+            max-height: calc(100vh - 58px) !important;
+            overflow: hidden !important;
+            overflow-y: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            z-index: 1000;
+            align-self: flex-start;
+            background-color: #212529 !important;
+        }
+        .proc-exec-sidebar-desktop nav#procExecNav,
+        .proc-exec-sidebar-desktop nav {
+            overflow-y: auto !important;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.15) transparent;
+        }
+        .proc-exec-sidebar-desktop nav::-webkit-scrollbar {
+            width: 4px;
+        }
+        .proc-exec-sidebar-desktop nav::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+        }
+    }
 
-        <!-- Navigation -->
-        <nav class="flex-grow-1 overflow-auto px-3 py-3" aria-label="Procurement Executive">
-            <ul class="nav nav-pills flex-column gap-1 w-100 small">
-                <li class="nav-item"><a href="/" class="nav-link rounded-3 py-2 px-3 {% if p == '/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-chart-pie me-2"></i>Dashboard</a></li>
+    /* Section label style */
+    .nav-section-label {
+        font-size: 0.63rem;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.4);
+        padding: 0.6rem 0.75rem 0.2rem;
+        margin-top: 0.25rem;
+    }
 
-                <li class="text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">Vendors</li>
-                <li class="nav-item"><a href="{% url 'vendor_onboarding' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/vendors/onboarding/' or p == '/vendors/create/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-id-card me-2"></i>Vendor Onboarding &amp; KYC</a></li>
-                <li class="nav-item"><a href="{% url 'vendor_list' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/vendors/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-building-user me-2"></i>Vendor Master &amp; Risk</a></li>
-                <li class="nav-item"><a href="{% url 'vendor_governance' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/vendors/governance/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-shield-halved me-2"></i>Vendor Governance</a></li>
+    /* Top-level nav link */
+    .vendor-navlink,
+    .proc-navlink {
+        display: flex;
+        align-items: center;
+        padding: 0.45rem 0.75rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: rgba(255,255,255,0.75);
+        text-decoration: none;
+        transition: background 0.15s, color 0.15s;
+    }
+    .vendor-navlink:hover,
+    .vendor-navlink:focus,
+    .proc-navlink:hover,
+    .proc-navlink:focus {
+        background: rgba(255,255,255,0.08);
+        color: #fff;
+    }
+    .vendor-navlink.active-nav-item,
+    .proc-navlink.active-nav-item {
+        background: #0d6efd !important;
+        color: #fff !important;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(13,110,253,0.35);
+    }
+    .vendor-navlink .nav-icon,
+    .proc-navlink .nav-icon {
+        width: 20px;
+        text-align: center;
+        margin-right: 0.65rem;
+        flex-shrink: 0;
+    }
+</style>
 
-                <li class="text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">Sourcing</li>
-                <li class="nav-item"><a href="{% url 'sourcing_list' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/sourcing-events/' or p == '/sourcing-events/create/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-gavel me-2"></i>RFQ / RFP</a></li>
-                <li class="nav-item"><a href="{% url 'bid_portal_dashboard' %}" class="nav-link rounded-3 py-2 px-3 {% if '/bid-portal/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-envelope-open-text me-2"></i>Vendor Bid Portal</a></li>
-                <li class="nav-item"><a href="{% url 'evaluation_dashboard' %}" class="nav-link rounded-3 py-2 px-3 {% if '/evaluation/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-scale-balanced me-2"></i>Evaluation &amp; Award</a></li>
-
-                <li class="text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">Execution</li>
-                <li class="nav-item"><a href="{% url 'orders_list' %}" class="nav-link rounded-3 py-2 px-3 {% if '/purchase-orders/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-cart-shopping me-2"></i>Purchase Orders</a></li>
-                <li class="nav-item"><a href="{% url 'invoices_list' %}" class="nav-link rounded-3 py-2 px-3 {% if '/invoices/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-file-invoice-dollar me-2"></i>Invoices <span class="badge bg-secondary bg-opacity-50 text-light ms-1" style="font-size: 0.65rem;">View</span></a></li>
-                <li class="nav-item"><a href="{% url 'scorecard_list' %}" class="nav-link rounded-3 py-2 px-3 {% if '/scorecards/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-award me-2"></i>Supplier Performance</a></li>
-                <li class="nav-item"><a href="{% url 'notification_list' %}" class="nav-link rounded-3 py-2 px-3 {% if '/notifications/' in p %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-bell me-2"></i>Notifications / Escalation</a></li>
-                <li class="text-uppercase text-secondary fw-bold px-2 pt-3 pb-1" style="font-size: 0.68rem; letter-spacing: 0.08em;">Reports & Audit</li>
-                <li class="nav-item"><a href="{% url 'proc_exec_pr_aging' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/reports/pr-aging/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-clock-rotate-left me-2"></i>PR Aging</a></li>
-                <li class="nav-item"><a href="{% url 'proc_exec_sourcing_cycle' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/reports/sourcing-cycle/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-chart-column me-2"></i>Sourcing Cycle</a></li>
-                <li class="nav-item"><a href="{% url 'proc_exec_po_status' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/reports/po-status/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-clipboard-check me-2"></i>PO Status</a></li>
-                <li class="nav-item"><a href="{% url 'proc_exec_audit_report' %}" class="nav-link rounded-3 py-2 px-3 {% if p == '/reports/audit-trail/' %}active bg-primary text-white fw-bold{% else %}text-light text-opacity-75{% endif %}"><i class="fa-solid fa-fingerprint me-2"></i>Immutable Audit Report</a></li>
-            </ul>
-        </nav>
-
-        <!-- User & sign-out -->
-        <div class="border-top border-secondary border-opacity-25 px-3 py-3 mt-auto">
-            <div class="d-flex align-items-center justify-content-between gap-2 w-100">
-                <div class="d-flex align-items-center overflow-hidden me-2" style="min-width: 0; flex: 1 1 auto;">
-                    <i class="fa-solid fa-circle-user text-info fs-4 me-2 flex-shrink-0"></i>
-                    <div class="overflow-hidden" style="min-width: 0; flex: 1 1 auto;">
-                        <div class="small fw-semibold text-white text-truncate" title="{{ user.email }}">{{ user.email }}</div>
-                        <div class="badge bg-info text-dark rounded-pill" style="font-size: 0.65rem;">Procurement Executive</div>
-                    </div>
-                </div>
-                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-circle flex-shrink-0 d-inline-flex align-items-center justify-content-center" style="width: 32px; height: 32px; padding: 0;" title="Sign out"><i class="fa-solid fa-arrow-right-from-bracket"></i><span class="visually-hidden">Sign out</span></a>
+<aside class="offcanvas-lg offcanvas-start bg-dark text-white border-end border-secondary border-opacity-25 shadow-sm proc-exec-sidebar-desktop" tabindex="-1" id="procExecSidebar" aria-labelledby="procExecSidebarLabel" style="width: 260px; min-width: 260px; background-color: #212529 !important;">
+    <!-- Mobile Drawer Header (Hidden on Desktop) -->
+    <div class="sidebar-brand-box px-3 py-3 border-bottom border-secondary border-opacity-25 flex-shrink-0 d-flex d-lg-none align-items-center justify-content-between">
+        <a href="/procurement/" class="d-flex align-items-center text-white text-decoration-none" id="procExecSidebarLabel">
+            <div class="brand-icon-box me-2 flex-shrink-0" style="width: 32px; height: 32px; background: rgba(0, 184, 217, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
+                <i class="fa-solid fa-layer-group text-cyan"></i>
             </div>
-        </div>
+            <div class="overflow-hidden">
+                <div class="fs-6 fw-bold tracking-tight text-white d-block text-truncate">ProcureSphere <span class="text-cyan">360</span></div>
+                <span class="badge bg-secondary bg-opacity-50 text-light px-2 py-0.5 rounded-pill" style="font-size: 0.62rem; letter-spacing: 0.04em;">PROCUREMENT EXECUTIVE</span>
+            </div>
+        </a>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" data-bs-target="#procExecSidebar" aria-label="Close menu"></button>
     </div>
+
+    <!-- Navigation (Scrollable, NO FOOTER, NO DUPLICATE LOGOUT BUTTON) -->
+    <nav class="flex-grow-1 overflow-y-auto px-2 py-3 d-flex flex-column gap-1" id="procExecNav" style="flex: 1 1 0%; min-height: 0;" aria-label="Procurement Executive Navigation">
+        <div class="d-flex align-items-center justify-content-between px-2 mb-2 text-secondary text-uppercase fw-bold" style="font-size: 0.68rem; letter-spacing: 0.06em;">
+            <span>Procurement Desk</span>
+            <i class="fa-solid fa-shield-halved text-cyan" style="font-size:0.75rem;"></i>
+        </div>
+
+        <!-- Main Section -->
+        <div class="nav-section-label">Main</div>
+        <a href="/procurement/" class="vendor-navlink proc-navlink {% if p == '/procurement/' or p == '/procurement/dashboard/' or p == '/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-gauge-high nav-icon text-cyan"></i><span>Dashboard</span>
+        </a>
+
+        <!-- Vendors Section -->
+        <div class="nav-section-label">Vendors</div>
+        <a href="{% url 'vendor_onboarding' %}" class="vendor-navlink proc-navlink {% if p == '/vendors/onboarding/' or p == '/vendors/create/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-id-card nav-icon text-info"></i><span>Vendor Onboarding &amp; KYC</span>
+        </a>
+        <a href="{% url 'vendor_list' %}" class="vendor-navlink proc-navlink {% if p == '/vendors/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-building-user nav-icon text-success"></i><span>Vendor Master &amp; Risk</span>
+        </a>
+        <a href="{% url 'vendor_governance' %}" class="vendor-navlink proc-navlink {% if p == '/vendors/governance/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-shield-halved nav-icon text-danger"></i><span>Vendor Governance</span>
+        </a>
+
+        <!-- Sourcing Section -->
+        <div class="nav-section-label">Sourcing</div>
+        <a href="{% url 'sourcing_list' %}" class="vendor-navlink proc-navlink {% if p == '/sourcing-events/' or p == '/sourcing-events/create/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-gavel nav-icon text-warning"></i><span>RFQ / RFP</span>
+        </a>
+        <a href="{% url 'bid_portal_dashboard' %}" class="vendor-navlink proc-navlink {% if '/bid-portal/' in p %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-file-invoice-dollar nav-icon text-success"></i><span>Vendor Bid Portal</span>
+        </a>
+        <a href="{% url 'evaluation_dashboard' %}" class="vendor-navlink proc-navlink {% if '/evaluation/' in p %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-award nav-icon text-warning"></i><span>Evaluation &amp; Award</span>
+        </a>
+
+        <!-- Execution Section -->
+        <div class="nav-section-label">Execution</div>
+        <a href="{% url 'orders_list' %}" class="vendor-navlink proc-navlink {% if '/purchase-orders/' in p %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-cart-shopping nav-icon text-cyan"></i><span>Purchase Orders</span>
+        </a>
+        <a href="{% url 'invoices_list' %}" class="vendor-navlink proc-navlink d-flex align-items-center justify-content-between {% if '/invoices/' in p %}active-nav-item{% endif %}">
+            <div class="d-flex align-items-center min-width-0">
+                <i class="fa-solid fa-file-invoice nav-icon" style="color:#a78bfa;"></i><span class="text-truncate">Invoices</span>
+            </div>
+            <span class="badge bg-secondary bg-opacity-50 text-light px-2 py-0.5 rounded-pill flex-shrink-0" style="font-size: 0.65rem;">View</span>
+        </a>
+        <a href="{% url 'scorecard_list' %}" class="vendor-navlink proc-navlink {% if '/scorecards/' in p %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-chart-line nav-icon text-success"></i><span>Supplier Performance</span>
+        </a>
+        <a href="{% url 'notification_list' %}" class="vendor-navlink proc-navlink {% if '/notifications/' in p %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-bell nav-icon text-warning"></i><span>Notifications</span>
+        </a>
+
+        <!-- Reports & Audit Section -->
+        <div class="nav-section-label">Reports &amp; Audit</div>
+        <a href="{% url 'proc_exec_pr_aging' %}" class="vendor-navlink proc-navlink {% if p == '/reports/pr-aging/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-clock-rotate-left nav-icon text-warning"></i><span>PR Aging</span>
+        </a>
+        <a href="{% url 'proc_exec_sourcing_cycle' %}" class="vendor-navlink proc-navlink {% if p == '/reports/sourcing-cycle/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-chart-column nav-icon text-info"></i><span>Sourcing Cycle</span>
+        </a>
+        <a href="{% url 'proc_exec_po_status' %}" class="vendor-navlink proc-navlink {% if p == '/reports/po-status/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-clipboard-check nav-icon text-success"></i><span>PO Status</span>
+        </a>
+        <a href="{% url 'proc_exec_audit_report' %}" class="vendor-navlink proc-navlink {% if p == '/reports/audit-trail/' %}active-nav-item{% endif %}">
+            <i class="fa-solid fa-fingerprint nav-icon text-secondary"></i><span>Immutable Audit Report</span>
+        </a>
+    </nav>
 </aside>
+
+<script>
+    // Handle offcanvas link clicks on mobile (<992px)
+    document.querySelectorAll('#procExecSidebar a.vendor-navlink, #procExecSidebar a.proc-navlink').forEach(function(link) {
+        link.addEventListener('click', function() {
+            var sidebarEl = document.getElementById('procExecSidebar');
+            if (window.innerWidth < 992 && sidebarEl && typeof bootstrap !== 'undefined') {
+                var offcanvasInstance = bootstrap.Offcanvas.getInstance(sidebarEl);
+                if (offcanvasInstance) {
+                    offcanvasInstance.hide();
+                }
+            }
+        });
+    });
+</script>
 {% endwith %}

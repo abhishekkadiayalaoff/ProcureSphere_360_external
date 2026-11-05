@@ -65,7 +65,7 @@ def test_demo_4_po_execution_amendment_versioning_and_receipts(db_roles):
         vendor=vendor,
     )
 
-    # 2. Generate Purchase Order (Version 1)
+    # 2. Generate Purchase Order (Version 1) — full approval lifecycle
     po = generate_purchase_order_service(
         vendor=vendor,
         cost_center=cost_center,
@@ -79,10 +79,26 @@ def test_demo_4_po_execution_amendment_versioning_and_receipts(db_roles):
         created_by_user=proc_exec,
     )
 
-    assert po.status == PurchaseOrder.STATUS_ISSUED
+    assert po.status == PurchaseOrder.STATUS_DRAFT
     assert po.version == 1
     assert po.subtotal == Decimal("50000.00")
     assert po.total_amount == Decimal("55000.00")  # Subtotal $50k + 10% Tax $5k
+
+    from apps.orders.services import (
+        approve_purchase_order_service,
+        issue_purchase_order_service,
+        submit_purchase_order_for_approval_service,
+    )
+
+    proc_manager = User.objects.create_user(
+        email="proc_mgr@hpe.com", password="Password123!", role=db_roles[Role.PROC_MGR]
+    )
+    po = submit_purchase_order_for_approval_service(po=po, actor=proc_exec)
+    assert po.status == PurchaseOrder.STATUS_APPROVAL
+    po = approve_purchase_order_service(po=po, approver=proc_manager, comments="Approved")
+    assert po.status == PurchaseOrder.STATUS_APPROVED
+    po = issue_purchase_order_service(po=po, actor=proc_exec)
+    assert po.status == PurchaseOrder.STATUS_ISSUED
 
     # 3. Vendor Acknowledges PO
     po = acknowledge_purchase_order_service(po=po, vendor_user=vendor_user)

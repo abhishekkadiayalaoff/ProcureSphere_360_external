@@ -11,6 +11,31 @@
      Tracks clicks on "Home" so navigation to "/" skips the intro,
      while page refresh (F5 / Ctrl+R) always plays the intro.
   ──────────────────────────────────────────────*/
+  // Global Contact Navigation Helper (bypasses intro video, jumps directly to contact form, clean URL)
+  window.goToContact = function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    sessionStorage.setItem('ps360_skip_intro', 'true');
+    sessionStorage.setItem('ps360_direct_contact', 'true');
+
+    var contactEl = document.getElementById('contact');
+    if (contactEl && (window.location.pathname === '/' || window.location.pathname === '')) {
+      // Already on home page - direct instant jump with clean URL
+      var introScreen = document.getElementById('intro-screen');
+      if (introScreen) {
+        introScreen.style.display = 'none';
+        introScreen.classList.add('slide-up');
+      }
+      var siteShell = document.querySelector('.site-shell');
+      if (siteShell) siteShell.classList.add('intro-finished');
+      contactEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+      window.scrollTo(0, contactEl.offsetTop - 70);
+    } else {
+      // Navigate to clean home URL '/' - never append #contact
+      window.location.href = '/';
+    }
+    return false;
+  };
+
   (function introNavTracker() {
     document.addEventListener('click', function (e) {
       const link = e.target.closest('a, button');
@@ -18,6 +43,9 @@
       const href = link.getAttribute('href') || '';
       if (href === '/' || href === window.location.origin + '/' || href === window.location.origin) {
         sessionStorage.setItem('ps360_clicked_home', 'true');
+      }
+      if (href.includes('contact') || href.includes('#contact')) {
+        sessionStorage.setItem('ps360_skip_intro', 'true');
       }
       if (href.includes('/logout') || href.includes('/admin/logout')) {
         sessionStorage.setItem('ps360_logged_out', 'true');
@@ -196,7 +224,7 @@
     if (overlayLoginBtn) {
       overlayLoginBtn.addEventListener('click', () => {
         closeMenu();
-        openLoginModal();
+        window.location.href = '/login/';
       });
     }
   })();
@@ -225,21 +253,18 @@
   }
 
   function setLoginCharState(state) {
+    // Keep character strictly in idle stage at all times as requested
     const img = document.getElementById('login-char-img');
-    if (!img) return;
-    const states = {
-      normal: '/static/landing/login-states/normal.webp',
-      typing: '/static/landing/login-states/password-typing.webp',
-      failed: '/static/landing/login-states/login-failed.webp',
-      success: '/static/landing/login-states/login-success.webp',
-    };
-    if (states[state]) img.src = states[state];
+    if (img) img.src = '/static/landing/login-states/normal.webp';
   }
 
   (function loginModal() {
-    // Trigger buttons
+    // Direct navigation to dedicated /login/ page
     document.querySelectorAll('#login-btn, #overlay-login-btn').forEach(btn => {
-      btn.addEventListener('click', openLoginModal);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.href = '/login/';
+      });
     });
 
     // Close button
@@ -262,21 +287,21 @@
       }
     });
 
-    // Password field interaction → character state
+    // Password field interaction
     const pwInput = document.getElementById('login-password');
-    if (pwInput) {
-      pwInput.addEventListener('focus', () => setLoginCharState('typing'));
-      pwInput.addEventListener('blur', () => {
-        const form = document.getElementById('login-form');
-        if (form && !form.dataset.loginState) setLoginCharState('normal');
-      });
-    }
 
     // Toggle password visibility
     const togglePw = document.getElementById('toggle-password');
     if (togglePw && pwInput) {
       togglePw.addEventListener('click', () => {
-        pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+        const isPassword = pwInput.type === 'password';
+        pwInput.type = isPassword ? 'text' : 'password';
+        const eyeSvg = togglePw.querySelector('svg');
+        if (eyeSvg) {
+          eyeSvg.innerHTML = isPassword
+            ? '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>'
+            : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        }
       });
     }
 
@@ -296,7 +321,7 @@
 
         // Client-side empty check
         if (!emailVal || !pwVal) {
-          setLoginCharState('failed');
+          // setLoginCharState('failed');
           if (errorEl) {
             errorEl.textContent = 'Please enter both email and password.';
             errorEl.style.display = 'flex';
@@ -332,7 +357,7 @@
           data = await resp.json();
         } catch (_) {
           // Network / parse failure — restore button, show generic error
-          setLoginCharState('failed');
+          // setLoginCharState('failed');
           if (errorEl) {
             errorEl.textContent = 'A network error occurred. Please try again.';
             errorEl.style.display = 'flex';
@@ -344,12 +369,12 @@
         }
 
         if (data && data.ok) {
-          setLoginCharState('success');
+          // setLoginCharState('success');
           // Navigate to role-based dashboard returned by ERP backend
           window.location.href = data.redirect || '/';
         } else {
           // Invalid credentials — stay in modal, show error
-          setLoginCharState('failed');
+          // setLoginCharState('failed');
           if (errorEl) {
             errorEl.textContent = data?.error || 'Invalid email or password. Please try again.';
             errorEl.style.display = 'flex';
@@ -521,6 +546,8 @@
       // Update card states
       document.querySelectorAll('[data-module]').forEach(card => {
         const isActive = parseInt(card.dataset.module, 10) === moduleId;
+        card.classList.toggle('is-active', isActive);
+        card.classList.toggle('is-inspecting', isActive);
         card.style.outline = isActive ? '3.5px solid ' + (card.dataset.accent || '#00d2ff') : '1.5px solid rgba(15,27,45,0.12)';
         card.style.outlineOffset = '2px';
         card.style.transform = isActive ? 'scale(1.025)' : '';

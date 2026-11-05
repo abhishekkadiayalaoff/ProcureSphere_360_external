@@ -1,23 +1,216 @@
-{% extends 'base.html' %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Not Found — ProcureSphere 360</title>
+  <meta name="robots" content="noindex, nofollow" />
 
-{% block title %}404 - Page Not Found — ProcureSphere 360{% endblock %}
+  <!-- Production WebP Favicon Suite -->
+  <link rel="icon" type="image/webp" sizes="32x32" href="{% static 'icons/favicon-32x32.webp' %}">
+  <link rel="icon" type="image/webp" sizes="16x16" href="{% static 'icons/favicon-16x16.webp' %}">
+  <link rel="icon" type="image/webp" href="{% static 'icons/favicon.webp' %}">
+  <link rel="apple-touch-icon" href="{% static 'icons/apple-touch-icon.webp' %}">
+  <link rel="manifest" href="{% static 'icons/site.webmanifest' %}">
+  <meta name="theme-color" content="#f0f6ff">
 
-{% block content %}
-<div class="container py-5 text-center" style="max-width: 600px;">
-    <div class="card border-0 shadow-lg rounded-4 p-4 p-md-5 bg-white">
-        <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-inline-flex align-items-center justify-content-center mb-4" style="width: 88px; height: 88px;">
-            <i class="fa-solid fa-compass-drafting fs-1"></i>
-        </div>
-        <h1 class="fw-bold text-dark mb-2">Page Not Found (404)</h1>
-        <p class="text-muted mb-4 fs-6">The procurement resource, document, or page you requested could not be located or may have been moved.</p>
-        <div class="d-flex justify-content-center gap-2 flex-wrap">
-            <a href="/" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold shadow-sm">
-                <i class="fa-solid fa-house me-2"></i>Return to Dashboard
-            </a>
-            <a href="/requisitions/" class="btn btn-outline-secondary rounded-pill px-4 py-2 fw-semibold">
-                <i class="fa-solid fa-list me-2"></i>View Requisitions
-            </a>
-        </div>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, #f0f6ff 0%, #e2eeff 55%, #d5e6fd 100%);
+      color: #0f172a;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Top Brand Header */
+    .error-header {
+      width: 100%;
+      padding: clamp(20px, 3.5vh, 36px) clamp(20px, 4vw, 48px) 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .error-brand-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+    }
+
+    .error-brand-link:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+    }
+
+    .error-brand-logo {
+      height: clamp(40px, 5.5vh, 54px);
+      width: auto;
+      max-width: 90vw;
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Main Error Canvas */
+    .error-main-stage {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px clamp(16px, 3vw, 32px) clamp(24px, 4vh, 44px);
+      text-align: center;
+    }
+
+    .error-graphic-card {
+      position: relative;
+      width: 100%;
+      max-width: 740px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .error-graphic-img {
+      width: 100%;
+      max-width: 720px;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      border-radius: 24px;
+      filter: drop-shadow(0 16px 40px rgba(29, 78, 216, 0.10));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+
+    /* Action Section */
+    .error-action-wrap {
+      margin-top: clamp(20px, 3vh, 32px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-back-home {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: clamp(12px, 1.8vh, 15px) clamp(28px, 4vw, 38px);
+      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #0284c7 100%);
+      color: #ffffff !important;
+      font-size: clamp(15px, 2vw, 16.5px);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border-radius: 9999px;
+      text-decoration: none;
+      box-shadow: 0 10px 25px -4px rgba(29, 78, 216, 0.42), 0 4px 10px -2px rgba(29, 78, 216, 0.24);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+    }
+
+    .btn-back-home:hover {
+      transform: translateY(-2px) scale(1.025);
+      background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 50%, #0369a1 100%);
+      box-shadow: 0 16px 36px -4px rgba(29, 78, 216, 0.52), 0 6px 14px -2px rgba(29, 78, 216, 0.32);
+      color: #ffffff !important;
+    }
+
+    .btn-back-home:active {
+      transform: translateY(0) scale(0.99);
+    }
+
+    .btn-back-home svg {
+      transition: transform 0.2s ease;
+    }
+
+    .btn-back-home:hover svg {
+      transform: translateX(-2px);
+    }
+
+    /* Footer Meta / Copyright */
+    .error-footer {
+      padding: 16px clamp(16px, 3vw, 32px) 24px;
+      text-align: center;
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    @media (max-width: 640px) {
+      .error-header {
+        padding-top: 20px;
+        padding-bottom: 8px;
+      }
+      .error-graphic-img {
+        border-radius: 16px;
+      }
+      .btn-back-home {
+        width: 100%;
+        max-width: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Logo Section -->
+  <header class="error-header">
+    <a href="/" class="error-brand-link" aria-label="ProcureSphere 360 Home">
+      <img
+        src="{% static 'landing/images/procuresphere_360_nav_brand.webp' %}?v=1"
+        alt="ProcureSphere 360"
+        class="error-brand-logo"
+      />
+    </a>
+  </header>
+
+  <!-- 404 Visual Content Stage -->
+  <main class="error-main-stage">
+    <div class="error-graphic-card">
+      <img
+        src="{% static 'landing/images/404.webp' %}?v=1"
+        alt="404 - Page Not Found"
+        class="error-graphic-img"
+      />
     </div>
-</div>
-{% endblock %}
+
+    <!-- Bottom "Back to Home" Button -->
+    <div class="error-action-wrap">
+      <a href="/" class="btn-back-home">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Back to Home</span>
+      </a>
+    </div>
+  </main>
+
+  <!-- Clean Footer -->
+  <footer class="error-footer">
+    <span>&copy; {% now "Y" %} ProcureSphere 360. All rights reserved.</span>
+  </footer>
+
+</body>
+</html>

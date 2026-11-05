@@ -57,6 +57,11 @@ urlpatterns = [
         name="vendor_purchase_order_acknowledge",
     ),
     path(
+        "purchase-orders/<uuid:po_id>/reject/",
+        views.vendor_purchase_order_reject_view,
+        name="vendor_purchase_order_reject",
+    ),
+    path(
         "purchase-orders/<uuid:po_id>/deliver/",
         views.vendor_purchase_order_deliver_view,
         name="vendor_purchase_order_deliver",

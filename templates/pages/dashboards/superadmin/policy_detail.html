@@ -1,0 +1,190 @@
+<div class="modal-header bg-light border-bottom-0 pb-2 rounded-top-4">
+    <div class="d-flex align-items-center gap-2">
+        <div class="rounded-circle bg-success bg-opacity-10 p-2 text-success">
+            <i class="fa-solid fa-scale-balanced fs-5"></i>
+        </div>
+        <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">{{ policy.name }}</h5>
+            <div class="small text-muted">
+                <span class="badge bg-light text-secondary border">Version {{ policy.version }}</span>
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 ms-1">{{ policy.get_module_display }}</span>
+                {% if policy.is_active and policy.status == 'ACTIVE' %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success ms-1">Active</span>
+                {% elif policy.status == 'DRAFT' %}
+                <span class="badge bg-warning bg-opacity-10 text-warning border border-warning ms-1">Draft</span>
+                {% elif policy.status == 'ARCHIVED' %}
+                <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary ms-1">Archived</span>
+                {% else %}
+                <span class="badge bg-danger bg-opacity-10 text-danger border border-danger ms-1">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<div class="modal-body pt-3 pb-4">
+    <!-- Policy Scope & Amount Overview -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="p-3 bg-light rounded-3 border h-100">
+                <div class="text-secondary small fw-bold text-uppercase mb-2"><i class="fa-solid fa-sitemap me-1 text-primary"></i> Scope & Organization</div>
+                <div class="small mb-1"><strong>Organization:</strong> {{ policy.organization.name|default:"Global (All Organizations)" }}</div>
+                <div class="small mb-1"><strong>Department Scope:</strong> {% if policy.department %}{{ policy.department.name }} [{{ policy.department.code }}]{% else %}<span class="text-muted fst-italic">All Departments (Default)</span>{% endif %}</div>
+                <div class="small"><strong>Cost Center Scope:</strong> {% if policy.cost_center %}{{ policy.cost_center.name }} [{{ policy.cost_center.code }}]{% else %}<span class="text-muted fst-italic">All Cost Centers (Default)</span>{% endif %}</div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="p-3 bg-light rounded-3 border h-100">
+                <div class="text-secondary small fw-bold text-uppercase mb-2"><i class="fa-solid fa-coins me-1 text-warning"></i> Amount Thresholds & Slabs</div>
+                <div class="small mb-1"><strong>Currency:</strong> {{ policy.currency }} ({% if policy.currency == 'INR' %}₹{% elif policy.currency == 'USD' %}${% elif policy.currency == 'EUR' %}€{% else %}£{% endif %})</div>
+                <div class="small mb-1"><strong>Minimum Amount:</strong> {% if policy.currency == 'INR' %}₹{% elif policy.currency == 'USD' %}${% else %}{{ policy.currency }} {% endif %}{{ policy.min_amount|floatformat:2 }}</div>
+                <div class="small"><strong>Maximum Amount:</strong> 
+                    {% if policy.max_amount %}
+                        {% if policy.currency == 'INR' %}₹{% elif policy.currency == 'USD' %}${% else %}{{ policy.currency }} {% endif %}{{ policy.max_amount|floatformat:2 }}
+                    {% else %}
+                        <span class="text-muted fst-italic">Unlimited (No upper bound)</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if policy.description %}
+    <div class="mb-4">
+        <div class="text-secondary small fw-semibold mb-1">Policy Description / Governance Notes:</div>
+        <div class="p-2 bg-light rounded border small text-dark">{{ policy.description }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Approval Workflow Sequence -->
+    <div class="mb-4">
+        <h6 class="fw-bold text-dark mb-3"><i class="fa-solid fa-arrow-progress me-2 text-success"></i> Configured Approval Sequence ({{ steps.count }} Levels)</h6>
+        
+        <!-- Visual Flow Pipeline -->
+        <div class="d-flex align-items-center gap-2 overflow-auto pb-3 mb-3">
+            <div class="p-2 px-3 bg-white border border-2 border-secondary rounded-3 text-center shadow-xs flex-shrink-0" style="min-width: 120px;">
+                <div class="text-muted small" style="font-size: 0.7rem;">ORIGIN</div>
+                <div class="fw-bold text-dark small">Requester</div>
+            </div>
+            <i class="fa-solid fa-arrow-right text-muted flex-shrink-0"></i>
+            {% for s in steps %}
+            <div class="p-2 px-3 bg-white border border-2 border-primary rounded-3 text-center shadow-xs flex-shrink-0" style="min-width: 140px;">
+                <div class="text-primary small fw-semibold" style="font-size: 0.7rem;">LEVEL {{ s.step_number }} ({{ s.step_type }})</div>
+                <div class="fw-bold text-dark small text-truncate" title="{{ s.approver_role.name }}">{{ s.approver_role.name }}</div>
+                {% if s.specific_approver %}
+                <div class="text-muted" style="font-size: 0.65rem;">{{ s.specific_approver.email }}</div>
+                {% endif %}
+            </div>
+            {% if not forloop.last %}
+            <i class="fa-solid fa-arrow-right text-muted flex-shrink-0"></i>
+            {% endif %}
+            {% empty %}
+            <div class="p-2 text-danger small fst-italic">No approval steps configured for this policy.</div>
+            {% endfor %}
+            <i class="fa-solid fa-arrow-right text-muted flex-shrink-0"></i>
+            <div class="p-2 px-3 bg-success bg-opacity-10 border border-2 border-success rounded-3 text-center shadow-xs flex-shrink-0" style="min-width: 120px;">
+                <div class="text-success small" style="font-size: 0.7rem;">DECISION</div>
+                <div class="fw-bold text-success small">Approved</div>
+            </div>
+        </div>
+
+        <!-- Step Detail List -->
+        <div class="list-group rounded-3 shadow-xs">
+            {% for s in steps %}
+            <div class="list-group-item p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <div class="fw-bold text-dark">
+                        Level {{ s.step_number }}: {{ s.approver_role.name }}
+                        {% if s.is_mandatory %}
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger ms-1 small">Mandatory</span>
+                        {% else %}
+                        <span class="badge bg-light text-secondary border ms-1 small">Optional</span>
+                        {% endif %}
+                        <span class="badge bg-light text-primary border ms-1 small">{{ s.step_type }}</span>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        {{ s.description|default:"Standard policy verification" }}
+                        {% if s.specific_approver %}
+                        &bull; Designated Approver: <strong class="text-dark">{{ s.specific_approver.email }}</strong>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="text-end small text-secondary">
+                    {% if s.approval_limit %}
+                    <div>Approval Limit: <strong>{% if policy.currency == 'INR' %}₹{% elif policy.currency == 'USD' %}${% else %}{{ policy.currency }} {% endif %}{{ s.approval_limit|floatformat:2 }}</strong></div>
+                    {% endif %}
+                    <div>Rejection Action: <strong>{{ s.get_rejection_behavior_display }}</strong></div>
+                    {% if s.escalation_hours %}
+                    <div>SLA Escalation: <strong>{{ s.escalation_hours }} hrs</strong></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Exception Routing Card (if configured) -->
+    {% if policy.has_exception_routing %}
+    <div class="p-3 rounded-3 border border-danger border-opacity-25 bg-danger bg-opacity-10 mb-4">
+        <h6 class="fw-bold text-danger mb-2"><i class="fa-solid fa-triangle-exclamation me-2"></i> Exception Escalation Rules</h6>
+        <div class="row g-2 small text-dark">
+            <div class="col-md-6">
+                <div><strong>Trigger Threshold:</strong> &gt; {% if policy.currency == 'INR' %}₹{% elif policy.currency == 'USD' %}${% else %}{{ policy.currency }} {% endif %}{{ policy.exception_amount_threshold|default:policy.max_amount|floatformat:2 }}</div>
+                <div><strong>Exception Approver:</strong> {{ policy.exception_approver_role.name|default:"Designated Escalation Approver" }}</div>
+                {% if policy.exception_specific_approver %}
+                <div><strong>Specific Escalation User:</strong> {{ policy.exception_specific_approver.email }}</div>
+                {% endif %}
+            </div>
+            <div class="col-md-6">
+                <div><strong>Routing Action:</strong> {{ policy.get_exception_routing_behavior_display }}</div>
+                <div><strong>Escalation Window:</strong> {{ policy.exception_escalation_time_hours|default:"24" }} hours</div>
+                {% if policy.exception_reason %}
+                <div><strong>Reason:</strong> {{ policy.exception_reason }}</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Audit History -->
+    {% if audit_history %}
+    <div>
+        <h6 class="fw-bold text-dark mb-2"><i class="fa-solid fa-clock-rotate-left me-2 text-muted"></i> Recent Governance Audit Log</h6>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered small mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in audit_history %}
+                    <tr>
+                        <td class="text-muted">{{ a.timestamp|date:"Y-m-d H:i:s" }}</td>
+                        <td><span class="badge bg-light text-dark border">{{ a.action }}</span></td>
+                        <td>{{ a.actor.email|default:"System" }}</td>
+                        <td class="text-muted font-monospace">{{ a.ip_address|default:"127.0.0.1" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="modal-footer border-top-0 pt-0 d-flex justify-content-between align-items-center">
+    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+    <div class="d-flex gap-2">
+        <a href="/superadmin/policies/{{ policy.pk }}/duplicate/" class="btn btn-outline-secondary rounded-pill px-3">
+            <i class="fa-solid fa-copy me-1"></i> Duplicate
+        </a>
+        <button hx-get="/superadmin/policies/{{ policy.pk }}/edit/" hx-target="#modal-content-body" class="btn btn-primary rounded-pill px-4">
+            <i class="fa-solid fa-pen-to-square me-1"></i> Edit Policy
+        </button>
+    </div>
+</div>

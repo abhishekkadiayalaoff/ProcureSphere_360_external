@@ -15,7 +15,6 @@
     .kpi-card-link:hover .kpi-card {
         transform: translateY(-4px);
         box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.12) !important;
-        border-color: rgba(13, 110, 253, 0.4) !important;
     }
     .kpi-card {
         transition: all 0.2s ease;
@@ -79,7 +78,7 @@
         <!-- 1. Pending Legal Review -->
         <div class="col-12 col-sm-6 col-xl-3">
             <a href="{% url 'contracts_list' %}?status=LEGAL_REVIEW" class="kpi-card-link" title="View contracts pending legal review">
-                <div class="card kpi-card border-0 shadow-sm rounded-4 h-100 bg-white border-start border-4 border-warning">
+                <div class="card kpi-card shadow-sm rounded-4 h-100 bg-white" style="border: 2px solid #FFC107 !important; border-radius: 14px;">
                     <div class="card-body p-3 p-md-4">
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="flex-grow-1">
@@ -115,7 +114,7 @@
         <!-- 2. Active Contracts -->
         <div class="col-12 col-sm-6 col-xl-3">
             <a href="{% url 'contracts_list' %}?status=ACTIVE" class="kpi-card-link" title="View active supplier agreements">
-                <div class="card kpi-card border-0 shadow-sm rounded-4 h-100 bg-white border-start border-4 border-primary">
+                <div class="card kpi-card shadow-sm rounded-4 h-100 bg-white" style="border: 2px solid #0D6EFD !important; border-radius: 14px;">
                     <div class="card-body p-3 p-md-4">
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="flex-grow-1">
@@ -143,7 +142,7 @@
         <!-- 3. Expiring Contracts (<30 Days) -->
         <div class="col-12 col-sm-6 col-xl-3">
             <a href="{% url 'contracts_list' %}?status=RENEWAL_DUE" class="kpi-card-link" title="View expiring contracts">
-                <div class="card kpi-card border-0 shadow-sm rounded-4 h-100 bg-white border-start border-4 border-danger">
+                <div class="card kpi-card shadow-sm rounded-4 h-100 bg-white" style="border: 2px solid #DC3545 !important; border-radius: 14px;">
                     <div class="card-body p-3 p-md-4">
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="flex-grow-1">
@@ -177,7 +176,7 @@
         <!-- 4. Total Contract Value -->
         <div class="col-12 col-sm-6 col-xl-3">
             <a href="{% url 'contracts_list' %}" class="kpi-card-link" title="View all portfolio contracts">
-                <div class="card kpi-card border-0 shadow-sm rounded-4 h-100 bg-white border-start border-4 border-success">
+                <div class="card kpi-card shadow-sm rounded-4 h-100 bg-white" style="border: 2px solid #198754 !important; border-radius: 14px;">
                     <div class="card-body p-3 p-md-4">
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="flex-grow-1">

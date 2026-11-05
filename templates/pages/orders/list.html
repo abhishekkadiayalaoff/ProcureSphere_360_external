@@ -37,6 +37,23 @@
 </div>
 {% endif %}
 
+{% if can_generate_po %}
+<div class="card border-0 shadow-sm rounded-4 mb-4" id="awards-pending">
+    <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+        <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-trophy text-warning me-2"></i>Awards Pending Purchase Order</h5>
+        <p class="text-muted small mb-0">Approved sourcing awards awaiting PO generation. The order is created as a draft and follows the standard approval lifecycle.</p>
+    </div>
+    <div class="card-body p-4"
+         hx-get="{% url 'orders_awards_pending_tab' %}"
+         hx-trigger="load, po-generated from:body"
+         hx-swap="innerHTML">
+        <div class="text-center py-3 text-muted small">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading awards pending PO&hellip;
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="card border-0 shadow-sm rounded-4 mb-4">
     <div class="card-body p-0">
         {% if items %}
@@ -79,7 +96,9 @@
                             {% elif item.status == 'DRAFT' %}
                                 <span class="badge bg-secondary rounded-pill px-3">Draft</span>
                             {% elif item.status == 'APPROVAL' %}
-                                <span class="badge bg-warning text-dark rounded-pill px-3">In Approval</span>
+                                <span class="badge bg-warning text-dark rounded-pill px-3">Pending Approval</span>
+                            {% elif item.status == 'APPROVED' %}
+                                <span class="badge bg-success rounded-pill px-3">Approved</span>
                             {% else %}
                                 <span class="badge bg-secondary rounded-pill px-3">{{ item.get_status_display|default:item.status }}</span>
                             {% endif %}

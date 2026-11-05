@@ -1,14 +1,91 @@
 {% extends 'landing/base.html' %}
 {% load static %}
 
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "ProcureSphere 360",
+  "url": "{{ site_url|default:'https://procuresphere.com' }}",
+  "description": "Enterprise Procurement, Vendor Management, and Source-to-Pay Platform"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "ProcureSphere 360",
+  "url": "{{ site_url|default:'https://procuresphere.com' }}"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "ProcureSphere 360",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "description": "Enterprise procurement platform connecting requisitions, approvals, sourcing, purchase orders, invoices, contracts and financial control.",
+  "offers": {
+    "@type": "Offer",
+    "category": "Enterprise Software"
+  }
+}
+</script>
+{% endblock json_ld %}
+
 {% block extra_css %}
 <link rel="preload" as="image" href="{% static 'landing/images/hero_poster.webp' %}?v=1" type="image/webp" />
 <script>
+// Mobile number and country code dynamic validation
+function updatePhoneValidation(selectEl) {
+  if (!selectEl) selectEl = document.getElementById('contact-country-code');
+  var phoneInput = document.getElementById('contact-phone');
+  if (!selectEl || !phoneInput) return;
+  var opt = selectEl.options[selectEl.selectedIndex];
+  var len = opt.getAttribute('data-len') || '10';
+  var ph = opt.getAttribute('data-ph') || '9876543210';
+  var pat = opt.getAttribute('data-pat') || '^[0-9]+$';
+  
+  phoneInput.setAttribute('maxlength', len);
+  phoneInput.setAttribute('minlength', len);
+  phoneInput.setAttribute('placeholder', ph);
+  phoneInput.setAttribute('pattern', pat);
+  phoneInput.setAttribute('title', 'Please enter a valid ' + len + '-digit mobile number for ' + opt.text.trim());
+  
+  if (phoneInput.value && phoneInput.value.length > parseInt(len, 10)) {
+    phoneInput.value = phoneInput.value.slice(0, parseInt(len, 10));
+  }
+}
+
 // Prevent modern browsers from restoring old scroll position on page refresh
-if ('scrollRestoration' in history) {
+// Allow instant direct landing on contact form with clean URL
+var isContactTargetEarly = false;
+try {
+  isContactTargetEarly = sessionStorage.getItem('ps360_direct_contact') === 'true' || 
+                         sessionStorage.getItem('ps360_scroll_to_contact') === 'true' || 
+                         window.location.hash.includes('contact') || 
+                         window.location.search.includes('contact');
+  if (isContactTargetEarly) {
+    document.documentElement.classList.add('direct-to-contact');
+  }
+} catch(e) {}
+
+if ('scrollRestoration' in history && !isContactTargetEarly) {
   history.scrollRestoration = 'manual';
 }
 </script>
+<style>
+html.direct-to-contact #intro-screen,
+html.direct-to-contact .intro-screen {
+  display: none !important;
+}
+html.direct-to-contact body {
+  opacity: 0;
+  transition: opacity 0.12s ease-in;
+}
+</style>
 <style>
 /* ── Hero Stat 13,000+ Deep Obsidian Navy Accent ── */
 .hero-stat,
@@ -241,6 +318,243 @@ if ('scrollRestoration' in history) {
   }
 }
 
+/* Responsive About Platform Section for Mobile */
+.about-platform-section,
+.solution-slide {
+  scroll-margin-top: 90px;
+}
+
+@media (max-width: 900px) {
+  #about-platform-grid {
+    grid-template-columns: 1fr !important;
+    padding: 0 16px !important;
+    gap: 20px !important;
+  }
+  #module-detail-panel {
+    min-height: auto !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .cinematic-cards-grid {
+    gap: 12px !important;
+  }
+  .module-detail-head-row {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+  .module-detail-title-group {
+    width: 100% !important;
+  }
+  .module-detail-title-group h3 {
+    font-size: 21px !important;
+    line-height: 1.25 !important;
+  }
+  .module-detail-badge {
+    align-self: flex-start !important;
+  }
+}
+
+/* Module Action Hint (Desktop vs Mobile) */
+.desktop-module-hint {
+  display: inline;
+}
+.mobile-module-hint {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .desktop-module-hint {
+    display: none !important;
+  }
+  .mobile-module-hint {
+    display: inline !important;
+  }
+
+  /* Perfectly Center Title on all cards in mobile view (never cut off or shifted right) */
+  .uiverse-card .title,
+  .uiverse-card.is-active .title,
+  .uiverse-card:hover .title {
+    position: absolute !important;
+    left: 50% !important;
+    top: 56% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 90% !important;
+    text-align: center !important;
+    color: #ffffff !important;
+    font-size: clamp(14px, 3.8vw, 17px) !important;
+    line-height: 1.22 !important;
+    font-weight: 750 !important;
+    margin: 0 !important;
+    display: block !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  /* Keep Logo in top-left on all cards */
+  .uiverse-card .logo,
+  .uiverse-card.is-active .logo,
+  .uiverse-card:hover .logo {
+    position: absolute !important;
+    top: 14px !important;
+    left: 16px !important;
+    width: 28px !important;
+    height: 28px !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: none !important;
+    display: flex !important;
+  }
+
+  /* Keep decorative swooshes (box2 & box3) identical on ALL cards (including active) */
+  .uiverse-card .box2,
+  .uiverse-card.is-active .box2,
+  .uiverse-card:hover .box2 {
+    top: -70% !important;
+    right: -45% !important;
+    border-radius: 200px !important;
+    background: rgb(255, 174, 0) !important;
+    display: block !important;
+    opacity: 1 !important;
+  }
+
+  .uiverse-card .box3,
+  .uiverse-card.is-active .box3,
+  .uiverse-card:hover .box3 {
+    top: -62% !important;
+    right: -30% !important;
+    border-radius: 200px !important;
+    background: rgb(255, 194, 52) !important;
+    display: block !important;
+    opacity: 1 !important;
+  }
+
+  /* Completely remove the orange hover overlay (box1) on mobile so cards stay clean */
+  .uiverse-card .box1,
+  .uiverse-card.is-active .box1,
+  .uiverse-card:hover .box1 {
+    display: none !important;
+  }
+
+  .uiverse-card .box .content {
+    display: none !important;
+  }
+}
+
+
+
+
+/* Contact section alignment & aesthetic parity */
+#contact.contact {
+  display: grid !important;
+  grid-template-columns: 380px minmax(0, 1fr) !important;
+  gap: 48px !important;
+  align-items: center !important;
+  padding: 56px clamp(24px, 5vw, 64px) !important;
+  background: #eff6ff !important;
+  border-top: 1px solid #e2e8f0 !important;
+}
+
+.contact-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 16px !important;
+  margin-top: 0 !important;
+  padding-left: 0 !important;
+}
+
+.contact-image-wrap {
+  margin: -36px 0 0 0 !important;
+  max-width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+}
+
+.contact-avatar-cropper {
+  width: 310px !important;
+  height: 285px !important;
+  overflow: hidden !important;
+  border-radius: 20px !important;
+  position: relative !important;
+  background: transparent !important;
+}
+
+#contact-vendor-img {
+  width: 310px !important;
+  height: auto !important;
+  display: block !important;
+  transform: translateY(-8px) scale(1.06);
+  transform-origin: top center !important;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.4s ease !important;
+}
+
+@keyframes avatarSuccessPop {
+  0% {
+    transform: translateY(-8px) scale(1.06);
+  }
+  35% {
+    transform: translateY(-24px) scale(1.14);
+  }
+  65% {
+    transform: translateY(-6px) scale(1.08);
+  }
+  85% {
+    transform: translateY(-11px) scale(1.07);
+  }
+  100% {
+    transform: translateY(-8px) scale(1.06);
+  }
+}
+
+#contact-vendor-img.avatar-active-state {
+  animation: avatarSuccessPop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+  filter: drop-shadow(0 16px 36px rgba(15, 27, 45, 0.14)) !important;
+}
+
+.rfp-form {
+  padding: 36px 40px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+}
+
+@media (max-width: 992px) {
+  #contact.contact {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+    padding: 40px 20px !important;
+  }
+  .contact-copy {
+    text-align: center !important;
+    align-items: center !important;
+  }
+  .contact-copy .section-title {
+    text-align: center !important;
+  }
+  .contact-image-wrap {
+    justify-content: center !important;
+    margin: -12px auto 0 !important;
+  }
+  .contact-avatar-cropper {
+    width: 230px !important;
+    height: 215px !important;
+  }
+  #contact-vendor-img {
+    width: 230px !important;
+  }
+}
+
+/* Match textarea font and placeholder font identically to inputs */
+.rfp-form textarea,
+.rfp-form textarea::placeholder {
+  font-family: inherit !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
 /* Hide card-tap-cue on cards as requested */
 .card-tap-cue,
 .uiverse-card .card-tap-cue,
@@ -281,7 +595,7 @@ if ('scrollRestoration' in history) {
       </h1>
       <p class="hero-lede">Connect requests, approvals, suppliers, sourcing, purchase orders, invoices, contracts and financial control in one intelligent procurement platform.</p>
       <div class="hero-actions">
-        <a class="button button-primary" href="#modules">
+        <a class="button button-primary" href="javascript:void(0)" onclick="var m = document.getElementById('modules'); if(m){ m.scrollIntoView({behavior:'smooth', block:'start'}); }">
           Discover more
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7l10 10M17 7v10H7"/></svg>
         </a>
@@ -347,8 +661,11 @@ if ('scrollRestoration' in history) {
         <!-- Interactive Module Cards -->
         <div id="about-platform-grid" style="display:grid;grid-template-columns:minmax(0,1.15fr) minmax(380px,0.95fr);gap:clamp(24px,3vw,40px);align-items:stretch;padding:0 clamp(24px,4vw,56px);">
           <div style="display:flex;flex-direction:column;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:13px;color:#475569;font-weight:650;">
-              <span>Select or hover on any module below:</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:13px;color:#475569;font-weight:650;flex-wrap:wrap;gap:8px;">
+              <span class="module-action-hint">
+                <span class="desktop-module-hint">Hover on any module:</span>
+                <span class="mobile-module-hint">Select any module below:</span>
+              </span>
               <span id="active-module-label" style="color:#0052cc;font-weight:750;">Purchase and Approvals selected →</span>
             </div>
             <div class="cinematic-cards-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
@@ -392,14 +709,14 @@ if ('scrollRestoration' in history) {
               {% for mod in platform_modules %}
               <div class="module-detail-content {% if forloop.first %}is-active{% endif %}" id="module-detail-{{ mod.id }}">
                 <div style="width:100%;">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                    <div style="display:flex;align-items:center;gap:12px;">
+                  <div class="module-detail-head-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                    <div class="module-detail-title-group" style="display:flex;align-items:center;gap:12px;">
                       <div style="width:42px;height:42px;border-radius:11px;background:{{ mod.theme_color }}18;color:{{ mod.theme_color }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                         {% include 'landing/partials/icon.html' with name=mod.icon size=24 %}
                       </div>
-                      <h3 style="margin:0;font-size:25px;font-weight:800;font-family:'Playfair Display','Georgia',serif;color:#0F1B2D;line-height:1.2;">{{ mod.name_html|default:mod.name|safe }}</h3>
+                      <h3 style="margin:0;font-size:clamp(20px, 4vw, 25px);font-weight:800;font-family:'Playfair Display','Georgia',serif;color:#0F1B2D;line-height:1.22;">{{ mod.name_html|default:mod.name|safe }}</h3>
                     </div>
-                    <span style="font-size:11.5px;font-weight:750;color:{{ mod.theme_color }};background:{{ mod.theme_color }}14;padding:5px 11px;border-radius:6px;font-family:'DM Mono',monospace;letter-spacing:0.04em;">ENTERPRISE CAPABILITY</span>
+                    <span class="module-detail-badge" style="font-size:11.5px;font-weight:750;color:{{ mod.theme_color }};background:{{ mod.theme_color }}14;padding:5px 11px;border-radius:6px;font-family:'DM Mono',monospace;letter-spacing:0.04em;white-space:nowrap;">ENTERPRISE CAPABILITY</span>
                   </div>
                   <p style="margin:0 0 16px 0;font-size:16px;color:#0F1B2D;line-height:1.55;font-weight:600;">{{ mod.summary }}</p>
                   <div style="display:flex;flex-direction:column;gap:11px;">
@@ -444,8 +761,8 @@ if ('scrollRestoration' in history) {
             Delivering frictionless sourcing, automated billing, and seamless procurement for over 500+ global enterprises.
           </p>
         </div>
-        <div class="trust-animation-container" style="max-width: 410px;">
-          <img src="{% static 'landing/images/enterprise_collaboration.png' %}?v=2" alt="Enterprise Procurement Collaboration" />
+        <div class="trust-animation-container" style="max-width: 460px;">
+          <img src="{% static 'landing/images/enterprise_collaboration.webp' %}?v=3" alt="Enterprise Procurement Collaboration" loading="lazy" />
         </div>
       </div>
 
@@ -499,27 +816,27 @@ if ('scrollRestoration' in history) {
         </div>
       </div>
 
-          <!-- Trusted Brands -->
+          <!-- Multi-Industry Enterprise Sectors -->
           <div class="trusted-brands animate-on-scroll" style="margin-top:0;position:relative;padding-top:10px;padding-bottom:20px;">
             <div style="position:absolute;top:55%;left:50%;transform:translate(-50%,-50%);z-index:0;opacity:0.20;width:280px;height:280px;background-image:url('{% static "landing/images/handshake.gif" %}');background-size:contain;background-repeat:no-repeat;background-position:center;pointer-events:none;"></div>
             <div class="trusted-label" style="justify-content:flex-start;position:relative;z-index:2;">
-              <span class="green-dot"></span> TRUSTED BY GLOBAL ENTERPRISES &amp; PROCUREMENT TEAMS
+              <span class="green-dot"></span> ARCHITECTED FOR MULTI-INDUSTRY ENTERPRISE WORKFLOWS
             </div>
             <div class="brand-pills-wrapper" style="position:relative;z-index:2;">
               <div class="brand-pills-track">
                 <div class="brand-pills">
-                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Apex Global</strong><span>Manufacturing</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Nova Systems</strong><span>Technology</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Meridian</strong><span>Logistics</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Vanguard</strong><span>Financial</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Horizon</strong><span>Healthcare</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Industrial</strong><span>Manufacturing</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Enterprise IT</strong><span>Cloud &amp; Tech</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Supply Chain</strong><span>Global Logistics</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Banking &amp; FinTech</strong><span>Financial Services</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Healthcare</strong><span>Life Sciences</span></div></div>
                 </div>
                 <div class="brand-pills" aria-hidden="true">
-                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Apex Global</strong><span>Manufacturing</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Nova Systems</strong><span>Technology</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Meridian</strong><span>Logistics</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Vanguard</strong><span>Financial</span></div></div>
-                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Horizon</strong><span>Healthcare</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg></div><div><strong>Industrial</strong><span>Manufacturing</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z"/><path d="m4 12 8 4.5 8-4.5"/><path d="m4 16.5 8 4.5 8-4.5"/></svg></div><div><strong>Enterprise IT</strong><span>Cloud &amp; Tech</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg></div><div><strong>Supply Chain</strong><span>Global Logistics</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-navy"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8 7 10 4.2-2 7-5.2 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div><div><strong>Banking &amp; FinTech</strong><span>Financial Services</span></div></div>
+                  <div class="brand-pill"><div class="brand-logo bg-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M10 13h5M10 17h5"/></svg></div><div><strong>Healthcare</strong><span>Life Sciences</span></div></div>
                 </div>
               </div>
             </div>
@@ -724,13 +1041,14 @@ if ('scrollRestoration' in history) {
         Bring us the workflow you want to connect.
       </h2>
     </div>
-    <div style="margin-top:-40px;max-width:300px;display:flex;justify-content:center;">
-      <img
-        id="contact-vendor-img"
-        src="{% static 'landing/roles/vendor/idle.webp' %}"
-        alt="Vendor Status"
-        style="width:100%;height:auto;transition:all 0.4s ease;clip-path:inset(0 0 20% 0);margin-bottom:-20%;border-radius:16px;"
-      />
+    <div class="contact-image-wrap">
+      <div class="contact-avatar-cropper">
+        <img
+          id="contact-vendor-img"
+          src="{% static 'landing/roles/vendor/idle.webp' %}"
+          alt="Contact Support"
+        />
+      </div>
     </div>
   </div>
 
@@ -745,25 +1063,84 @@ if ('scrollRestoration' in history) {
       hx-on::after-request="onContactFormResponse(event)"
     >
       {% csrf_token %}
-      <div class="form-grid">
-        <label><span>Name</span><input required name="name" placeholder="Your name" /></label>
-        <label><span>Email</span><input required type="email" name="email" placeholder="yourname@gmail.com" /></label>
-        <label><span>Company</span><input required name="company" placeholder="Company name" /></label>
-        <label><span>Procurement scope</span>
-          <select required name="scope">
-            <option value="" disabled selected>Select a scope</option>
-            <option>Source-to-pay</option>
-            <option>Supplier management</option>
-            <option>Invoice and financial control</option>
-            <option>Contract lifecycle</option>
-            <option>Vendor participation</option>
-          </select>
+      <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
+        <label>
+          <span>Name</span>
+          <input
+            required
+            type="text"
+            name="name"
+            id="contact-name"
+            placeholder="Your name"
+            pattern="^[A-Za-z\s]{2,60}$"
+            title="Numbers and special characters are not allowed. Please enter letters only."
+            oninvalid="if(this.validity.patternMismatch){this.setCustomValidity('Numbers and special characters are not allowed in Name. Please use letters only.')}else{this.setCustomValidity('')}"
+            oninput="this.setCustomValidity('')"
+          />
+        </label>
+        <label>
+          <span>Mobile Number</span>
+          <div class="phone-input-group" style="display:flex;gap:8px;align-items:stretch;">
+            <select
+              name="country_code"
+              id="contact-country-code"
+              style="width:90px;flex-shrink:0;padding:14px 6px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;font-size:13px;font-weight:600;color:#0f172a;cursor:pointer;outline:none;"
+              onchange="updatePhoneValidation(this)"
+            >
+              <option value="+91" data-len="10" data-ph="9876543210" data-pat="^[6-9][0-9]{9}$" selected>🇮🇳 +91</option>
+              <option value="+1" data-len="10" data-ph="2025550143" data-pat="^[2-9][0-9]{9}$">🇺🇸 +1</option>
+              <option value="+44" data-len="10" data-ph="7911123456" data-pat="^[1-9][0-9]{9}$">🇬🇧 +44</option>
+              <option value="+971" data-len="9" data-ph="501234567" data-pat="^[5][0-9]{8}$">🇦🇪 +971</option>
+              <option value="+65" data-len="8" data-ph="81234567" data-pat="^[89][0-9]{7}$">🇸🇬 +65</option>
+              <option value="+61" data-len="9" data-ph="412345678" data-pat="^[4][0-9]{8}$">🇦🇺 +61</option>
+              <option value="+49" data-len="10" data-ph="1512345678" data-pat="^[1][0-9]{9,10}$">🇩🇪 +49</option>
+              <option value="+966" data-len="9" data-ph="501234567" data-pat="^[5][0-9]{8}$">🇸🇦 +966</option>
+            </select>
+            <input
+              required
+              type="tel"
+              name="phone"
+              id="contact-phone"
+              placeholder="9876543210"
+              maxlength="10"
+              minlength="10"
+              pattern="^[6-9][0-9]{9}$"
+              title="Please enter valid 10-digit mobile number"
+              oninput="this.value = this.value.replace(/\D/g, '')"
+              style="flex:1;min-width:0;"
+            />
+          </div>
         </label>
       </div>
-      <label><span>Message</span><textarea required name="message" rows="5" placeholder="Tell us what you want to connect..."></textarea></label>
+      <label>
+        <span>Email</span>
+        <input
+          required
+          type="email"
+          name="email"
+          id="contact-email"
+          placeholder="yourname@gmail.com"
+          pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+          title="Please enter a valid email address with @ (e.g., yourname@gmail.com or name@company.com)"
+        />
+      </label>
+      <label>
+        <span>Message</span>
+        <textarea
+          required
+          name="message"
+          id="contact-message"
+          rows="5"
+          placeholder="Tell us what you want to connect..."
+          minlength="10"
+          maxlength="2000"
+          title="Please enter your message (at least 10 characters)"
+          style="font-family: inherit !important; font-size: 14px !important;"
+        ></textarea>
+      </label>
       <div class="form-actions">
         <button class="button button-primary" type="submit">
-          Request a Demo
+          Contact Us
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg>
         </button>
       </div>
@@ -775,6 +1152,27 @@ if ('scrollRestoration' in history) {
 
 {% block extra_js %}
 <script>
+// Mobile number and country code dynamic validation
+function updatePhoneValidation(selectEl) {
+  if (!selectEl) selectEl = document.getElementById('contact-country-code');
+  var phoneInput = document.getElementById('contact-phone');
+  if (!selectEl || !phoneInput) return;
+  var opt = selectEl.options[selectEl.selectedIndex];
+  var len = opt.getAttribute('data-len') || '10';
+  var ph = opt.getAttribute('data-ph') || '9876543210';
+  var pat = opt.getAttribute('data-pat') || '^[0-9]+$';
+  
+  phoneInput.setAttribute('maxlength', len);
+  phoneInput.setAttribute('minlength', len);
+  phoneInput.setAttribute('placeholder', ph);
+  phoneInput.setAttribute('pattern', pat);
+  phoneInput.setAttribute('title', 'Please enter a valid ' + len + '-digit mobile number for ' + opt.text.trim());
+  
+  if (phoneInput.value && phoneInput.value.length > parseInt(len, 10)) {
+    phoneInput.value = phoneInput.value.slice(0, parseInt(len, 10));
+  }
+}
+
 // Prevent modern browsers from restoring old scroll position on page refresh
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
@@ -782,7 +1180,7 @@ if ('scrollRestoration' in history) {
 
 // Home page specific JS
 document.addEventListener('DOMContentLoaded', function() {
-  if ('scrollRestoration' in history) {
+  if ('scrollRestoration' in history && !isContactTargetEarly) {
     history.scrollRestoration = 'manual';
   }
 
@@ -805,8 +1203,10 @@ document.addEventListener('DOMContentLoaded', function() {
     isReload = false;
   }
 
-  // 1. LOGOUT DETECTION: Normal production behavior - never show intro video on logout
+  // 1. CONTACT DETECTION & LOGOUT DETECTION: Skip intro on contact clicks or logout
   const urlParams = new URLSearchParams(window.location.search);
+  const hasContactParam = urlParams.has('contact') || window.location.hash.includes('contact');
+  const hasContactSession = sessionStorage.getItem('ps360_skip_intro') === 'true' || sessionStorage.getItem('ps360_scroll_to_contact') === 'true';
   const hasLogoutParam = urlParams.has('logged_out') || urlParams.get('logout') === 'success';
   const hasLogoutCookie = document.cookie.split(';').some(c => c.trim().startsWith('ps360_just_logged_out=1'));
   const hasLogoutSession = sessionStorage.getItem('ps360_logged_out') === 'true';
@@ -824,7 +1224,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             referrer.includes('/contracts') ||
                             referrer.includes('/reports');
 
-  const isAfterLogout = hasLogoutParam || hasLogoutCookie || hasLogoutSession || (cameFromDashboard && !isReload);
+  const isContactTarget = hasContactParam || hasContactSession;
+  const isAfterLogout = isContactTarget || hasLogoutParam || hasLogoutCookie || hasLogoutSession || (cameFromDashboard && !isReload);
 
   if (isAfterLogout || !introScreen || !introVideo) {
     // Clear logout storage & cookies
@@ -835,12 +1236,44 @@ document.addEventListener('DOMContentLoaded', function() {
     } catch (e) {}
 
     // Clean URL bar via replaceState so user sees clean '/'
-    if (window.history && window.history.replaceState && (urlParams.has('logged_out') || urlParams.has('logout'))) {
-      urlParams.delete('logged_out');
-      urlParams.delete('logout');
-      const cleanQuery = urlParams.toString();
-      const cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
-      window.history.replaceState(null, '', cleanUrl || '/');
+    if (window.history && window.history.replaceState) {
+      if (urlParams.has('logged_out') || urlParams.has('logout') || urlParams.has('contact')) {
+        urlParams.delete('logged_out');
+        urlParams.delete('logout');
+        urlParams.delete('contact');
+        const cleanQuery = urlParams.toString();
+        const cleanPath = window.location.pathname;
+        window.history.replaceState(null, '', cleanPath + (cleanQuery ? '?' + cleanQuery : ''));
+      } else if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+
+    if (isContactTarget) {
+      sessionStorage.removeItem('ps360_skip_intro');
+      sessionStorage.removeItem('ps360_direct_contact');
+      sessionStorage.removeItem('ps360_scroll_to_contact');
+
+      // Ensure clean URL '/' without #contact
+      if (window.location.hash && window.history && window.history.replaceState) {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+
+      // Execute direct INSTANT jump to contact section
+      const jumpToContact = () => {
+        const cEl = document.getElementById('contact');
+        if (cEl) {
+          cEl.scrollIntoView({ behavior: 'auto', block: 'start' });
+          window.scrollTo(0, cEl.offsetTop - 70);
+        }
+        document.documentElement.classList.remove('direct-to-contact');
+        if (document.body) {
+          document.body.style.opacity = '1';
+        }
+      };
+      jumpToContact();
+      requestAnimationFrame(jumpToContact);
+      setTimeout(jumpToContact, 40);
     }
 
     if (introScreen) {
@@ -977,11 +1410,17 @@ document.addEventListener('DOMContentLoaded', function() {
 // Contact form response handler
 function onContactFormResponse(event) {
   const contactVendorImg = document.getElementById('contact-vendor-img');
-  if (contactVendorImg && event.detail.successful) {
-    contactVendorImg.src = '{% static "landing/roles/vendor/active.webp" %}';
-    contactVendorImg.style.transform = 'scale(1.02)';
-    contactVendorImg.style.filter = 'drop-shadow(0 12px 24px rgba(36,86,214,0.2))';
-  }
+  const cropper = document.querySelector('.contact-avatar-cropper');
+  setTimeout(function() {
+    const successCard = document.querySelector('.contact-success-card');
+    if (successCard && contactVendorImg) {
+      contactVendorImg.src = '{% static "landing/roles/vendor/active.webp" %}';
+      contactVendorImg.classList.remove('avatar-active-state');
+      void contactVendorImg.offsetWidth;
+      contactVendorImg.classList.add('avatar-active-state');
+      
+    }
+  }, 40);
 }
 </script>
 {% endblock %}

@@ -16,9 +16,20 @@ from apps.sourcing.models import SourcingEvent
 from .models import ExportJob
 
 
-def get_pr_aging_report():
+def get_pr_aging_report(user=None):
     """1. PR aging and approval-bottleneck report"""
     prs = PurchaseRequisition.objects.select_related("requester", "department", "cost_center").all()
+    if user and not getattr(user, "is_superuser", False):
+        org = getattr(user, "effective_organization", None)
+        if org:
+            from django.db.models import Q as _Q
+            prs = prs.filter(
+                _Q(department__organization=org)
+                | _Q(cost_center__department__organization=org)
+                | _Q(requester__organization=org)
+            )
+        else:
+            prs = prs.none()
     now = timezone.now()
     report_data = []
     for pr in prs:
@@ -38,7 +49,7 @@ def get_pr_aging_report():
     return report_data
 
 
-def get_spend_analytics_report():
+def get_spend_analytics_report(user=None):
     """2. Spend by vendor / category / department / cost center / period"""
     from apps.invoices.models import SupplierInvoice
 
@@ -47,8 +58,19 @@ def get_spend_analytics_report():
             "vendor", "vendor__category", "po", "po__cost_center", "po__requisition__department"
         )
         .exclude(status="REJECTED")
-        .order_by("-invoice_date")
     )
+    if user and not getattr(user, "is_superuser", False):
+        org = getattr(user, "effective_organization", None)
+        if org:
+            from django.db.models import Q as _Q
+            invoices = invoices.filter(
+                _Q(po__cost_center__department__organization=org)
+                | _Q(po__requisition__department__organization=org)
+                | _Q(vendor__organization=org)
+            )
+        else:
+            invoices = invoices.none()
+    invoices = invoices.order_by("-invoice_date")
 
     report_data = []
     for inv in invoices:
@@ -79,9 +101,19 @@ def get_spend_analytics_report():
     return report_data
 
 
-def get_sourcing_cycle_time_report():
+def get_sourcing_cycle_time_report(user=None):
     """3. Sourcing cycle time and bid participation"""
     events = SourcingEvent.objects.prefetch_related("bids", "invitations").all()
+    if user and not getattr(user, "is_superuser", False):
+        org = getattr(user, "effective_organization", None)
+        if org:
+            from django.db.models import Q as _Q
+            events = events.filter(
+                _Q(requisition__department__organization=org)
+                | _Q(requisition__isnull=True, created_by__organization=org)
+            )
+        else:
+            events = events.none()
     report_data = []
     for e in events:
         bid_count = e.bids.count()
@@ -103,9 +135,19 @@ def get_sourcing_cycle_time_report():
     return report_data
 
 
-def get_po_status_report():
+def get_po_status_report(user=None):
     """4. PO open / partial / closed status"""
     pos = PurchaseOrder.objects.select_related("vendor", "cost_center").all()
+    if user and not getattr(user, "is_superuser", False):
+        org = getattr(user, "effective_organization", None)
+        if org:
+            from django.db.models import Q as _Q
+            pos = pos.filter(
+                _Q(cost_center__department__organization=org)
+                | _Q(requisition__department__organization=org)
+            )
+        else:
+            pos = pos.none()
     report_data = []
     for po in pos:
         report_data.append(
@@ -270,9 +312,20 @@ def get_receipt_delivery_performance_summary(
     }
 
 
-def get_invoice_exception_aging_report():
+def get_invoice_exception_aging_report(user=None):
     """6. Invoice match-exception aging"""
     exceptions = MatchException.objects.select_related("invoice__vendor", "resolved_by").all()
+    if user and not getattr(user, "is_superuser", False):
+        org = getattr(user, "effective_organization", None)
+        if org:
+            from django.db.models import Q as _Q
+            exceptions = exceptions.filter(
+                _Q(invoice__po__cost_center__department__organization=org)
+                | _Q(invoice__po__requisition__department__organization=org)
+                | _Q(invoice__vendor__organization=org)
+            )
+        else:
+            exceptions = exceptions.none()
     now = timezone.now()
     report_data = []
     for exc in exceptions:
@@ -494,7 +547,10 @@ def generate_export_job_service(export_job_id: int) -> ExportJob:
 
     try:
         report_fn = REPORT_DISPATCHER.get(job.report_type, get_audit_log_report)
-        data = report_fn()
+        try:
+            data = report_fn(user=job.requested_by)
+        except TypeError:
+            data = report_fn()
 
         if not data:
             # Fallback for empty data

@@ -16,8 +16,8 @@
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
-                <span class="badge bg-emerald text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.7rem;">
-                    <i class="fa-solid fa-cart-shopping me-1"></i> ORDER EXECUTION &amp; COMMITMENTS
+                <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle fw-bold px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.75rem; letter-spacing: 0.04em;">
+                    <i class="fa-solid fa-cart-shopping me-1 text-success"></i> ORDER EXECUTION &amp; COMMITMENTS
                 </span>
                 <span class="text-muted small">Purchase order fulfillment, version amendments &amp; budget commitments</span>
             </div>
@@ -946,7 +946,16 @@
     }
 
     async function submitApproveAmendment(poId, amendmentId) {
-        if (!confirm('Are you sure you want to approve this PO Amendment? This will increment the PO version, adjust budget commitments, and require supplier re-acknowledgement.')) {
+        const ok = await window.PSConfirm({
+            title: 'Approve PO amendment?',
+            message: 'This will increment the PO version, adjust budget commitments, and require the supplier to re-acknowledge the purchase order.',
+            details: 'PO = #' + poId + ';Amendment = #' + amendmentId,
+            tone: 'warning',
+            icon: 'fa-file-circle-check',
+            confirmLabel: 'Yes, approve amendment',
+            cancelLabel: 'Go back'
+        });
+        if (!ok) {
             return;
         }
         try {

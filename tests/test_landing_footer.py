@@ -27,7 +27,6 @@ PUBLIC_PAGES = [
     "/solutions/",
     "/benefits/",
     "/process/",
-    "/roles/",
     "/faq/",
 ]
 
@@ -79,8 +78,7 @@ def test_footer_all_internal_navigation_routes_valid(client):
         "/solutions/",
         "/benefits/",
         "/process/",
-        "/roles/",
-        "/faq/",
+            "/faq/",
     ]
     for route in target_routes:
         res = client.get(route)

@@ -524,6 +524,8 @@ class TestEvaluationAndAward:
         )
         assert po.vendor == w["vendor_b"] and po.sourcing_event == event
         assert po.lines.count() == 1 and po.subtotal == Decimal("1800.00")
+        assert po.status == PurchaseOrder.STATUS_DRAFT
+        assert po.award_id == decision.id
         with pytest.raises(ValidationError, match="already exists"):
             svc.generate_po_from_award_service(
                 event=event, user=w["exec"], cost_center=w["cost_center"]
@@ -843,11 +845,15 @@ class TestSourcingPages:
             event=event, winning_bid=bid, award_reason="Direct", approved_by_user=w["mgr"]
         )
         client.force_login(w["exec"])
-        client.post(
-            f"/sourcing-events/{event.id}/actions/generate-po/",
+        res = client.post(
+            f"/purchase-orders/htmx/generate-from-award/{event.id}/",
             {"cost_center_id": str(w["cost_center"].id)},
+            HTTP_HX_REQUEST="true",
         )
-        assert PurchaseOrder.objects.filter(sourcing_event=event).count() == 1
+        assert res.status_code == 200
+        po = PurchaseOrder.objects.get(sourcing_event=event)
+        assert po.status == PurchaseOrder.STATUS_DRAFT
+        assert po.award_id == event.award_decision.id
         res = client.get("/")
         assert res.status_code == 200
         assert res.context["sourcing"]["awarded"] == 1
@@ -880,3 +886,58 @@ class TestSourcingPages:
         event.refresh_from_db()
         assert event.status == SourcingEvent.STATUS_TECHNICAL_REVIEW
         assert event.bids_visible_to_evaluators
+
+
+def _approved_award_event(world):
+    event = open_event(world)
+    bid = submit(world, event, "vendor_a", "user_a")
+    to_commercial_review(world, event)
+    svc.record_commercial_evaluation_service(
+        event=event, bid=bid, evaluator=world["exec"], score=80
+    )
+    svc.recommend_award_service(
+        event=event,
+        winning_bid=bid,
+        recommended_by=world["exec"],
+        award_reason="Best value",
+    )
+    svc.approve_award_service(event=event, approver=world["mgr"], comments="OK")
+    event.refresh_from_db()
+    return event
+
+
+def test_awards_pending_tab_lists_approved_award_without_po(client, procurement_world):
+    w = procurement_world
+    event = _approved_award_event(w)
+
+    client.force_login(w["exec"])
+    body = client.get("/purchase-orders/htmx/awards-pending/").content.decode()
+    assert event.event_number in body
+    assert "Create Draft PO" in body
+
+
+def test_evaluation_page_generates_draft_po_from_award(client, procurement_world):
+    w = procurement_world
+    event = _approved_award_event(w)
+
+    client.force_login(w["exec"])
+    page = client.get(f"/sourcing-events/{event.id}/evaluation/")
+    assert page.status_code == 200
+    body = page.content.decode()
+    assert "Generate Purchase Order" in body
+    assert "cost_center_id" in body
+
+    response = client.post(
+        f"/purchase-orders/htmx/generate-from-award/{event.id}/",
+        {"cost_center_id": str(w["cost_center"].id)},
+    )
+    assert response.status_code == 302
+
+    po = PurchaseOrder.objects.get(sourcing_event=event)
+    assert po.status == PurchaseOrder.STATUS_DRAFT
+    assert response.url == f"/purchase-orders/{po.id}/"
+
+    refreshed = client.get(f"/sourcing-events/{event.id}/evaluation/").content.decode()
+    assert po.po_number in refreshed
+    assert "Generate Purchase Order" not in refreshed
+

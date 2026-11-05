@@ -1,5 +1,7 @@
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
 
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
 
@@ -17,17 +19,77 @@ def create_approval_policy_service(
     min_amount: Decimal = Decimal("0.00"),
     max_amount=None,
     department=None,
+    cost_center=None,
+    organization=None,
+    currency: str = "INR",
+    status: str = ApprovalPolicy.STATUS_ACTIVE,
+    description: str = "",
+    has_exception_routing: bool = False,
+    exception_amount_threshold=None,
+    exception_department=None,
+    exception_cost_center=None,
+    exception_trigger_on_missing_cost_center: bool = False,
+    exception_trigger_on_budget_exceeded: bool = False,
+    exception_approver_role=None,
+    exception_specific_approver=None,
+    exception_escalation_time_hours: Optional[int] = 24,
+    exception_routing_behavior: str = "ADDITIONAL_APPROVER",
+    exception_reason: str = "",
+    exception_description: str = "",
+    actor: Optional[User] = None,
 ) -> ApprovalPolicy:
     """
-    Creates an Approval Policy configuration.
+    Creates a full-featured enterprise Approval Policy configuration.
     """
-    policy = ApprovalPolicy.objects.create(
+    if not organization and department and getattr(department, "organization", None):
+        organization = department.organization
+
+    policy = ApprovalPolicy(
         name=name,
         module=module,
         min_amount=min_amount,
         max_amount=max_amount,
         department=department,
+        cost_center=cost_center,
+        organization=organization,
+        currency=currency,
+        status=status,
+        description=description,
+        is_active=(status == ApprovalPolicy.STATUS_ACTIVE),
+        has_exception_routing=has_exception_routing,
+        exception_amount_threshold=exception_amount_threshold,
+        exception_department=exception_department,
+        exception_cost_center=exception_cost_center,
+        exception_trigger_on_missing_cost_center=exception_trigger_on_missing_cost_center,
+        exception_trigger_on_budget_exceeded=exception_trigger_on_budget_exceeded,
+        exception_approver_role=exception_approver_role,
+        exception_specific_approver=exception_specific_approver,
+        exception_escalation_time_hours=exception_escalation_time_hours,
+        exception_routing_behavior=exception_routing_behavior,
+        exception_reason=exception_reason,
+        exception_description=exception_description,
     )
+    policy.full_clean()
+    policy.save()
+
+    if actor:
+        from apps.audit.services import create_audit_log_service
+        create_audit_log_service(
+            actor=actor,
+            action=AuditLog.ACTION_CREATE,
+            target_model="ApprovalPolicy",
+            target_object_id=str(policy.id),
+            previous_state=None,
+            new_state={
+                "name": policy.name,
+                "module": policy.module,
+                "status": policy.status,
+                "min_amount": str(policy.min_amount),
+                "max_amount": str(policy.max_amount) if policy.max_amount else None,
+                "has_exception_routing": policy.has_exception_routing,
+            },
+        )
+
     return policy
 
 
@@ -39,6 +101,11 @@ def add_approval_step_service(
     approver_role: Role,
     specific_approver: User = None,
     description: str = "",
+    is_mandatory: bool = True,
+    approval_limit: Optional[Decimal] = None,
+    step_type: str = "SEQUENTIAL",
+    rejection_behavior: str = "STOP_WORKFLOW",
+    escalation_hours: Optional[int] = None,
 ) -> ApprovalStep:
     """
     Adds an ordered step to an Approval Policy.
@@ -49,6 +116,11 @@ def add_approval_step_service(
         approver_role=approver_role,
         specific_approver=specific_approver,
         description=description,
+        is_mandatory=is_mandatory,
+        approval_limit=approval_limit,
+        step_type=step_type,
+        rejection_behavior=rejection_behavior,
+        escalation_hours=escalation_hours,
     )
     return step
 
@@ -71,91 +143,117 @@ def resolve_active_delegate(approver: User) -> User:
     return approver
 
 
-
 def evaluate_approval_chain(
-    *, module: str, amount: Decimal, department=None, cost_center=None
-):
+    *,
+    module: str,
+    amount: Decimal,
+    department=None,
+    cost_center=None,
+    organization=None,
+    missing_cost_center: bool = False,
+    budget_exceeded: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Evaluates server-side approval routing policies for a module & amount threshold.
-    Supports cost-center routing, department routing, and global fallback policies.
-    Returns list of tuples: [(step, target_approver_role, effective_approver_user)]
+    Supports organization-level scoping, cost-center routing, department routing,
+    multi-department/multi-cost-center rules, amount slabs, and optional exception routing.
 
+    Matching priority:
+    1. Organization + Department + Cost Center + Transaction Type (Module)
+    2. Organization + Department + Transaction Type
+    3. Organization + Cost Center + Transaction Type
+    4. Organization + Transaction Type (Organization Default / All Departments & Cost Centers)
+    5. Global Fallback Policy (No Org / Global)
     """
-    policies = ApprovalPolicy.objects.filter(
-        models.Q(max_amount__isnull=True) | models.Q(max_amount__gte=amount),
+    if not organization:
+        if department and getattr(department, "organization", None):
+            organization = department.organization
+        elif cost_center and getattr(cost_center, "department", None) and getattr(cost_center.department, "organization", None):
+            organization = cost_center.department.organization
+
+    base_qs = ApprovalPolicy.objects.filter(
         module=module,
         is_active=True,
         min_amount__lte=amount,
-    ).order_by("-min_amount")
+    ).filter(
+        models.Q(max_amount__isnull=True) | models.Q(max_amount__gte=amount)
+    ).prefetch_related("departments", "cost_centers", "steps__approver_role", "steps__specific_approver")
+
+    if organization:
+        policies = base_qs.filter(
+            models.Q(organization=organization) | models.Q(department__organization=organization) | models.Q(organization__isnull=True, department__isnull=True)
+        )
+    else:
+        policies = base_qs
 
     selected_policy = None
-    if cost_center:
-        selected_policy = policies.filter(cost_center=cost_center).first()
 
+    # Priority 1: Organization + Department + Cost Center + Module
+    if cost_center and department:
+        b1 = [
+            p for p in policies
+            if (p.cost_center_id == cost_center.id or cost_center in p.cost_centers.all())
+            and (p.department_id == department.id or department in p.departments.all())
+        ]
+        if b1:
+            selected_policy = sorted(b1, key=lambda x: x.min_amount, reverse=True)[0]
 
+    # Priority 2: Organization + Department + Module
     if not selected_policy and department:
-        selected_policy = policies.filter(
-            department=department, cost_center__isnull=True
-        ).first()
+        b2 = [
+            p for p in policies
+            if (p.department_id == department.id or department in p.departments.all())
+            and p.cost_center_id is None and not p.cost_centers.exists() and not p.all_cost_centers
+        ]
+        if b2:
+            selected_policy = sorted(b2, key=lambda x: x.min_amount, reverse=True)[0]
+
+    # Priority 3: Organization + Cost Center + Module
+    if not selected_policy and cost_center:
+        b3 = [
+            p for p in policies
+            if (p.cost_center_id == cost_center.id or cost_center in p.cost_centers.all())
+            and p.department_id is None and not p.departments.exists() and not p.all_departments
+        ]
+        if b3:
+            selected_policy = sorted(b3, key=lambda x: x.min_amount, reverse=True)[0]
+
+    # Priority 4: Organization + Module (Org default / All Departments & Cost Centers)
+    if not selected_policy and organization:
+        b4 = [
+            p for p in policies
+            if p.organization_id == organization.id
+            and p.department_id is None and not p.departments.exists()
+            and p.cost_center_id is None and not p.cost_centers.exists()
+        ]
+        if b4:
+            selected_policy = sorted(b4, key=lambda x: x.min_amount, reverse=True)[0]
+
+    # Priority 5: Global Fallback Policy
+    if not selected_policy:
+        b5 = [
+            p for p in policies
+            if p.department_id is None and not p.departments.exists()
+            and p.cost_center_id is None and not p.cost_centers.exists()
+            and p.organization_id is None
+        ]
+        if b5:
+            selected_policy = sorted(b5, key=lambda x: x.min_amount, reverse=True)[0]
 
     if not selected_policy:
-        selected_policy = policies.filter(
-            department__isnull=True, cost_center__isnull=True
-        ).first()
-
+        # Final fallback across matching amount
+        selected_policy = policies.order_by("-min_amount").first()
 
     if not selected_policy:
         return []
 
     steps = list(
-        selected_policy.steps.select_related("approver_role", "specific_approver").order_by(
-            "step_number"
-        )
+        selected_policy.steps.select_related("approver_role", "specific_approver").order_by("step_number")
     )
     if not steps:
-        from apps.accounts.models import Role
-        from apps.approvals.models import ApprovalStep
-
-        dept_role = Role.objects.filter(code=Role.DEPT_APPROVER).first()
-        proc_role = Role.objects.filter(code=Role.PROC_MGR).first()
-
-        if selected_policy.module == ApprovalPolicy.MODULE_PR:
-            if dept_role:
-                ApprovalStep.objects.get_or_create(
-                    policy=selected_policy,
-                    step_number=1,
-                    defaults={
-                        "approver_role": dept_role,
-                        "description": "Department Manager Approval",
-                    },
-                )
-            if proc_role:
-                ApprovalStep.objects.get_or_create(
-                    policy=selected_policy,
-                    step_number=2,
-                    defaults={
-                        "approver_role": proc_role,
-                        "description": "Procurement Manager Approval",
-                    },
-                )
-        elif selected_policy.module == ApprovalPolicy.MODULE_PO_AMENDMENT and proc_role:
-            ApprovalStep.objects.get_or_create(
-                policy=selected_policy,
-                step_number=1,
-                defaults={
-                    "approver_role": proc_role,
-                    "description": "Procurement Manager Approval",
-                },
-            )
-
-        steps = list(
-            selected_policy.steps.select_related("approver_role", "specific_approver").order_by(
-                "step_number"
-            )
-        )
+        return []
 
     chain = []
-
     for step in steps:
         effective_user = None
         if step.specific_approver:
@@ -167,10 +265,210 @@ def evaluate_approval_chain(
                 "approver_role": step.approver_role,
                 "specific_approver": step.specific_approver,
                 "effective_approver": effective_user,
-                "description": step.description,
+                "description": step.description or f"{step.approver_role.name} Approval",
+                "is_mandatory": getattr(step, "is_mandatory", True),
+                "approval_limit": getattr(step, "approval_limit", None),
+                "step_type": getattr(step, "step_type", "SEQUENTIAL"),
+                "rejection_behavior": getattr(step, "rejection_behavior", "STOP_WORKFLOW"),
+                "escalation_hours": getattr(step, "escalation_hours", None),
+                "is_exception_step": False,
             }
         )
+
+    # Optional Exception Routing Check
+    if selected_policy.has_exception_routing:
+        exception_triggered = False
+        reasons = []
+
+        if selected_policy.exception_amount_threshold is not None and amount >= selected_policy.exception_amount_threshold:
+            exception_triggered = True
+            curr = selected_policy.currency or "INR"
+            reasons.append(f"Amount {curr} {amount:,.2f} exceeds exception threshold ({selected_policy.exception_amount_threshold:,.2f})")
+
+        if selected_policy.exception_trigger_on_missing_cost_center and (missing_cost_center or not cost_center):
+            exception_triggered = True
+            reasons.append("Missing cost center mapping")
+
+        if selected_policy.exception_trigger_on_budget_exceeded and budget_exceeded:
+            exception_triggered = True
+            reasons.append("Budget overrun exception triggered")
+
+        if selected_policy.exception_department_id and department and department.id == selected_policy.exception_department_id:
+            exception_triggered = True
+            reasons.append(f"Department exception rule ({department.name})")
+
+        if selected_policy.exception_cost_center_id and cost_center and cost_center.id == selected_policy.exception_cost_center_id:
+            exception_triggered = True
+            reasons.append(f"Cost center exception rule ({cost_center.code})")
+
+        if exception_triggered:
+            exc_role = selected_policy.exception_approver_role
+            if not exc_role and selected_policy.exception_routing_behavior == "ESCALATE_ADMIN":
+                exc_role = Role.objects.filter(code=Role.SUPER_ADMIN).first()
+
+            if exc_role:
+                exc_desc = f"Exception: {selected_policy.exception_reason or ', '.join(reasons)}"
+                effective_exc_user = None
+                if selected_policy.exception_specific_approver:
+                    effective_exc_user = resolve_active_delegate(selected_policy.exception_specific_approver)
+
+                exc_step_dict = {
+                    "step_number": len(chain) + 1,
+                    "policy_step": None,
+                    "approver_role": exc_role,
+                    "specific_approver": selected_policy.exception_specific_approver,
+                    "effective_approver": effective_exc_user,
+                    "description": exc_desc,
+                    "is_mandatory": True,
+                    "approval_limit": None,
+                    "step_type": "SEQUENTIAL",
+                    "rejection_behavior": "STOP_WORKFLOW",
+                    "escalation_hours": selected_policy.exception_escalation_time_hours,
+                    "is_exception_step": True,
+                    "exception_reasons": reasons,
+                }
+
+                if selected_policy.exception_routing_behavior == "ALTERNATE_PATH":
+                    exc_step_dict["step_number"] = 1
+                    chain = [exc_step_dict]
+                else:
+                    chain.append(exc_step_dict)
+
     return chain
+
+
+@transaction.atomic
+def duplicate_approval_policy_service(*, policy_id: Optional[str] = None, policy: Optional[ApprovalPolicy] = None, actor: Optional[User] = None) -> ApprovalPolicy:
+    """
+    Clones an existing approval policy into a Draft version.
+    Allows easy creation of multiple amount slabs.
+    """
+    if policy is None:
+        orig = ApprovalPolicy.objects.get(pk=policy_id)
+    else:
+        orig = policy
+    cloned_name = f"Copy of {orig.name}"
+    counter = 1
+    while ApprovalPolicy.objects.filter(name=cloned_name, organization=orig.organization).exists():
+        counter += 1
+        cloned_name = f"Copy ({counter}) of {orig.name}"
+
+    cloned = ApprovalPolicy.objects.create(
+        name=cloned_name,
+        module=orig.module,
+        organization=orig.organization,
+        department=orig.department,
+        cost_center=orig.cost_center,
+        min_amount=orig.min_amount,
+        max_amount=orig.max_amount,
+        currency=orig.currency,
+        status=ApprovalPolicy.STATUS_DRAFT,
+        is_active=False,
+        description=orig.description,
+        version=orig.version + 1,
+        has_exception_routing=orig.has_exception_routing,
+        exception_amount_threshold=orig.exception_amount_threshold,
+        exception_department=orig.exception_department,
+        exception_cost_center=orig.exception_cost_center,
+        exception_trigger_on_missing_cost_center=orig.exception_trigger_on_missing_cost_center,
+        exception_trigger_on_budget_exceeded=orig.exception_trigger_on_budget_exceeded,
+        exception_approver_role=orig.exception_approver_role,
+        exception_specific_approver=orig.exception_specific_approver,
+        exception_escalation_time_hours=orig.exception_escalation_time_hours,
+        exception_routing_behavior=orig.exception_routing_behavior,
+        exception_reason=orig.exception_reason,
+        exception_description=orig.exception_description,
+    )
+
+    # Clone steps
+    for step in orig.steps.all().order_by("step_number"):
+        ApprovalStep.objects.create(
+            policy=cloned,
+            step_number=step.step_number,
+            approver_role=step.approver_role,
+            specific_approver=step.specific_approver,
+            description=step.description,
+            is_mandatory=step.is_mandatory,
+            approval_limit=step.approval_limit,
+            step_type=step.step_type,
+            rejection_behavior=step.rejection_behavior,
+            escalation_hours=step.escalation_hours,
+        )
+
+    if actor:
+        from apps.audit.services import create_audit_log_service
+        create_audit_log_service(
+            actor=actor,
+            action=AuditLog.ACTION_CREATE,
+            target_model="ApprovalPolicy",
+            target_object_id=str(cloned.id),
+            previous_state={"cloned_from": str(orig.id)},
+            new_state={"name": cloned.name, "status": cloned.status},
+        )
+
+    return cloned
+
+
+@transaction.atomic
+def toggle_policy_status_service(*, policy_id: Optional[str] = None, policy: Optional[ApprovalPolicy] = None, actor: Optional[User] = None) -> ApprovalPolicy:
+    """
+    Toggles between ACTIVE and DRAFT status.
+    """
+    if policy is None:
+        policy = ApprovalPolicy.objects.get(pk=policy_id)
+    old_status = policy.status
+
+    if policy.status == ApprovalPolicy.STATUS_ACTIVE:
+        policy.status = ApprovalPolicy.STATUS_DRAFT
+        policy.is_active = False
+    else:
+        # Activate: Validate that policy has at least one approval step
+        if not policy.steps.exists():
+            raise ValidationError("Cannot activate policy with zero approval steps. Add at least one approval level.")
+        policy.status = ApprovalPolicy.STATUS_ACTIVE
+        policy.is_active = True
+        policy.full_clean()
+
+    policy.save(update_fields=["status", "is_active", "updated_at"])
+
+    if actor:
+        from apps.audit.services import create_audit_log_service
+        create_audit_log_service(
+            actor=actor,
+            action=AuditLog.ACTION_UPDATE,
+            target_model="ApprovalPolicy",
+            target_object_id=str(policy.id),
+            previous_state={"status": old_status},
+            new_state={"status": policy.status, "is_active": policy.is_active},
+        )
+
+    return policy
+
+
+@transaction.atomic
+def archive_policy_service(*, policy_id: Optional[str] = None, policy: Optional[ApprovalPolicy] = None, actor: Optional[User] = None) -> ApprovalPolicy:
+    """
+    Archives an approval policy.
+    """
+    if policy is None:
+        policy = ApprovalPolicy.objects.get(pk=policy_id)
+    old_status = policy.status
+    policy.status = ApprovalPolicy.STATUS_ARCHIVED
+    policy.is_active = False
+    policy.save(update_fields=["status", "is_active", "updated_at"])
+
+    if actor:
+        from apps.audit.services import create_audit_log_service
+        create_audit_log_service(
+            actor=actor,
+            action=AuditLog.ACTION_UPDATE,
+            target_model="ApprovalPolicy",
+            target_object_id=str(policy.id),
+            previous_state={"status": old_status},
+            new_state={"status": policy.status, "is_active": policy.is_active},
+        )
+
+    return policy
 
 
 @transaction.atomic
@@ -199,7 +497,6 @@ def record_approval_action_service(
         new_state=new_state,
     )
 
-    # Write append-only AuditLog with accurate action mapping
     if action == ApprovalAction.ACTION_APPROVE:
         audit_action = AuditLog.ACTION_APPROVE
     elif action == ApprovalAction.ACTION_REJECT:

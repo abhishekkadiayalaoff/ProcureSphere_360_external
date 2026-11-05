@@ -299,7 +299,7 @@
         if (!hasValidItem || rows.length === 0) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            alert('A purchase requisition must have at least one line item with a description and quantity.');
+            window.PSToast('A purchase requisition must have at least one line item with a description and quantity.', 'warning', 'Line item required');
             const form = document.getElementById('pr_edit_form');
             if (form) {
                 delete form.dataset.submitting;

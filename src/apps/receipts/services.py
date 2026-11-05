@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
@@ -14,6 +15,8 @@ from .models import (
     ReceiptLine,
     RejectionRecord,
     StockHandoffRecord,
+    StockItem,
+    StockMovement,
 )
 
 
@@ -346,8 +349,10 @@ def vendor_dispatch_delivery_service(
         },
     )
 
-    # Notify Stores Receiver team
-    stores_receivers = User.objects.filter(role__code=Role.STORES_RECEIVER, is_active=True)
+    # Notify Stores Receiver team (scoped to the GRN's organization only)
+    stores_receivers = _org_scoped_internal_users(
+        [Role.STORES_RECEIVER], resolve_grn_organization(receipt)
+    )
     for s_user in stores_receivers:
         Notification.objects.create(
             recipient=s_user,
@@ -360,8 +365,10 @@ def vendor_dispatch_delivery_service(
             target_url=f"/receipts/{receipt.id}/inspect/",
         )
 
-    # Notify Procurement Executive
-    pe_users = User.objects.filter(role__code=Role.PROC_EXEC, is_active=True)
+    # Notify Procurement Executive (scoped to the GRN's organization only)
+    pe_users = _org_scoped_internal_users(
+        [Role.PROC_EXEC], resolve_grn_organization(receipt)
+    )
     for pe in pe_users:
         Notification.objects.create(
             recipient=pe,
@@ -670,8 +677,10 @@ def record_inspection_service(
                     target_url=f"/receipts/{receipt.id}/",
                 )
 
-    # 1. Notify Finance & AP
-    finance_users = User.objects.filter(role__code=Role.FINANCE_AP, is_active=True)
+    # 1. Notify Finance & AP (scoped to the GRN's organization only)
+    finance_users = _org_scoped_internal_users(
+        [Role.FINANCE_AP], resolve_grn_organization(receipt)
+    )
     for fin_user in finance_users:
         Notification.objects.create(
             recipient=fin_user,
@@ -704,9 +713,9 @@ def record_inspection_service(
                 target_url=f"/vendor/purchase-orders/{po.id}/",
             )
 
-    # 3. Notify Procurement Executive & Manager
-    pe_pm_users = User.objects.filter(
-        role__code__in=[Role.PROC_EXEC, Role.PROC_MGR], is_active=True
+    # 3. Notify Procurement Executive & Manager (scoped to the GRN's organization only)
+    pe_pm_users = _org_scoped_internal_users(
+        [Role.PROC_EXEC, Role.PROC_MGR], resolve_grn_organization(receipt)
     )
     for staff_user in pe_pm_users:
         Notification.objects.create(
@@ -736,6 +745,7 @@ def _apply_line_stock_handoff(
             f"Cannot hand off line '{line.po_line.item_description}' with 0 accepted quantity to stock."
         )
 
+    existing_handoff = StockHandoffRecord.objects.filter(receipt_line=line).first()
     handoff, _ = StockHandoffRecord.objects.update_or_create(
         receipt_line=line,
         defaults={
@@ -745,6 +755,30 @@ def _apply_line_stock_handoff(
             "handoff_notes": notes or "",
         },
     )
+
+    # Minimal inventory integration: upsert stock position and append movement
+    # for the delta (idempotent — re-runs and corrections post only the difference).
+    previously_posted = existing_handoff.quantity_handed_off if existing_handoff else Decimal("0.00")
+    delta = line.quantity_accepted - previously_posted
+    if delta != Decimal("0.00"):
+        stock_item, _ = StockItem.objects.get_or_create(
+            po_line=line.po_line,
+            location=location or "MAIN-WH",
+            defaults={"quantity_on_hand": Decimal("0.00")},
+        )
+        stock_item = StockItem.objects.select_for_update().get(pk=stock_item.pk)
+        stock_item.quantity_on_hand = max(
+            Decimal("0.00"), stock_item.quantity_on_hand + delta
+        )
+        stock_item.save(update_fields=["quantity_on_hand", "updated_at"])
+        StockMovement.objects.create(
+            stock_item=stock_item,
+            movement_type=StockMovement.MOVE_IN,
+            quantity=delta,
+            reference_number=line.receipt.grn_number,
+            performed_by=handed_off_by,
+            notes=notes or f"GRN handoff for {line.po_line.item_description}",
+        )
     return handoff
 
 
@@ -1095,3 +1129,132 @@ def correct_receipt_line_quantity_service(
     )
 
     return receipt_line
+
+
+def _org_scoped_internal_users(role_codes, org=None):
+    """Active internal users holding the given role codes, restricted to the
+    GRN's owning organization when one can be resolved."""
+    qs = User.objects.filter(role__code__in=role_codes, is_active=True)
+    if org:
+        qs = qs.filter(Q(organization=org) | Q(department__organization=org))
+    return qs
+
+
+def resolve_grn_organization(grn):
+    """
+    Resolves the Organization that owns this Goods Receipt Note, via the PO's
+    cost-center department, falling back to the originating requisition department.
+    """
+    po = grn.po
+    if po.cost_center_id and getattr(po.cost_center, "department_id", None):
+        org = getattr(po.cost_center.department, "organization", None)
+        if org:
+            return org
+    requisition = getattr(po, "requisition", None)
+    if requisition and getattr(requisition, "department", None):
+        return getattr(requisition.department, "organization", None)
+    return None
+
+
+@transaction.atomic
+def dispatch_grn_to_stakeholders_service(*, grn: GoodsReceipt, dispatched_by: User):
+    """
+    Single-use dispatch of a Goods Receipt Note (GRN) to Finance & AP, the Vendor
+    portal users, and the Procurement Executive/Manager of the owning organization.
+
+    Guarantees:
+    - Idempotent + immutable: the first successful dispatch locks the GRN
+      (``finance_dispatched_at``/``dispatched_by`` are persisted server-side);
+      subsequent attempts are rejected — the send action can only happen once.
+    - Recipients are scoped to the GRN's organization (no cross-org notification leakage).
+    - Full audit evidence via the append-only AuditLog.
+    """
+    from apps.notifications.models import Notification
+    from apps.notifications.services import notify_users
+
+    _check_stores_receiver_permission(dispatched_by, "dispatch GRN notifications")
+
+    grn = GoodsReceipt.objects.select_for_update().get(id=grn.id)
+
+    if grn.finance_dispatched_at:
+        raise ValidationError(
+            f"GRN {grn.grn_number} has already been dispatched to Finance and Vendor on "
+            f"{timezone.localtime(grn.finance_dispatched_at).strftime('%Y-%m-%d %H:%M')}."
+            " The send action is available only once."
+        )
+
+    po = grn.po
+    org = resolve_grn_organization(grn)
+    if org is None:
+        org = getattr(dispatched_by, "effective_organization", None)
+
+    # 1. Finance & AP users of the GRN's organization
+    fin_users = list(_org_scoped_internal_users([Role.FINANCE_AP], org))
+    notify_users(
+        users=fin_users,
+        notification_type=Notification.TYPE_GOODS_RECEIVED,
+        title=f"GRN Receipt Note Dispatched: {grn.grn_number} (PO {po.po_number})",
+        message=(
+            f"Stores Receiver has dispatched Goods Receipt Note {grn.grn_number} for PO "
+            f"{po.po_number}. Status: {grn.overall_inspection_status}. Ready for 3-way match "
+            f"upon invoice arrival."
+        ),
+        target_url=f"/receipts/{grn.id}/",
+    )
+
+    # 2. Vendor portal users of the PO's vendor
+    notified_recipients = len(fin_users)
+    if po.vendor_id:
+        vendor_users = User.objects.filter(vendor=po.vendor, is_active=True)
+        notify_users(
+            users=vendor_users,
+            notification_type=Notification.TYPE_GOODS_RECEIVED,
+            title=f"GRN Receipt Note Delivered: {grn.grn_number}",
+            message=(
+                f"Goods Receipt Note {grn.grn_number} for PO {po.po_number} is completed. "
+                f"Status: {grn.overall_inspection_status}. You can now raise an invoice for "
+                f"inspected goods."
+            ),
+            target_url=f"/vendor/purchase-orders/{po.id}/",
+        )
+        notified_recipients += len(vendor_users)
+
+    # 3. Procurement Executive & Manager of the GRN's organization
+    pe_pm_users = list(
+        _org_scoped_internal_users([Role.PROC_EXEC, Role.PROC_MGR], org)
+    )
+    notify_users(
+        users=pe_pm_users,
+        notification_type=Notification.TYPE_GOODS_RECEIVED,
+        title=f"GRN Dispatched: {grn.grn_number} (PO {po.po_number})",
+        message=(
+            f"Goods Receipt Note {grn.grn_number} on PO {po.po_number} has been shared with "
+            f"Finance and Vendor."
+        ),
+        target_url=f"/receipts/{grn.id}/",
+    )
+    notified_recipients += len(pe_pm_users)
+
+    # Lock the GRN against further dispatches (persisted server-side, never overwritten)
+    grn.finance_dispatched_at = timezone.now()
+    grn.dispatched_by = dispatched_by
+    grn.save(update_fields=["finance_dispatched_at", "dispatched_by", "updated_at"])
+
+    AuditLog.objects.create(
+        actor=dispatched_by,
+        action=AuditLog.ACTION_UPDATE,
+        target_model="GoodsReceipt",
+        target_object_id=str(grn.id),
+        previous_state={"grn_number": grn.grn_number, "finance_dispatched_at": None},
+        new_state={
+            "action": "GRN_DISPATCHED_TO_FINANCE_VENDOR",
+            "grn_number": grn.grn_number,
+            "po_number": po.po_number,
+            "vendor": po.vendor.legal_name if po.vendor_id else None,
+            "inspection_status": grn.overall_inspection_status,
+            "notifications_sent": notified_recipients,
+            "dispatched_at": grn.finance_dispatched_at.isoformat(),
+        },
+    )
+
+    return grn

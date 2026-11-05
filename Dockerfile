@@ -3,7 +3,9 @@ FROM python:3.11-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app/src
+    PYTHONPATH=/app/src \
+    PIP_DEFAULT_TIMEOUT=1000 \
+    PIP_RETRIES=10
 
 WORKDIR /app
 
@@ -17,7 +19,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --default-timeout=1000 --retries=10 -r requirements.txt
 
 # Copy project files
 COPY . /app/

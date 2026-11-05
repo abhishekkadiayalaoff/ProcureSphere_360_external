@@ -1,8 +1,8 @@
 from decimal import Decimal
 
 import pytest
-from django.utils import timezone
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.invoices.models import MatchException, SupplierInvoice
@@ -57,24 +57,28 @@ def workflow_setup(db, db_roles):
         email="stores_dock@hpe.com",
         password="Password123!",
         role=db_roles[Role.STORES_RECEIVER],
+        organization=org,
     )
 
     finance_user = User.objects.create_user(
         email="finance_officer@hpe.com",
         password="Password123!",
         role=db_roles[Role.FINANCE_AP],
+        organization=org,
     )
 
     proc_exec = User.objects.create_user(
         email="proc_exec@hpe.com",
         password="Password123!",
         role=db_roles[Role.PROC_EXEC],
+        organization=org,
     )
 
     proc_mgr = User.objects.create_user(
         email="proc_mgr@hpe.com",
         password="Password123!",
         role=db_roles[Role.PROC_MGR],
+        organization=org,
     )
 
     po = PurchaseOrder.objects.create(

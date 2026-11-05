@@ -36,6 +36,7 @@ from apps.audit.serializers import (
     VendorComplianceQuerySerializer,
 )
 from apps.audit.services import export_auditor_data_service, get_transaction_lifecycle_service
+from apps.organization.selectors import resolve_user_scope_organization
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -204,7 +205,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
         except (ValueError, TypeError):
             period_days = 30
 
-        data = get_auditor_dashboard_data(period_days=period_days)
+        data = get_auditor_dashboard_data(period_days=period_days, org=resolve_user_scope_organization(request.user))
         data["recent_logs"] = AuditLogListSerializer(data["recent_logs"], many=True).data
         data["recent_approvals"] = [
             {
@@ -441,7 +442,7 @@ def auditor_dashboard_summary_api_view(request):
             period_days = 30
     except (ValueError, TypeError):
         period_days = 30
-    data = get_auditor_dashboard_data(period_days=period_days)
+    data = get_auditor_dashboard_data(period_days=period_days, org=resolve_user_scope_organization(request.user))
     data["recent_logs"] = AuditLogListSerializer(data["recent_logs"], many=True).data
     data["recent_approvals"] = [
         {
@@ -640,3 +641,4 @@ def auditor_export_api_view(request):
     response["X-Export-Checksum"] = export_res["checksum"]
     response["X-Export-Algorithm"] = export_res["algorithm"]
     return response
+

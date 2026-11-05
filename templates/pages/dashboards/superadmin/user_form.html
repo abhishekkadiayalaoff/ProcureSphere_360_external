@@ -9,6 +9,7 @@
         <div class="alert alert-danger">{{ form.non_field_errors }}</div>
         {% endif %}
         <div class="row g-3">
+            <!-- Row 1: Email & Phone -->
             <div class="col-md-6">
                 <label class="form-label fw-semibold text-secondary small">Email Address <span class="text-danger">*</span></label>
                 {{ form.email }}
@@ -19,90 +20,144 @@
                 {{ form.phone_number }}
                 {% if form.phone_number.errors %}<div class="text-danger small mt-1">{{ form.phone_number.errors }}</div>{% endif %}
             </div>
+
+            <!-- Organization (Hidden if Scoped, Dropdown if Global Superadmin) -->
+            {% if form.organization.is_hidden %}
+                {{ form.organization }}
+            {% else %}
+            <div class="col-12">
+                <label class="form-label fw-semibold text-secondary small">Organization</label>
+                {{ form.organization }}
+                {% if form.organization.errors %}<div class="text-danger small mt-1">{{ form.organization.errors }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Row 2: Role & Department -->
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Role</label>
+                <label class="form-label fw-semibold text-secondary small">Role <span class="text-danger">*</span></label>
                 {{ form.role }}
                 {% if form.role.errors %}<div class="text-danger small mt-1">{{ form.role.errors }}</div>{% endif %}
             </div>
-            <div class="col-md-6">
+            <div class="col-md-6" id="department-col">
                 <label class="form-label fw-semibold text-secondary small">Department</label>
-                <div id="department-select-container">
-                    {{ form.department }}
-                </div>
+                {{ form.department }}
                 {% if form.department.errors %}<div class="text-danger small mt-1">{{ form.department.errors }}</div>{% endif %}
             </div>
-            <div class="col-12" id="cost-center-wrapper" style="display: none;">
-                <label class="form-label fw-semibold text-secondary small">Cost Center <span class="text-danger">*</span></label>
-                {{ form.cost_center }}
-                <div class="form-text small text-muted">Required for Requesters. Must belong to the selected Department.</div>
-                {% if form.cost_center.errors %}<div class="text-danger small mt-1">{{ form.cost_center.errors }}</div>{% endif %}
+
+            <!-- Organization-Wide Access Notice (displayed for all Non-Requester Roles) -->
+            <div class="col-12" id="org-wide-role-wrapper" style="display: none;">
+                <div class="alert alert-light border border-info border-opacity-25 bg-info bg-opacity-10 rounded-3 p-3 mb-0 d-flex align-items-center">
+                    <i class="fa-solid fa-building-circle-check fs-4 me-3 text-info flex-shrink-0"></i>
+                    <div>
+                        <div class="fw-bold text-dark small">Organization-Wide Access</div>
+                        <div class="text-secondary small">This role operates organization-wide across all departments. Department and cost center mapping is strictly reserved for Requester accounts.</div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Password Field with Show/Hide, Generate, and Copy Buttons -->
+            <!-- Requester Department & Cost Center Allocation (ONLY FOR REQUESTERS) -->
+            <div class="col-12" id="requester-dept-cc-wrapper" style="display: none;">
+                <div class="p-3 rounded-3 border bg-light">
+                    <div class="d-flex align-items-center mb-2 text-primary fw-semibold small">
+                        <i class="fa-solid fa-sitemap me-2"></i> Requester Allocation (Cost Center)
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-12" id="cost-center-wrapper">
+                            <label class="form-label fw-semibold text-secondary small">Cost Center <span class="text-danger">*</span></label>
+                            {{ form.cost_center }}
+                            <div class="form-text small text-muted">Mandatory for Requesters. Must belong to the selected Department.</div>
+                            {% if form.cost_center.errors %}<div class="text-danger small mt-1">{{ form.cost_center.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 3: Password (Optional — auto-generated if blank) with Generator and Copy -->
             <div class="col-12">
-                <label class="form-label fw-semibold text-secondary small">
-                    {% if is_edit %}Reset Password (Optional){% else %}Password <span class="text-muted fw-normal">(Optional — auto-generated if blank)</span>{% endif %}
-                </label>
+                <label class="form-label fw-semibold text-secondary small">Password <span class="text-muted fw-normal">{% if is_edit %}(Optional — leave blank to keep existing password){% else %}(Optional — auto-generated if blank){% endif %}</span></label>
                 <div class="input-group">
-                    <input type="password" name="password" id="id_password" class="form-control {% if form.password.errors %}is-invalid{% endif %}" placeholder="{% if is_edit %}Leave blank to keep existing password{% else %}Enter password or leave blank to auto-generate{% endif %}" autocomplete="new-password">
+                    <input type="password" name="password" class="form-control" id="id_password" placeholder="Enter password or leave blank to auto-generate" autocomplete="new-password">
                     <button class="btn btn-outline-secondary" type="button" id="togglePasswordBtn" title="Show / Hide Password">
                         <i class="fa-solid fa-eye" id="togglePasswordIcon"></i>
                     </button>
-                    <button class="btn btn-outline-primary" type="button" id="generatePasswordBtn" title="Generate secure random password">
-                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> <span class="d-none d-sm-inline">Generate Password</span><span class="d-inline d-sm-none">Generate</span>
+                    <button class="btn btn-outline-primary" type="button" id="generatePasswordBtn" title="Generate Secure Password">
+                        <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generate Password
                     </button>
-                    <button class="btn btn-outline-secondary" type="button" id="copyPasswordBtn" title="Copy password to clipboard">
+                    <button class="btn btn-outline-secondary" type="button" id="copyPasswordBtn" title="Copy Password">
                         <i class="fa-solid fa-copy me-1"></i> Copy
                     </button>
                 </div>
-                <div id="copyFeedback" class="small text-success mt-1 fw-semibold" style="display: none;">
-                    <i class="fa-solid fa-circle-check me-1"></i> Password copied to clipboard!
-                </div>
-                {% if form.password.errors %}
-                <div class="text-danger small mt-1">{{ form.password.errors }}</div>
-                {% endif %}
                 <div class="form-text small text-muted">
-                    {% if is_edit %}
-                    Leave blank to retain current password. If entered, must contain at least 12 characters (uppercase, lowercase, numbers & symbols).
-                    {% else %}
                     Must contain at least 12 characters, including uppercase, lowercase, numbers, and special characters, or leave blank to auto-generate on save.
-                    {% endif %}
                 </div>
+                <div id="copyFeedback" class="text-success small mt-1" style="display:none;">
+                    <i class="fa-solid fa-circle-check me-1"></i>Password copied to clipboard!
+                </div>
+                {% if form.password.errors %}<div class="text-danger small mt-1">{{ form.password.errors }}</div>{% endif %}
             </div>
 
-            <div class="col-12">
-                <input type="hidden" name="send_welcome_email_present" value="1">
-                <div class="form-check form-switch mt-2">
-                    {{ form.send_welcome_email }}
-                    <label class="form-check-label fw-semibold text-dark" for="{{ form.send_welcome_email.id_for_label }}">
-                        <i class="fa-solid fa-paper-plane text-info me-1"></i> Send Login Credentials Email (via Brevo)
-                    </label>
-                </div>
-                <div class="form-text small text-muted">When checked, sends login credentials and temporary password to the user via Brevo.</div>
-                {% if form.send_welcome_email.errors %}<div class="text-danger small mt-1">{{ form.send_welcome_email.errors }}</div>{% endif %}
-            </div>
+            <!-- Automated Email Dispatch (Hidden - Always sends credentials to user's email via Brevo) -->
+            <input type="hidden" name="send_welcome_email" value="on">
+            <input type="hidden" name="send_welcome_email_present" value="1">
 
+            <!-- Active User Account Switch with Dynamic Status Indicator -->
             <div class="col-12">
-                <div class="form-check form-switch mt-2">
-                    {{ form.is_active }}
-                    <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Active User Account</label>
+                <label class="form-label fw-semibold text-secondary small">Account Status (Active / Disabled)</label>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <div class="form-check form-switch m-0">
+                        {% if is_edit %}
+                            {% if form.is_bound %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.is_active.value %}checked{% endif %}>
+                            {% else %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if user_obj.is_active %}checked{% endif %}>
+                            {% endif %}
+                        {% else %}
+                            {% if form.is_bound %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.is_active.value %}checked{% endif %}>
+                            {% else %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <span id="userStatusBadge" class="badge {% if is_edit and not user_obj.is_active %}bg-danger bg-opacity-10 text-danger border border-danger{% else %}bg-success bg-opacity-10 text-success border border-success{% endif %} fw-semibold">
+                        {% if is_edit and not user_obj.is_active %}Disabled / Inactive Account{% else %}Active User Account{% endif %}
+                    </span>
                 </div>
+                {% if form.is_active.errors %}<div class="text-danger small mt-1">{{ form.is_active.errors }}</div>{% endif %}
             </div>
         </div>
     </div>
-    <div class="modal-footer border-top-0 pt-0">
-        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-info text-white fw-bold rounded-pill px-4" id="saveUserBtn">
+    <div class="modal-footer border-top-0 pt-0 d-flex flex-wrap gap-2 justify-content-end">
+        <button type="button" class="btn btn-light rounded-pill px-4 flex-fill flex-sm-grow-0" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-info text-white fw-bold rounded-pill px-4 flex-fill flex-sm-grow-0" id="saveUserBtn">
             <i class="fa-solid fa-check me-1"></i> Save User
         </button>
     </div>
 </form>
 
 <script>
+window.updateUserStatusLabel = function(el) {
+    var badge = document.getElementById("userStatusBadge");
+    if (!badge) return;
+    if (el.checked) {
+        badge.className = "badge bg-success bg-opacity-10 text-success border border-success fw-semibold";
+        badge.textContent = "Active User Account";
+    } else {
+        badge.className = "badge bg-danger bg-opacity-10 text-danger border border-danger fw-semibold";
+        badge.textContent = "Disabled / Inactive Account";
+    }
+};
 (function() {
+    var activeCheck = document.getElementById("id_is_active");
+    if (activeCheck) {
+        activeCheck.addEventListener("change", function() {
+            if (window.updateUserStatusLabel) window.updateUserStatusLabel(this);
+        });
+    }
     var roleSelect = document.getElementById("id_role");
     var deptSelect = document.getElementById("id_department");
-    var ccWrapper = document.getElementById("cost-center-wrapper");
+    var reqWrapper = document.getElementById("requester-dept-cc-wrapper");
+    var orgWrapper = document.getElementById("org-wide-role-wrapper");
     var ccSelect = document.getElementById("id_cost_center");
 
     // Password Elements
@@ -122,12 +177,22 @@
         return selectedOpt.text.toUpperCase().indexOf("REQUESTER") !== -1;
     }
 
-    function updateCostCenterVisibility() {
-        if (!ccWrapper) return;
+    function updateRoleVisibility() {
+        if (!roleSelect) return;
+        var val = roleSelect.value;
+        if (!val) {
+            if (reqWrapper) reqWrapper.style.display = "none";
+            if (orgWrapper) orgWrapper.style.display = "none";
+            return;
+        }
         if (isRequesterSelected()) {
-            ccWrapper.style.display = "block";
+            if (reqWrapper) reqWrapper.style.display = "block";
+            if (orgWrapper) orgWrapper.style.display = "none";
+            refreshCostCenters();
         } else {
-            ccWrapper.style.display = "none";
+            if (reqWrapper) reqWrapper.style.display = "none";
+            if (orgWrapper) orgWrapper.style.display = "block";
+            if (deptSelect) deptSelect.value = "";
             if (ccSelect) ccSelect.value = "";
         }
     }
@@ -246,7 +311,7 @@
         copyBtn.addEventListener("click", function() {
             var val = pwdInput.value;
             if (!val) {
-                alert("Please enter or generate a password first.");
+                window.PSToast("Please enter or generate a password first.", 'info', 'Nothing to copy');
                 return;
             }
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -265,24 +330,21 @@
         });
     }
 
-    // Prevent double submissions
+    // Visual button feedback without premature disabling
     if (userForm && saveBtn) {
-        userForm.addEventListener("submit", function() {
-            if (userForm.checkValidity()) {
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Saving User...';
-            }
+        userForm.addEventListener("htmx:configRequest", function() {
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Saving User...';
         });
     }
 
     if (roleSelect) {
-        roleSelect.addEventListener("change", updateCostCenterVisibility);
+        roleSelect.addEventListener("change", updateRoleVisibility);
     }
     if (deptSelect) {
         deptSelect.addEventListener("change", refreshCostCenters);
     }
 
     // Initial check on load
-    updateCostCenterVisibility();
+    updateRoleVisibility();
 })();
 </script>

@@ -116,21 +116,31 @@
                         <td class="text-end fw-bold text-danger">${{ exception.total_amount|floatformat:2 }}</td>
                         <td class="text-end pe-4">
                             <div class="d-inline-flex gap-2">
-                                <form action="{% url 'approvals_inbox' %}" method="POST">
+                                <form action="{% url 'approvals_inbox' %}" method="POST"
+                                      data-confirm-title="Force-approve budget overrun?"
+                                      data-confirm-message="This requisition exceeds its allocated budget. Approving will release it into sourcing with the overrun explicitly recorded against your role in the audit trail."
+                                      data-confirm-tone="warning"
+                                      data-confirm-icon="fa-scale-balanced"
+                                      data-confirm-confirm-label="Yes, force approve">
                                     {% csrf_token %}
                                     <input type="hidden" name="pr_id" value="{{ exception.id }}">
                                     <input type="hidden" name="action" value="APPROVED">
                                     <input type="hidden" name="comments" value="Budget Exception explicitly approved by Finance.">
-                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3" onclick="return confirm('Are you sure you want to approve this budget overrun?');">
+                                    <button type="submit" class="btn btn-sm btn-success rounded-pill px-3">
                                         <i class="fa-solid fa-check me-1"></i> Force Approve
                                     </button>
                                 </form>
-                                <form action="{% url 'approvals_inbox' %}" method="POST">
+                                <form action="{% url 'approvals_inbox' %}" method="POST"
+                                      data-confirm-title="Reject requisition?"
+                                      data-confirm-message="The requisition will be rejected because it exceeds the available budget. The requester will be notified with the recorded reason."
+                                      data-confirm-tone="danger"
+                                      data-confirm-icon="fa-xmark"
+                                      data-confirm-confirm-label="Yes, reject requisition">
                                     {% csrf_token %}
                                     <input type="hidden" name="pr_id" value="{{ exception.id }}">
                                     <input type="hidden" name="action" value="REJECTED">
                                     <input type="hidden" name="comments" value="Budget Exception rejected by Finance.">
-                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="return confirm('Are you sure you want to reject this requisition due to budget overrun?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill px-3">
                                         <i class="fa-solid fa-xmark me-1"></i> Reject
                                     </button>
                                 </form>

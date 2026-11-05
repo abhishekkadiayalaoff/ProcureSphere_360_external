@@ -3,6 +3,7 @@ from .base import *  # noqa: F403, F405
 
 # Development settings
 DEBUG = True
+ALLOWED_HOSTS = ["*"]
 
 # Email configuration
 # Defaults to console backend for local development.
@@ -28,3 +29,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
 ]
 
+
+# Development Axes settings (prevent development test lockouts)
+AXES_FAILURE_LIMIT = 20
+AXES_COOLOFF_TIME = 0.01

@@ -11,24 +11,24 @@
 {% block manager_content %}
 <div class="container-fluid px-0">
 
-    <!-- Page Header Area (Glass-card dark matching Procurement Executive) -->
-    <div class="glass-card-dark p-4 mb-4">
+    <!-- Page Header Area (Dark Charcoal matching Vendor Dashboard) -->
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 text-white" style="background-color: #212529 !important;">
         <div class="row align-items-center g-3">
             <div class="col-lg-8">
-                <span class="badge bg-info text-dark rounded-pill fw-bold px-3 py-1 mb-2">
-                    <i class="fa-solid fa-shield-halved me-1"></i> GOVERNANCE HUB · PROCUREMENT MANAGER
+                <span class="badge bg-secondary bg-opacity-50 text-light rounded-pill fw-bold px-3 py-1 mb-2" style="font-size: 0.68rem; letter-spacing: 0.05em;">
+                    <i class="fa-solid fa-shield-halved text-cyan me-1"></i> GOVERNANCE HUB &bull; PROCUREMENT MANAGER
                 </span>
                 <h1 class="fw-bold text-white mb-1 h3">Procurement Manager Executive Desk</h1>
-                <p class="text-white-50 mb-0 small">{{ user.email }} · High-value approvals, RFQ/RFP award decisions, PR bottlenecks, and supplier risk governance.</p>
+                <p class="text-white-50 mb-0 small">{{ user.email }} &bull; High-value approvals, RFQ/RFP award decisions, PR bottlenecks, and supplier risk governance.</p>
             </div>
             <div class="col-lg-4 text-lg-end d-flex flex-wrap gap-2 justify-content-lg-end">
-                <button type="button" onclick="openDashboardGovModal()" class="btn btn-outline-warning rounded-pill px-3 fw-bold text-white border-warning" title="Execute Vendor Suspension or Reinstatement">
+                <button type="button" onclick="openDashboardGovModal()" class="btn btn-outline-light btn-sm rounded-pill px-3 fw-semibold" title="Execute Vendor Suspension or Reinstatement">
                     <i class="fa-solid fa-scale-balanced me-1"></i> Governance Action
                 </button>
-                <button onclick="loadDashboardMetrics()" class="btn btn-warning text-dark rounded-pill fw-bold px-4" id="refreshBtn">
+                <button onclick="loadDashboardMetrics()" class="btn btn-primary btn-sm rounded-pill fw-bold px-4 shadow-sm" id="refreshBtn">
                     <i class="fa-solid fa-arrows-rotate me-1" id="refreshIcon"></i> Refresh Data
                 </button>
-                <a href="/manager/awards/" class="btn btn-outline-light rounded-pill px-4">Pending Awards</a>
+                <a href="/manager/awards/" class="btn btn-outline-light btn-sm rounded-pill px-4 fw-semibold">Pending Awards</a>
             </div>
         </div>
     </div>
@@ -36,7 +36,7 @@
     <!-- Loading State Skeleton for KPIs -->
     <div id="kpiLoadingState" class="row g-3 mb-4">
         <div class="col-sm-6 col-xl-3" v-for="i in 4">
-            <div class="stat-card">
+            <div class="stat-card bg-white rounded-4 p-3 border shadow-xs">
                 <div class="placeholder-glow">
                     <span class="placeholder col-6 mb-2"></span>
                     <h3 class="placeholder col-4"></h3>
@@ -47,7 +47,7 @@
     </div>
 
     <!-- Error State Container -->
-    <div id="kpiErrorState" class="alert alert-danger rounded-3 border-0 shadow-sm d-none mb-4 d-flex align-items-center justify-content-between">
+    <div id="kpiErrorState" class="alert alert-danger rounded-4 border-0 shadow-sm d-none mb-4 d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-2">
             <i class="fa-solid fa-triangle-exclamation fs-5"></i>
             <span id="kpiErrorMessage">Unable to load procurement metrics.</span>
@@ -55,19 +55,19 @@
         <button onclick="loadDashboardMetrics()" class="btn btn-outline-danger btn-sm rounded-pill px-3">Retry</button>
     </div>
 
-    <!-- Core Governance KPI Cards (Rendered dynamically from /api/v1/manager/kpis/) -->
+    <!-- Core Governance KPI Cards (Matching Vendor User Dashboard: rounded-4, border-2, fs-3) -->
     <div id="kpiCardsContainer" class="row g-3 mb-4 d-none">
         
-        <!-- 1. Pending Award Approvals -->
+        <!-- 1. Pending Award Approvals (Yellow Border) -->
         <div class="col-sm-6 col-xl-3">
             <a href="/manager/awards/" class="text-decoration-none">
-                <div class="stat-card h-100 border-start border-4 border-warning">
+                <div class="card h-100 shadow-sm rounded-4 p-3 hover-elevate transition-all" style="background-color: #FFFFFF; border: 2px solid #FFC107 !important; border-radius: 14px;">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small fw-semibold text-uppercase">Pending Awards</span>
-                        <span class="badge bg-warning text-dark rounded-pill small">Action Required</span>
+                        <span class="badge bg-warning bg-opacity-25 text-dark rounded-pill small fw-bold">Action Required</span>
                     </div>
                     <div class="d-flex align-items-baseline gap-2">
-                        <div class="metric-value text-dark" id="kpiPendingAwards">0</div>
+                        <div class="metric-value fs-3 fw-bold text-dark" id="kpiPendingAwards">0</div>
                     </div>
                     <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center small">
                         <span class="text-warning fw-semibold">Review Awards <i class="fa-solid fa-arrow-right ms-1"></i></span>
@@ -76,55 +76,55 @@
             </a>
         </div>
 
-        <!-- 2. PR Bottlenecks & Aging -->
+        <!-- 2. PR Bottlenecks & Aging (Red Border) -->
         <div class="col-sm-6 col-xl-3">
             <a href="/manager/pr-aging/" class="text-decoration-none">
-                <div class="stat-card h-100 border-start border-4 border-danger">
+                <div class="card h-100 shadow-sm rounded-4 p-3 hover-elevate transition-all" style="background-color: #FFFFFF; border: 2px solid #DC3545 !important; border-radius: 14px;">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small fw-semibold text-uppercase">PR Bottlenecks</span>
-                        <span class="badge bg-danger text-white rounded-pill small" id="kpiPRBottleneckValue">$0.00</span>
+                        <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill small fw-bold" id="kpiPRBottleneckValue">$0.00</span>
                     </div>
                     <div class="d-flex align-items-baseline gap-2">
-                        <div class="metric-value text-danger" id="kpiPRBottlenecks">0</div>
+                        <div class="metric-value fs-3 fw-bold text-danger" id="kpiPRBottlenecks">0</div>
                     </div>
-                    <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center small">
-                        <span class="text-danger fw-semibold">Inspect Aging <i class="fa-solid fa-arrow-right ms-1"></i></span>
+                    <div class="text-muted small mt-1">
+                        <span class="text-danger fw-semibold">Inspect Aging &rarr;</span>
                     </div>
                 </div>
             </a>
         </div>
 
-        <!-- 3. Active Purchase Orders -->
+        <!-- 3. Active Purchase Orders (Blue Border) -->
         <div class="col-sm-6 col-xl-3">
             <a href="/manager/purchase-orders/" class="text-decoration-none">
-                <div class="stat-card h-100 border-start border-4 border-primary">
+                <div class="card h-100 shadow-sm rounded-4 p-3 hover-elevate transition-all" style="background-color: #FFFFFF; border: 2px solid #0D6EFD !important; border-radius: 14px;">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small fw-semibold text-uppercase">Active Orders (PO)</span>
-                        <span class="badge bg-primary-subtle text-primary rounded-pill small" id="kpiActivePOValue">$0.00</span>
+                        <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill small fw-bold" id="kpiActivePOValue">$0.00</span>
                     </div>
                     <div class="d-flex align-items-baseline gap-2">
-                        <div class="metric-value text-primary" id="kpiActivePOs">0</div>
+                        <div class="metric-value fs-3 fw-bold text-primary" id="kpiActivePOs">0</div>
                     </div>
-                    <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center small">
-                        <span class="text-primary fw-semibold">View POs <i class="fa-solid fa-arrow-right ms-1"></i></span>
+                    <div class="text-muted small mt-1">
+                        <span class="text-primary fw-semibold">View Active POs &rarr;</span>
                     </div>
                 </div>
             </a>
         </div>
 
-        <!-- 4. High-Risk & Suspended Vendors -->
+        <!-- 4. High-Risk & Suspended Vendors (Red Border) -->
         <div class="col-sm-6 col-xl-3">
             <a href="/manager/vendor-risk/" class="text-decoration-none">
-                <div class="stat-card h-100 border-start border-4 border-rose">
+                <div class="card h-100 shadow-sm rounded-4 p-3 hover-elevate transition-all" style="background-color: #FFFFFF; border: 2px solid #DC3545 !important; border-radius: 14px;">
                     <div class="d-flex align-items-center justify-content-between mb-2">
                         <span class="text-muted small fw-semibold text-uppercase">High-Risk Vendors</span>
-                        <span class="badge bg-secondary rounded-pill small" id="kpiKYCReviews">0 in KYC</span>
+                        <span class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary border-opacity-25 rounded-pill small fw-bold" id="kpiKYCReviews">0 in KYC</span>
                     </div>
                     <div class="d-flex align-items-baseline gap-2">
-                        <div class="metric-value text-rose" id="kpiHighRiskVendors">0</div>
+                        <div class="metric-value fs-3 fw-bold text-danger" id="kpiHighRiskVendors">0</div>
                     </div>
                     <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center small">
-                        <span class="text-rose fw-semibold">Governance Desk <i class="fa-solid fa-arrow-right ms-1"></i></span>
+                        <span class="text-danger fw-semibold">Governance Desk <i class="fa-solid fa-arrow-right ms-1"></i></span>
                     </div>
                 </div>
             </a>
@@ -136,11 +136,11 @@
         
         <!-- Budget & Spend Allocation Progress -->
         <div class="col-lg-6">
-            <div class="glass-card p-4 shadow-sm h-100">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="background-color: #FFFFFF; border: 1px solid #DEE2E6 !important;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="h6 fw-bold text-dark mb-0 font-heading">
+                    <h5 class="fw-bold text-dark mb-0 font-heading">
                         <i class="fa-solid fa-wallet text-primary me-2"></i> Budget &amp; Commitment Overview
-                    </h3>
+                    </h5>
                     <a href="/manager/spend/" class="text-decoration-none text-muted small">Full Spend Analytics <i class="fa-solid fa-arrow-right"></i></a>
                 </div>
                 
@@ -171,7 +171,7 @@
                         <span>Budget Commitment Ratio</span>
                         <span id="dashUtilizationPct" class="fw-bold text-dark">0.0%</span>
                     </div>
-                    <div class="progress" style="height: 10px;">
+                    <div class="progress" style="height: 10px; border-radius: 8px;">
                         <div id="dashProgressBar" class="progress-bar bg-primary" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
@@ -181,11 +181,11 @@
 
         <!-- Procurement Health & Quality Indicators -->
         <div class="col-lg-6">
-            <div class="glass-card p-4 shadow-sm h-100">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="background-color: #FFFFFF; border: 1px solid #DEE2E6 !important;">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="h6 fw-bold text-dark mb-0 font-heading">
+                    <h5 class="fw-bold text-dark mb-0 font-heading">
                         <i class="fa-solid fa-chart-line text-success me-2"></i> Quality &amp; Pipeline Health
-                    </h3>
+                    </h5>
                     <a href="/manager/performance/" class="text-decoration-none text-muted small">Vendor Scorecards <i class="fa-solid fa-arrow-right"></i></a>
                 </div>
 
@@ -240,21 +240,21 @@
     </div>
 
     <!-- Supplier Governance & Sanctions Watchlist (Manager RBAC) -->
-    <div class="glass-card p-4 shadow-sm mb-4">
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-4" style="background-color: #FFFFFF; border: 1px solid #DEE2E6 !important;">
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3 gap-2">
             <div>
                 <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-rose text-white fw-bold px-2 py-1 rounded-pill" style="font-size: 0.68rem;">
-                        <i class="fa-solid fa-scale-balanced me-1"></i> MANAGER GOVERNANCE &amp; RBAC
+                    <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle fw-bold px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.75rem; letter-spacing: 0.04em;">
+                        <i class="fa-solid fa-scale-balanced me-1 text-danger"></i> MANAGER GOVERNANCE &amp; RBAC
                     </span>
                     <span class="text-muted small">Sanctions enforcement, suspension status, and exposure monitoring</span>
                 </div>
-                <h3 class="h6 fw-bold text-dark mb-0 font-heading">Supplier Governance &amp; Sanctions Watchlist</h3>
+                <h5 class="fw-bold text-dark mb-0 font-heading">Supplier Governance &amp; Sanctions Watchlist</h5>
             </div>
             <div class="d-flex gap-2">
-                <button type="button" onclick="openDashboardGovModal()" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
-                    <i class="fa-solid fa-ban me-1"></i> Suspend / Governance Action
-                </button>
+                <a href="/manager/vendor-risk/suspension/" class="btn btn-sm btn-outline-danger rounded-pill px-3 fw-bold">
+                    <i class="fa-solid fa-scale-balanced me-1"></i> Vendor Suspension Desk
+                </a>
                 <a href="/manager/vendor-risk/" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
                     <i class="fa-solid fa-shield-halved me-1"></i> Full Risk Desk
                 </a>
@@ -276,7 +276,7 @@
                 <tbody id="dashWatchlistBody">
                     <tr>
                         <td colspan="6" class="text-center py-4 text-muted">
-                            <div class="spinner-border spinner-border-sm text-rose me-2"></div>
+                            <div class="spinner-border spinner-border-sm text-primary me-2"></div>
                             Loading supplier governance watchlist...
                         </td>
                     </tr>
@@ -285,136 +285,9 @@
         </div>
     </div>
 
-    <!-- Quick Navigation Hub to Dedicated Manager Modules -->
-    <div class="glass-card p-4 shadow-sm mb-4">
-        <h3 class="h6 fw-bold text-dark mb-3 font-heading">
-            <i class="fa-solid fa-compass text-primary me-2"></i> Manager Governance Modules
-        </h3>
-        <div class="row g-3">
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/pipeline/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-filter-circle-dollar text-primary fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">Pipeline Funnel</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">PR to PO Conversion</div>
-                </a>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/pr-aging/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-clock-rotate-left text-warning fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">PR Aging</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">Bottleneck Analysis</div>
-                </a>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/sourcing/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-gavel text-info fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">Sourcing</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">RFQs &amp; RFP Windows</div>
-                </a>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/awards/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-award text-warning fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">Award Approvals</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">Authorize Decisions</div>
-                </a>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/purchase-orders/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-cart-shopping text-success fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">Purchase Orders</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">Order Commitments</div>
-                </a>
-            </div>
-            <div class="col-6 col-md-4 col-xl-2">
-                <a href="/manager/vendor-risk/" class="card border text-decoration-none p-3 h-100 rounded-3 bg-light hover-elevate transition-all">
-                    <i class="fa-solid fa-shield-halved text-danger fs-4 mb-2"></i>
-                    <div class="fw-bold text-dark small">Vendor Risk</div>
-                    <div class="text-muted" style="font-size: 0.72rem;">Risk &amp; Governance</div>
-                </a>
-            </div>
-        </div>
     </div>
-</div>
-
-<!-- Modal: Manager Governance Action (Suspend, Reinstate, Hold) -->
-<div class="modal fade" id="dashboardGovModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content bg-white rounded-4 border-0 shadow-lg overflow-hidden">
-            <div class="modal-header bg-hpe-navy text-white px-4 py-3">
-                <h6 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 mb-0">
-                    <i class="fa-solid fa-scale-balanced text-amber"></i> Supplier Governance Action (Manager RBAC)
-                </h6>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-4">
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-dark">Select Target Supplier <span class="text-danger">*</span></label>
-                    <select id="dashGovVendorSelect" class="form-select" onchange="onDashGovVendorSelected()">
-                        <option value="">-- Choose a supplier to govern --</option>
-                    </select>
-                </div>
-
-                <div id="dashGovVendorInfoBox" class="mb-3 p-3 bg-slate-50 border rounded-3 d-none">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <div class="fw-bold text-dark fs-6" id="dashGovVendorName">-</div>
-                            <div class="small text-muted font-monospace" id="dashGovVendorNumber">-</div>
-                        </div>
-                        <div id="dashGovCurrentStatusBadge"></div>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-dark">Governance Action <span class="text-danger">*</span></label>
-                    <select id="dashGovActionSelect" class="form-select" onchange="onDashGovActionChanged()">
-                        <option value="SUSPENDED" selected>Suspend / Blacklist (Sanctions &amp; Material Regulatory Breach)</option>
-                        <option value="ON_HOLD">Place On Hold (Restricted Bidding &amp; POs)</option>
-                        <option value="ACTIVE">Release / Reinstate to Active</option>
-                    </select>
-                </div>
-
-                <!-- Exposure Warning Box -->
-                <div id="dashGovExposureBox" class="mb-3 p-3 bg-light border rounded-3 d-none">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <span class="small text-muted fw-bold text-uppercase" style="font-size: 0.65rem;">Active Exposure at Transition</span>
-                        <span class="badge bg-secondary rounded-pill" id="dashGovExposureBadge" style="font-size: 0.65rem;">Checking exposure...</span>
-                    </div>
-                    <div class="d-flex flex-wrap gap-1 mb-2">
-                        <span class="badge bg-white text-dark border" id="dashExpInvites">Invitations: 0</span>
-                        <span class="badge bg-white text-dark border" id="dashExpBids">Bids: 0</span>
-                        <span class="badge bg-white text-dark border" id="dashExpAwards">Awards: 0</span>
-                        <span class="badge bg-white text-dark border" id="dashExpPOs">POs: 0</span>
-                    </div>
-                    <div id="dashSuspendedNotice" class="alert alert-warning py-2 px-3 small mb-0 d-none" style="font-size: 0.75rem;">
-                        <i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i>
-                        <strong>Compliance Notice:</strong> This vendor has open transactions. They are not cancelled automatically; suspending this vendor blocks all new invitations, bids, awards, and PO issuance.
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label small fw-bold text-dark">Reason (Recorded in Audit Trail) <span class="text-danger">*</span></label>
-                    <textarea class="form-control" id="dashGovReason" rows="3" placeholder="e.g. Confirmed sanctions match and material regulatory breach."></textarea>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center pt-2">
-                    <a id="dashGovDetailLink" href="#" target="_blank" class="btn btn-outline-secondary btn-sm rounded-pill px-3 d-none">
-                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> Full File
-                    </a>
-                    <div class="d-flex gap-2 ms-auto">
-                        <button type="button" class="btn btn-light btn-sm rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary btn-sm rounded-pill px-4 fw-bold shadow-sm" id="dashGovSubmitBtn" onclick="submitDashboardGovernance()">
-                            Apply Action
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
-    let dashboardVendorsCache = [];
     let dashboardWatchlistCache = [];
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -514,12 +387,14 @@
             tbody.innerHTML = dashboardWatchlistCache.map(v => {
                 let statusBadge = 'bg-secondary text-white';
                 if (v.status === 'ACTIVE') statusBadge = 'bg-success text-white';
-                else if (v.status === 'ON_HOLD') statusBadge = 'bg-amber text-dark';
-                else if (v.status === 'SUSPENDED') statusBadge = 'bg-dark text-white';
+                else if (v.status === 'ON_HOLD') statusBadge = 'bg-warning text-dark';
+                else if (v.status === 'SUSPENDED') statusBadge = 'bg-danger text-white';
 
                 let riskBadge = 'bg-success text-white';
-                if (v.current_risk_level === 'HIGH') riskBadge = 'bg-danger text-white';
+                if (v.current_risk_level === 'HIGH') riskBadge = 'bg-danger text-white border border-danger-subtle fw-bold';
                 else if (v.current_risk_level === 'MEDIUM') riskBadge = 'bg-warning text-dark';
+
+
 
                 const exp = v.exposure || {};
                 const totalActiveExp = (exp.open_invitations || 0) + (exp.open_bids || 0) + (exp.pending_awards || 0) + (exp.open_pos || 0);
@@ -527,20 +402,20 @@
                 let actionBtn = '';
                 if (v.status === 'SUSPENDED') {
                     actionBtn = `
-                        <button onclick="openDashboardGovModal('${v.id}', 'ACTIVE')" class="btn btn-sm btn-outline-success rounded-pill px-2 py-1" title="Reinstate Supplier to Active">
+                        <a href="/manager/vendor-risk/suspension/?vendor_id=${v.id}&action=ACTIVE" class="btn btn-sm btn-outline-success rounded-pill px-3 py-1" title="Reinstate Supplier to Active">
                             <i class="fa-solid fa-rotate-left me-1"></i> Reinstate
-                        </button>
+                        </a>
                     `;
                 } else {
                     actionBtn = `
-                        <button onclick="openDashboardGovModal('${v.id}', 'SUSPENDED')" class="btn btn-sm btn-outline-danger rounded-pill px-2 py-1" title="Suspend / Blacklist Supplier">
+                        <a href="/manager/vendor-risk/suspension/?vendor_id=${v.id}&action=SUSPENDED" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1" title="Suspend / Blacklist Supplier">
                             <i class="fa-solid fa-ban me-1"></i> Suspend
-                        </button>
+                        </a>
                     `;
                 }
 
                 return `
-                    <tr>
+                    <tr class="align-middle">
                         <td class="ps-3">
                             <a href="/vendors/${v.id}/" class="fw-bold text-dark text-decoration-none hover-primary">${v.legal_name}</a>
                             <div class="d-flex align-items-center gap-2 mt-1">
@@ -585,197 +460,6 @@
                     </td>
                 </tr>
             `;
-        }
-    }
-
-    async function ensureDashboardVendorsLoaded() {
-        if (dashboardVendorsCache.length > 0) return dashboardVendorsCache;
-        try {
-            const res = await fetchManagerAPI('/api/v1/vendors/');
-            dashboardVendorsCache = Array.isArray(res) ? res : (res.results || []);
-        } catch (e) {
-            dashboardVendorsCache = [];
-        }
-        return dashboardVendorsCache;
-    }
-
-    
-    function openModalSafely(modalEl) {
-        if (!modalEl || !window.bootstrap) return;
-        const scrollY = window.scrollY || document.documentElement.scrollTop;
-        const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl, {
-            focus: false,
-            backdrop: true,
-            keyboard: true
-        });
-        modalInst.show();
-        requestAnimationFrame(() => {
-            window.scrollTo({ top: scrollY, behavior: 'instant' });
-        });
-    }
-
-    async function openDashboardGovModal(preselectedVendorId = null, preselectedAction = null) {
-        const select = document.getElementById('dashGovVendorSelect');
-        const vendors = await ensureDashboardVendorsLoaded();
-
-        select.innerHTML = '<option value="">-- Choose a supplier to govern --</option>' +
-            vendors.map(v => `<option value="${v.id}">${v.legal_name} (${v.vendor_number}) — [${v.status}]</option>`).join('');
-
-        document.getElementById('dashGovReason').value = '';
-        document.getElementById('dashGovVendorInfoBox').classList.add('d-none');
-        document.getElementById('dashGovExposureBox').classList.add('d-none');
-        document.getElementById('dashGovDetailLink').classList.add('d-none');
-
-        if (preselectedVendorId) {
-            select.value = preselectedVendorId;
-            onDashGovVendorSelected(preselectedAction);
-        } else {
-            document.getElementById('dashGovActionSelect').value = 'SUSPENDED';
-            onDashGovActionChanged();
-        }
-
-        const modalEl = document.getElementById('dashboardGovModal');
-        openModalSafely(modalEl);
-    }
-
-    async function onDashGovVendorSelected(forcedAction = null) {
-        const vendorId = document.getElementById('dashGovVendorSelect').value;
-        const infoBox = document.getElementById('dashGovVendorInfoBox');
-        const exposureBox = document.getElementById('dashGovExposureBox');
-        const detailLink = document.getElementById('dashGovDetailLink');
-        const actionSelect = document.getElementById('dashGovActionSelect');
-
-        if (!vendorId) {
-            infoBox.classList.add('d-none');
-            exposureBox.classList.add('d-none');
-            detailLink.classList.add('d-none');
-            return;
-        }
-
-        const vendor = dashboardVendorsCache.find(v => v.id === vendorId);
-        if (vendor) {
-            document.getElementById('dashGovVendorName').textContent = vendor.legal_name;
-            document.getElementById('dashGovVendorNumber').textContent = vendor.vendor_number;
-
-            let badgeClass = 'bg-secondary';
-            if (vendor.status === 'ACTIVE') badgeClass = 'bg-success';
-            else if (vendor.status === 'ON_HOLD') badgeClass = 'bg-amber text-dark';
-            else if (vendor.status === 'SUSPENDED') badgeClass = 'bg-dark';
-
-            document.getElementById('dashGovCurrentStatusBadge').innerHTML = `
-                <span class="badge ${badgeClass} rounded-pill px-2 py-1">${vendor.status_display || vendor.status}</span>
-            `;
-            infoBox.classList.remove('d-none');
-
-            // Set detail link
-            detailLink.href = `/vendors/${vendor.id}/`;
-            detailLink.classList.remove('d-none');
-
-            // Adapt available actions based on current status
-            if (vendor.status === 'SUSPENDED') {
-                actionSelect.innerHTML = `
-                    <option value="ACTIVE" selected>Release / Reinstate to Active</option>
-                `;
-            } else if (vendor.status === 'ON_HOLD') {
-                actionSelect.innerHTML = `
-                    <option value="ACTIVE" selected>Release Hold (Set to Active)</option>
-                    <option value="SUSPENDED">Suspend / Blacklist (Sanctions &amp; Material Regulatory Breach)</option>
-                `;
-            } else {
-                actionSelect.innerHTML = `
-                    <option value="SUSPENDED" selected>Suspend / Blacklist (Sanctions &amp; Material Regulatory Breach)</option>
-                    <option value="ON_HOLD">Place On Hold (Restricted Bidding &amp; POs)</option>
-                `;
-            }
-
-            if (forcedAction) {
-                actionSelect.value = forcedAction;
-            }
-        }
-
-        // Fetch live open exposure
-        exposureBox.classList.remove('d-none');
-        document.getElementById('dashGovExposureBadge').textContent = 'Checking...';
-        document.getElementById('dashExpInvites').textContent = 'Invitations: ...';
-        document.getElementById('dashExpBids').textContent = 'Bids: ...';
-        document.getElementById('dashExpAwards').textContent = 'Awards: ...';
-        document.getElementById('dashExpPOs').textContent = 'POs: ...';
-        document.getElementById('dashSuspendedNotice').classList.add('d-none');
-
-        try {
-            const expRes = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/exposure/`);
-            if (expRes && expRes.exposure) {
-                const exp = expRes.exposure;
-                const totalActive = (exp.open_invitations || 0) + (exp.open_bids || 0) + (exp.pending_awards || 0) + (exp.open_pos || 0);
-                document.getElementById('dashGovExposureBadge').textContent = totalActive > 0 ? `${totalActive} active items` : 'Zero active exposure';
-                document.getElementById('dashGovExposureBadge').className = totalActive > 0 ? 'badge bg-warning text-dark rounded-pill' : 'badge bg-success rounded-pill';
-                document.getElementById('dashExpInvites').textContent = `Invitations: ${exp.open_invitations || 0}`;
-                document.getElementById('dashExpBids').textContent = `Bids: ${exp.open_bids || 0}`;
-                document.getElementById('dashExpAwards').textContent = `Awards: ${exp.pending_awards || 0}`;
-                document.getElementById('dashExpPOs').textContent = `POs: ${exp.open_pos || 0}`;
-            }
-        } catch (e) {
-            document.getElementById('dashGovExposureBadge').textContent = 'Live check unavailable';
-        }
-
-        onDashGovActionChanged();
-    }
-
-    function onDashGovActionChanged() {
-        const action = document.getElementById('dashGovActionSelect')?.value;
-        const notice = document.getElementById('dashSuspendedNotice');
-        if (!notice) return;
-        if (action === 'SUSPENDED') {
-            notice.classList.remove('d-none');
-        } else {
-            notice.classList.add('d-none');
-        }
-    }
-
-    async function submitDashboardGovernance() {
-        const vendorId = document.getElementById('dashGovVendorSelect')?.value;
-        const action = document.getElementById('dashGovActionSelect')?.value;
-        const reason = (document.getElementById('dashGovReason')?.value || '').trim();
-
-        if (!vendorId) {
-            showManagerToast('Please select a supplier.', 'warning');
-            return;
-        }
-        if (!reason) {
-            showManagerToast('Governance reason / audit justification is mandatory.', 'warning');
-            return;
-        }
-
-        const submitBtn = document.getElementById('dashGovSubmitBtn');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Applying...';
-
-        try {
-            const res = await fetchManagerAPI(`/api/v1/vendors/${vendorId}/governance-status/`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    status: action,
-                    reason: reason
-                })
-            });
-
-            showManagerToast(res.message || `Governance status updated to ${action}.`, 'success');
-
-            const modalEl = document.getElementById('dashboardGovModal');
-            if (modalEl && window.bootstrap) {
-                const modalInst = bootstrap.Modal.getInstance(modalEl);
-                if (modalInst) modalInst.hide();
-            }
-
-            // Invalidate cache and reload dashboard data
-            dashboardVendorsCache = [];
-            loadDashboardMetrics();
-            loadDashboardWatchlist();
-        } catch (err) {
-            showManagerToast(err.message || 'Failed to update governance status.', 'danger');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Apply Action';
         }
     }
 </script>

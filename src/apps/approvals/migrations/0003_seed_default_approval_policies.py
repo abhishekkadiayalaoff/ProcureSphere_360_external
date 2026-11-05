@@ -10,6 +10,9 @@ def seed_default_policies(apps, schema_editor):
     dept_approver_role, _ = Role.objects.get_or_create(
         code="DEPT_APPROVER", defaults={"name": "Department Approver"}
     )
+    finance_role, _ = Role.objects.get_or_create(
+        code="FINANCE_AP", defaults={"name": "Finance & AP"}
+    )
     proc_mgr_role, _ = Role.objects.get_or_create(
         code="PROC_MGR", defaults={"name": "Procurement Manager"}
     )
@@ -42,8 +45,8 @@ def seed_default_policies(apps, schema_editor):
         ApprovalStep.objects.create(
             policy=pr_policy,
             step_number=2,
-            approver_role=proc_mgr_role,
-            description="Procurement Manager Approval",
+            approver_role=finance_role,
+            description="Finance / AP Approval",
         )
 
     # 2. Global PO Amendment Policy

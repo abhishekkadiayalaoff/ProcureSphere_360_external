@@ -556,11 +556,15 @@
   }
 
   .uiverse-card .title {
-    font-size: clamp(15px, 3.8vw, 17px) !important;
-    line-height: 1.25 !important;
-    font-weight: 700 !important;
-    width: 88% !important;
-    top: 50% !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 56% !important;
+    transform: translate(-50%, -50%) !important;
+    text-align: center !important;
+    font-size: clamp(14px, 3.8vw, 17px) !important;
+    line-height: 1.22 !important;
+    font-weight: 750 !important;
+    width: 90% !important;
   }
 
   /* Tap cue on cards - hidden as requested */
@@ -569,23 +573,17 @@
     display: none !important;
   }
 
-  .uiverse-card.is-active .box {
-    right: 0 !important;
-    top: 0 !important;
-    border-radius: 0 !important;
-    border: 1px solid transparent !important;
-    box-shadow: rgba(66, 66, 66, 0) 5px 0px 10px 0px inset !important;
-  }
-
-  .uiverse-card.is-active .box .content {
-    transform: translate(0, 0) !important;
-    opacity: 1 !important;
-  }
-
+  /* On mobile and tablet, keep all 4 card faces clean & readable; details are presented in the dedicated panel */
+  .uiverse-card .logo,
   .uiverse-card.is-active .logo {
-    opacity: 0 !important;
-    transform: scale(0.7) !important;
-    pointer-events: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    pointer-events: auto !important;
+  }
+  .uiverse-card .title,
+  .uiverse-card.is-active .title {
+    opacity: 1 !important;
+    display: block !important;
   }
 
   .uiverse-card .box {

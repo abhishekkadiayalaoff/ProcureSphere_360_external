@@ -126,6 +126,8 @@ def ws3_setup(db_roles):
         phone="+12065551234",
         address="410 Terry Ave N, Seattle, WA",
     )
+    vendor.status = Vendor.STATUS_ACTIVE
+    vendor.save(update_fields=["status"])
     vendor_user = User.objects.create_user(
         email="vendor_user_ws3@awscloud.com",
         password="Password123!",

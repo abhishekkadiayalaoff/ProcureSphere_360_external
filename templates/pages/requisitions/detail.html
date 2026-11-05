@@ -129,7 +129,7 @@
             for Cost Center <strong>{{ pr.cost_center.code }} - {{ pr.cost_center.name }}</strong>.
         </p>
         <div class="small text-muted">
-            <i class="fa-solid fa-shield-halved me-1 text-danger"></i> Requires Finance & AP budget exception approval
+            <i class="fa-solid fa-shield-halved me-1 text-danger"></i> Requires Procurement Manager budget exception approval
             before proceeding.
         </div>
     </div>
@@ -157,12 +157,12 @@
             {% elif pr.status == 'BUDGET_REVIEW' %}
             <div class="position-absolute bg-primary"
                 style="height: 4px; top: 20px; left: 10%; right: 50%; z-index: 2;"></div>
+            {% elif pr.status in 'SOURCING,PO_ISSUED' or latest_po or latest_sourcing or pr.purchase_orders.exists or pr.sourcing_events.exists %}
+            <div class="position-absolute bg-primary"
+                style="height: 4px; top: 20px; left: 10%; right: 10%; z-index: 2;"></div>
             {% elif pr.status == 'APPROVED' %}
             <div class="position-absolute bg-primary"
                 style="height: 4px; top: 20px; left: 10%; right: 30%; z-index: 2;"></div>
-            {% elif pr.status in 'SOURCING,PO_ISSUED' %}
-            <div class="position-absolute bg-primary"
-                style="height: 4px; top: 20px; left: 10%; right: 10%; z-index: 2;"></div>
             {% endif %}
 
             <!-- Step 1: Draft -->
@@ -249,6 +249,20 @@
                     <i class="fa-solid fa-user-tie"></i>
                 </div>
                 <span class="small text-muted d-block fw-semibold">Sourcing / PO</span>
+                {% elif pr.status == 'PO_ISSUED' or latest_po or pr.purchase_orders.exists %}
+                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 shadow-sm"
+                    style="width: 44px; height: 44px;">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <span class="fw-bold small text-dark d-block">PO Issued</span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">PO Created</span>
+                {% elif pr.status == 'SOURCING' or latest_sourcing or pr.sourcing_events.exists %}
+                <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 shadow-sm"
+                    style="width: 44px; height: 44px;">
+                    <i class="fa-solid fa-gavel"></i>
+                </div>
+                <span class="fw-bold small text-dark d-block">In Sourcing</span>
+                <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill" style="font-size: 0.65rem;">RFQ Active</span>
                 {% elif pr.status == 'APPROVED' %}
                 <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2 shadow-sm"
                     style="width: 44px; height: 44px;">
@@ -262,7 +276,7 @@
                     <i class="fa-solid fa-check"></i>
                 </div>
                 <span class="fw-bold small text-dark d-block">Sourcing / PO</span>
-                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">Sourced / PO</span>
+                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" style="font-size: 0.65rem;">Completed</span>
                 {% endif %}
             </div>
 
@@ -446,6 +460,24 @@
                         <h5 class="mb-0 fw-bold">Budget Review</h5>
                         <span class="text-muted small">Budget Overrun - Finance Approval Required</span>
                     </div>
+                    {% elif pr.status == 'PO_ISSUED' or latest_po or pr.purchase_orders.exists %}
+                    <div class="bg-success rounded-circle text-white d-flex align-items-center justify-content-center me-3"
+                        style="width: 48px; height: 48px;">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold">PO Issued</h5>
+                        <span class="text-muted small">Purchase Order Generated</span>
+                    </div>
+                    {% elif pr.status == 'SOURCING' or latest_sourcing or pr.sourcing_events.exists %}
+                    <div class="bg-info rounded-circle text-white d-flex align-items-center justify-content-center me-3"
+                        style="width: 48px; height: 48px;">
+                        <i class="fa-solid fa-gavel"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold">In Sourcing</h5>
+                        <span class="text-muted small">RFQ / RFP in progress</span>
+                    </div>
                     {% elif pr.status == 'APPROVED' %}
                     <div class="bg-success rounded-circle text-white d-flex align-items-center justify-content-center me-3"
                         style="width: 48px; height: 48px;">
@@ -531,6 +563,46 @@
                 {% endif %}
             </div>
         </div>
+
+        <!-- Downstream Execution Card (Linked PO / Sourcing) -->
+        {% if latest_po or latest_sourcing %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+                <h6 class="fw-bold text-dark mb-3">
+                    <i class="fa-solid fa-link text-primary me-2"></i>Procurement Execution
+                </h6>
+                {% if latest_po %}
+                <div class="p-3 rounded-3 bg-light border mb-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 small fw-semibold">
+                            <i class="fa-solid fa-file-invoice-dollar me-1"></i> Purchase Order
+                        </span>
+                        <span class="badge bg-secondary rounded-pill">{{ latest_po.get_status_display }}</span>
+                    </div>
+                    <div class="fw-bold font-monospace fs-6 mb-1">{{ latest_po.po_number }}</div>
+                    <div class="small text-muted mb-1">Vendor: <span class="fw-semibold text-dark">{{ latest_po.vendor.legal_name }}</span></div>
+                    <div class="small text-muted mb-3">Amount: <span class="fw-bold text-dark">${{ latest_po.total_amount|floatformat:2 }}</span></div>
+                    <a href="{% url 'order_detail' latest_po.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 w-100 fw-semibold">
+                        <i class="fa-solid fa-arrow-up-right-from-square me-1"></i> View Purchase Order
+                    </a>
+                </div>
+                {% endif %}
+                {% if latest_sourcing and not latest_po %}
+                <div class="p-3 rounded-3 bg-light border">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-1 small fw-semibold">
+                            <i class="fa-solid fa-gavel me-1"></i> Sourcing Event
+                        </span>
+                        <span class="badge bg-secondary rounded-pill">{{ latest_sourcing.get_status_display }}</span>
+                    </div>
+                    <div class="fw-bold font-monospace fs-6 mb-1">{{ latest_sourcing.event_number }}</div>
+                    <div class="small text-muted mb-2">{{ latest_sourcing.title|truncatechars:40 }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
 
         <!-- Approval Action Decision Card -->
         {% if can_approve %}
@@ -623,6 +695,29 @@
                     </div>
                 </div>
             </div>
+        {% endif %}
+
+        <!-- Sourcing Events Tracking -->
+        {% if pr.sourcing_events.exists %}
+        <div class="card border-0 shadow-sm rounded-4 mb-4 border-top border-4 border-info">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 px-4">
+                <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-gavel text-info me-2"></i>
+                    Sourcing Events</h5>
+            </div>
+            <div class="card-body p-4">
+                {% for event in pr.sourcing_events.all %}
+                <div class="mb-3 p-3 bg-light rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold text-info">{{ event.event_number }}</span>
+                        <span class="badge bg-secondary">{{ event.get_status_display }}</span>
+                    </div>
+                    <div class="small text-muted mb-1">Type: <span class="fw-semibold text-dark">{{ event.get_event_type_display }}</span></div>
+                    <div class="small text-muted mb-1">Title: <span class="fw-semibold text-dark">{{ event.title }}</span></div>
+                    <div class="small text-muted">Bidding: <span class="fw-semibold text-dark">{{ event.bid_start_date|date:"M d" }} &ndash; {{ event.bid_end_date|date:"M d, Y" }}</span></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
         {% endif %}
 
         <!-- PO Tracking -->

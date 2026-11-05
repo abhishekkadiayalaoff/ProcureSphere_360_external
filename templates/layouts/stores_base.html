@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{% block stores_title %}Stores &amp; Receiving Workspace{% endblock %} — ProcureSphere 360{% endblock %}
 
@@ -11,13 +12,10 @@
             <button class="navbar-toggler border-0 me-2 d-lg-none p-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#storesSidebar" aria-controls="storesSidebar" aria-label="Toggle navigation" onclick="toggleStoresSidebar()">
                 <i class="fa-solid fa-bars text-white fs-4"></i>
             </button>
-            <a href="/" class="navbar-brand d-flex align-items-center text-white me-0 me-lg-4 text-truncate">
-                <div class="brand-icon-box me-2 flex-shrink-0" style="width: 32px; height: 32px; background: rgba(0, 176, 185, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-boxes-packing text-cyan"></i>
-                </div>
-                <span class="fs-6 fs-sm-5 fw-bold tracking-tight text-truncate">ProcureSphere <span class="text-cyan">360</span></span>
-                <span class="badge bg-secondary bg-opacity-50 text-light ms-2 px-2 py-1 small rounded-pill d-none d-sm-inline-block">Stores &amp; Receiving</span>
+            <a href="/" class="dashboard-brand-badge me-2 me-lg-3" aria-label="ProcureSphere 360 Home">
+                <img src="{% static 'landing/images/procuresphere_360_nav_brand.png' %}" alt="ProcureSphere 360" class="dashboard-brand-logo">
             </a>
+            <span class="badge bg-secondary bg-opacity-50 text-light px-2 py-1 small rounded-pill d-none d-sm-inline-block">Stores &amp; Receiving</span>
         </div>
 
         <div class="d-flex align-items-center gap-2 gap-sm-3 flex-shrink-0">
@@ -30,21 +28,16 @@
             <!-- User Profile & Sign Out -->
             {% if user.is_authenticated %}
             <div class="d-flex align-items-center gap-2">
-                <div class="d-none d-lg-block text-end lh-sm me-1">
-                    <div class="fw-semibold text-white small mb-1">{{ user.email }}</div>
-                    <div class="text-muted d-block" style="font-size: 0.7rem; line-height: 1;">Warehouse Specialist</div>
+                <div class="d-none d-md-flex align-items-center px-2 px-sm-3 py-1 bg-secondary bg-opacity-25 rounded-pill border border-secondary border-opacity-50 text-white">
+                    <i class="fa-solid fa-circle-user text-cyan me-1 me-sm-2 fs-5"></i>
+                    <div class="text-start leading-tight me-1">
+                        <div class="fw-semibold text-white small text-truncate" style="max-width: 140px;">{{ user.email }}</div>
+                        <div class="badge bg-secondary bg-opacity-75 text-cyan rounded-pill" style="font-size: 0.65rem;">Warehouse Specialist</div>
+                    </div>
                 </div>
-                <div class="dropdown">
-                    <button class="btn btn-dark border border-secondary border-opacity-50 rounded-circle text-white d-flex align-items-center justify-content-center p-0" style="width: 36px; height: 36px;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fa-solid fa-user-tie text-cyan"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 bg-dark text-white">
-                        <li><a class="dropdown-item text-white py-2" href="{% url 'orders_list' %}"><i class="fa-solid fa-cart-flatbed text-cyan me-2"></i> Receive PO Goods</a></li>
-                        <li><a class="dropdown-item text-white py-2" href="{% url 'receipts_list' %}"><i class="fa-solid fa-boxes-stacked text-info me-2"></i> Goods Receipts (GRN)</a></li>
-                        <li><hr class="dropdown-divider border-secondary"></li>
-                        <li><a class="dropdown-item text-danger py-2" href="/logout/"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Sign Out</a></li>
-                    </ul>
-                </div>
+                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill px-2.5 px-sm-3 text-nowrap d-inline-flex align-items-center" title="Sign Out">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="d-none d-sm-inline ms-1">Sign Out</span>
+                </a>
             </div>
             {% endif %}
         </div>
@@ -96,7 +89,7 @@
                 </div>
 
                 <nav class="d-flex flex-column gap-1">
-                    <a href="{% url 'receipts_dashboard' %}" class="vendor-navlink unified-navlink sidebar-nav-link {% if request.path == '/receipts/dashboard/' or request.path == '/' or request.path == '/dashboard/' %}active active-nav-item{% endif %}">
+                    <a href="/stores/" class="vendor-navlink unified-navlink sidebar-nav-link {% if request.path == '/stores/' or request.path == '/stores/dashboard/' or request.path == '/receipts/dashboard/' or request.path == '/' or request.path == '/dashboard/' %}active active-nav-item{% endif %}">
                         <i class="fa-solid fa-gauge-high nav-icon text-cyan"></i><span>Receiving Desk</span>
                     </a>
 
@@ -131,12 +124,7 @@
                     </a>
                 </nav>
 
-                <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 px-1">
-                    <div class="d-flex align-items-center text-muted small" style="font-size: 0.68rem;">
-                        <i class="fa-solid fa-lock text-success me-2"></i>
-                        <span>Physical Intake &bull; Quality Verified</span>
-                    </div>
-                </div>
+
 
             </div>
         </div>

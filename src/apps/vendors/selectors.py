@@ -9,8 +9,6 @@ from .models import Vendor, VendorDocument
 def scope_vendors_queryset(qs, user=None):
     if not user:
         return qs
-    if user.is_superuser:
-        return qs
     role_code = getattr(user, "role_code", None)
     from apps.accounts.models import Role
     if role_code == Role.VENDOR_USER:
@@ -18,14 +16,9 @@ def scope_vendors_queryset(qs, user=None):
         return qs
     scoped_org = getattr(user, "effective_organization", None)
     if scoped_org:
-        # Vendors explicitly assigned to this org, OR vendors with no org (global/legacy)
-        return qs.filter(
-            Q(organization=scoped_org)
-            | Q(organization__isnull=True)
-            | Q(created_by__organization=scoped_org)
-            | Q(created_by__department__organization=scoped_org)
-            | Q(organization__isnull=True)
-        )
+        # Strict multi-tenant isolation: organizations never share vendor data.
+        # Only vendors explicitly created for this organization are returned.
+        return qs.filter(organization=scoped_org)
     if user.is_superuser or getattr(user, "is_staff", False):
         return qs
     from apps.accounts.models import Role
@@ -39,6 +32,7 @@ def scope_vendors_queryset(qs, user=None):
         Role.AUDITOR,
         Role.SUPER_ADMIN,
         Role.FINANCE_AP,
+        Role.LEGAL_MGR,
     ]:
         return qs
     return qs.none()

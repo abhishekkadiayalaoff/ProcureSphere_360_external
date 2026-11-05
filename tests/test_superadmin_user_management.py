@@ -183,3 +183,152 @@ def test_non_superadmin_access_denied_for_users(requester_client):
     res_post = client.post(reverse("superadmin:user_create"), {"email": "hack@example.com"})
     assert res_post.status_code == 403
 
+
+
+@pytest.mark.django_db
+def test_user_create_modal_auto_credentials_email_and_active_switch(superadmin_client, sample_roles_and_departments):
+    client, admin_user = superadmin_client
+    role_req, _, dept_hr = sample_roles_and_departments
+
+    # 1. Verify GET modal attributes
+    res = client.get(reverse("superadmin:user_create"))
+    assert res.status_code == 200
+    content = res.content.decode("utf-8")
+    # Visible toggle button & alert text removed
+    assert "Send Login Credentials Email (via Brevo)" not in content
+    assert "When checked, sends login credentials and temporary password" not in content
+    # Hidden auto-dispatch inputs present
+    assert '<input type="hidden" name="send_welcome_email" value="on">' in content
+    assert '<input type="hidden" name="send_welcome_email_present" value="1">' in content
+    # Active User Account switch is checked by default
+    assert '<input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked>' in content
+
+    # 2. Verify POST automatically sends email and creates active user
+    post_res = client.post(
+        reverse("superadmin:user_create"),
+        {
+            "email": "auto.dispatched@example.com",
+            "phone_number": "9123456789",
+            "role": str(role_req.pk),
+            "department": str(dept_hr.pk),
+            "send_welcome_email": "on",
+            "send_welcome_email_present": "1",
+            "is_active": "on",
+        },
+    )
+    assert post_res.status_code == 200
+    created = User.objects.get(email="auto.dispatched@example.com")
+    assert created.is_active is True
+
+
+@pytest.mark.django_db
+def test_policy_create_modal_active_policy_switch_checked_by_default(superadmin_client):
+    client, admin_user = superadmin_client
+    res = client.get("/superadmin/policies/create/")
+    assert res.status_code == 200
+    content = res.content.decode("utf-8")
+    assert "Active Policy" in content
+    assert '<input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked>' in content
+
+
+@pytest.mark.django_db
+def test_user_edit_enabling_and_disabling(superadmin_client, sample_roles_and_departments):
+    """Verifies that editing a user to disable and re-enable updates is_active cleanly."""
+    client, admin_user = superadmin_client
+    role_req, _, dept_hr = sample_roles_and_departments
+
+    target = User.objects.create_user(
+        email="toggle.target@example.com",
+        password="Password123!",
+        role=role_req,
+        department=dept_hr,
+        is_active=True,
+    )
+
+    # 1. Disable user via POST (omitting is_active)
+    res_disable = client.post(
+        reverse("superadmin:user_edit", kwargs={"user_id": target.pk}),
+        {
+            "email": target.email,
+            "role": str(role_req.pk),
+            "department": str(dept_hr.pk),
+        },
+    )
+    assert res_disable.status_code == 200
+    target.refresh_from_db()
+    assert target.is_active is False
+
+    # 2. GET edit modal when disabled: switch is not checked
+    res_get_disabled = client.get(reverse("superadmin:user_edit", kwargs={"user_id": target.pk}))
+    assert res_get_disabled.status_code == 200
+    content_disabled = res_get_disabled.content.decode("utf-8")
+    assert 'id="id_is_active"' in content_disabled
+    assert '<input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked>' not in content_disabled
+
+    # 3. Enable user via POST (with is_active="on")
+    res_enable = client.post(
+        reverse("superadmin:user_edit", kwargs={"user_id": target.pk}),
+        {
+            "email": target.email,
+            "role": str(role_req.pk),
+            "department": str(dept_hr.pk),
+            "is_active": "on",
+        },
+    )
+    assert res_enable.status_code == 200
+    target.refresh_from_db()
+    assert target.is_active is True
+
+    # 4. GET edit modal when active: switch is checked
+    res_get_enabled = client.get(reverse("superadmin:user_edit", kwargs={"user_id": target.pk}))
+    assert res_get_enabled.status_code == 200
+    content_enabled = res_get_enabled.content.decode("utf-8")
+    assert '<input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked>' in content_enabled
+
+
+@pytest.mark.django_db
+def test_assigned_roles_removed_from_create_user_except_requester(superadmin_client, sample_roles_and_departments):
+    """
+    Verifies that when a role is assigned in an organization, it is removed from Create User dropdown,
+    while Requester remains unlimited.
+    """
+    from apps.organization.models import Organization
+    client, admin_user = superadmin_client
+    role_req, role_app, dept_hr = sample_roles_and_departments
+    role_finance = Role.objects.get_or_create(code=Role.FINANCE_AP, defaults={"name": "Finance / AP Specialist"})[0]
+
+    org = Organization.objects.create(name="Acme Corp", code="ACME-TEST")
+    admin_user.organization = org
+    admin_user.save()
+
+    # Assign role_app to a user in Acme Corp
+    User.objects.create_user(
+        email="approver@acme.test",
+        password="Password123!",
+        role=role_app,
+        organization=org,
+        is_active=True,
+    )
+    # Assign role_req to another user in Acme Corp
+    User.objects.create_user(
+        email="req1@acme.test",
+        password="Password123!",
+        role=role_req,
+        organization=org,
+        is_active=True,
+    )
+
+    # 1. On GET Create User, role_app should be excluded, role_req (unlimited) & role_finance (unassigned) available
+    res_create = client.get(reverse("superadmin:user_create"))
+    assert res_create.status_code == 200
+    content_create = res_create.content.decode("utf-8")
+    assert "DEPT_APPROVER" not in content_create
+    assert role_req.name in content_create
+    assert "FINANCE_AP" in content_create
+
+    # 2. On GET Edit User for approver, their current role DEPT_APPROVER must be available
+    approver = User.objects.get(email="approver@acme.test")
+    res_edit = client.get(reverse("superadmin:user_edit", kwargs={"user_id": approver.pk}))
+    assert res_edit.status_code == 200
+    content_edit = res_edit.content.decode("utf-8")
+    assert "DEPT_APPROVER" in content_edit

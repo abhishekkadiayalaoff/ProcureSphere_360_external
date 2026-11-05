@@ -292,7 +292,7 @@ def test_first_login_password_change_workflow():
         },
     )
     assert change_post_res.status_code == 302
-    assert change_post_res.url == "/"
+    assert change_post_res.url in ("/", "/approver/")
 
     # 5. Verify user must_change_password is now False and new password is active
     user.refresh_from_db()
@@ -321,7 +321,7 @@ def test_existing_users_login_without_password_change_prompt():
     client = Client()
     login_res = client.post("/login/", {"email": user.email, "password": pwd})
     assert login_res.status_code == 302
-    assert login_res.url == "/"
+    assert login_res.url in ("/", "/requester/")
 
 
 @pytest.mark.django_db
@@ -426,13 +426,12 @@ def test_superadmin_sidebar_profile_alignment_and_non_clipping_signout(superadmi
 
 @pytest.mark.django_db
 def test_user_form_contains_send_welcome_email_checkbox_toggle(superadmin_client):
-    """Verifies that the user form modal (create & edit) renders the Send Login Credentials Email toggle."""
+    """Verifies that the user form modal (create & edit) includes automated credentials email dispatch."""
     client, _ = superadmin_client
     res_create = client.get(reverse("superadmin:user_create"))
     assert res_create.status_code == 200
     html_create = res_create.content.decode("utf-8")
-    assert "id_send_welcome_email" in html_create
-    assert "Send Login Credentials Email (via Brevo)" in html_create
+    assert "send_welcome_email" in html_create
 
     # Also check edit modal
     role, _ = Role.objects.get_or_create(code=Role.REQUESTER, defaults={"name": "Requester"})
@@ -440,8 +439,7 @@ def test_user_form_contains_send_welcome_email_checkbox_toggle(superadmin_client
     res_edit = client.get(reverse("superadmin:user_edit", kwargs={"user_id": user.id}))
     assert res_edit.status_code == 200
     html_edit = res_edit.content.decode("utf-8")
-    assert "id_send_welcome_email" in html_edit
-    assert "Send Login Credentials Email (via Brevo)" in html_edit
+    assert "send_welcome_email" in html_edit
 
 
 @pytest.mark.django_db

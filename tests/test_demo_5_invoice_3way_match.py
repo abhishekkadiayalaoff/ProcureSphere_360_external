@@ -13,6 +13,7 @@ from apps.invoices.services import (
     resolve_match_exception_service,
     run_3_way_match_service,
 )
+from apps.orders.models import PurchaseOrder
 from apps.orders.services import acknowledge_purchase_order_service, generate_purchase_order_service
 from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
 from apps.receipts.services import create_goods_receipt_service
@@ -99,6 +100,8 @@ def test_demo_5_invoice_3way_match_and_exception_resolution():
         ],
         created_by_user=requester,
     )
+    po.status = PurchaseOrder.STATUS_ISSUED
+    po.save(update_fields=["status"])
     acknowledge_purchase_order_service(po=po, vendor_user=requester)
     po_line = po.lines.first()
 

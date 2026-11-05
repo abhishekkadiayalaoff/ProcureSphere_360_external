@@ -183,16 +183,17 @@ def test_procurement_executive_end_to_end(client, procurement_world):
     decision = event.award_decision
     assert decision.status == AwardDecision.STATUS_APPROVED and decision.winning_bid == bid_a
 
-    # 25. Purchase Order generated from the award
+    # 25. Purchase Order generated from the award as a DRAFT
     client.force_login(w["exec"])
     _ok(
         client.post(
-            f"/sourcing-events/{event.id}/actions/generate-po/",
+            f"/purchase-orders/htmx/generate-from-award/{event.id}/",
             {"cost_center_id": str(w["cost_center"].id)},
         )
     )
     po = PurchaseOrder.objects.get(sourcing_event=event)
     assert po.vendor == w["vendor_a"] and po.subtotal == Decimal("50000.00")
+    assert po.status == PurchaseOrder.STATUS_DRAFT
     _ok(client.get(f"/purchase-orders/{po.id}/"))
 
     # 26. Supplier performance observed (responsiveness from the RFP response)

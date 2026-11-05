@@ -17,6 +17,16 @@ class GoodsReceipt(TimeStampedModel):
     delivery_note_number = models.CharField(max_length=100, blank=True)
     remarks = models.TextField(blank=True)
 
+    # GRN dispatch state: once sent to Finance & Vendor it is immutable (single dispatch)
+    finance_dispatched_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    dispatched_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="dispatched_grns",
+    )
+
     def __str__(self):
         return f"{self.grn_number} for {self.po.po_number}"
 
@@ -176,3 +186,59 @@ class StockHandoffRecord(TimeStampedModel):
 
     def __str__(self):
         return f"Stock Handoff: {self.quantity_handed_off} units to {self.storage_location} ({self.receipt_line.receipt.grn_number})"
+
+
+class StockItem(TimeStampedModel):
+    """
+    Minimal inventory position for an ordered item at a storage location.
+    Quantity on hand increases via GRN stock handoffs (IN movements).
+    """
+
+    po_line = models.ForeignKey(
+        "orders.POLine", on_delete=models.PROTECT, related_name="stock_items"
+    )
+    location = models.CharField(max_length=100, default="MAIN-WH")
+    quantity_on_hand = models.DecimalField(
+        max_digits=12, decimal_places=2, default=Decimal("0.00")
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["po_line", "location"], name="stock_item_unique_line_location"
+            ),
+            models.CheckConstraint(
+                check=models.Q(quantity_on_hand__gte=Decimal("0.00")),
+                name="stock_item_quantity_non_negative",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Stock: {self.po_line.item_description} @ {self.location} = {self.quantity_on_hand}"
+
+
+class StockMovement(TimeStampedModel):
+    """
+    Append-only inventory movement ledger (IN from GRN handoff, OUT for future issues).
+    """
+
+    MOVE_IN = "IN"
+    MOVE_OUT = "OUT"
+    MOVE_CHOICES = [
+        (MOVE_IN, "Stock In"),
+        (MOVE_OUT, "Stock Out"),
+    ]
+
+    stock_item = models.ForeignKey(
+        StockItem, on_delete=models.CASCADE, related_name="movements"
+    )
+    movement_type = models.CharField(max_length=10, choices=MOVE_CHOICES)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2)
+    reference_number = models.CharField(max_length=50, blank=True, default="")
+    performed_by = models.ForeignKey(
+        "accounts.User", on_delete=models.PROTECT, related_name="stock_movements"
+    )
+    notes = models.TextField(blank=True, default="")
+
+    def __str__(self):
+        return f"{self.movement_type} {self.quantity} x {self.stock_item.po_line.item_description} ({self.reference_number})"

@@ -1,6 +1,23 @@
 from .models import CostCenter, Department, FiscalPeriod, Organization
 
 
+def resolve_user_scope_organization(user):
+    """
+    Resolves the Organization to which all reads/writes of a role user must be
+    scoped (backend, queryset-level isolation between organizations).
+
+    Returns:
+        Organization instance when the user is bound to one (directly or via
+        their department), or None for genuinely global accounts
+        (superusers / legacy org-less users).
+    """
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+    if getattr(user, "is_superuser", False):
+        return None
+    return getattr(user, "effective_organization", None)
+
+
 def get_all_organizations():
     return Organization.objects.filter(is_active=True).order_by("name")
 

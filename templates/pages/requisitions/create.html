@@ -293,7 +293,7 @@
         if (!hasValidItem || rows.length === 0) {
             e.preventDefault();
             e.stopImmediatePropagation();
-            alert('A purchase requisition must have at least one line item with a description and quantity.');
+            window.PSToast('A purchase requisition must have at least one line item with a description and quantity.', 'warning', 'Line item required');
             const form = document.getElementById('pr_create_form');
             if (form) {
                 delete form.dataset.submitting;
@@ -556,16 +556,16 @@
         for (const f of files) {
             const ext = f.name.split('.').pop().toLowerCase();
             if (!allowed.includes(ext)) {
-                alert("Invalid file format.");
+                window.PSToast('"' + f.name + '" — only PDF, DOC and DOCX files are allowed.', 'danger', 'Invalid file format');
                 continue;
             }
             if (f.size > 10 * 1024 * 1024) {
-                alert(`"${f.name}" exceeds the 10MB limit.`);
+                window.PSToast('"' + f.name + '" exceeds the 10MB limit.', 'danger', 'File too large');
                 continue;
             }
             const isValidMagic = await checkFileMagicBytes(f);
             if (!isValidMagic) {
-                alert("Invalid file format.");
+                window.PSToast('"' + f.name + '" does not look like a valid document file.', 'danger', 'Invalid file format');
                 continue;
             }
             selectedFiles.items.add(f);

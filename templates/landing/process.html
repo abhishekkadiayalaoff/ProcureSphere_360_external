@@ -1,6 +1,23 @@
 {% extends 'landing/base.html' %}
 {% load static %}
 
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Procurement Process — ProcureSphere 360",
+  "description": "End-to-end procurement lifecycle from requirement verification to contract lifecycle management.",
+  "url": "{{ site_url|default:'https://procuresphere.com' }}/process/",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "ProcureSphere 360",
+    "url": "{{ site_url|default:'https://procuresphere.com' }}"
+  }
+}
+</script>
+{% endblock json_ld %}
+
 {% block content %}
 <div class="page-layout" style="padding-top:84px;background:#f8fafc;min-height:100vh;">
 

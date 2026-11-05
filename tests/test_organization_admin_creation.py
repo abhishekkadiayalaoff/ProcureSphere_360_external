@@ -37,7 +37,7 @@ def test_create_organization_with_admin_service():
     assert admin_user.first_name == "Alice"
     assert admin_user.last_name == "Manager"
     assert admin_user.role.code == Role.SUPER_ADMIN
-    assert admin_user.is_staff is True
+    assert admin_user.is_staff is False
     assert admin_user.is_active is True
     assert admin_user.check_password("Password123!") is True
 
@@ -231,7 +231,7 @@ def test_create_organization_assigning_existing_admin_user(client, super_admin_u
         first_name="HPE",
         last_name="Lead",
         role=db_roles[Role.SUPER_ADMIN],
-        is_staff=True,
+        is_staff=False,
     )
 
     client.force_login(super_admin_user)
@@ -298,6 +298,7 @@ def test_superadmin_dashboard_shows_admin_user_column_and_edit_action(client, su
     assert f"/superadmin/organizations/{org1.pk}/edit/" in html
     assert f"/superadmin/organizations/{org2.pk}/edit/" in html
 
+    client.logout()
     home = client.get("/")
     assert home.status_code == 200
     home_html = home.content.decode()
@@ -669,5 +670,90 @@ def test_scoped_tenant_admin_ui_and_permissions(client, db_roles):
     assert "Permission Denied" in res_edit.content.decode()
 
 
+@pytest.mark.django_db
+def test_create_organization_with_optional_proc_mgr_and_auditor(client, super_admin_user):
+    """
+    Verifies that Procurement Manager and Compliance Auditor are strictly optional:
+    1. UI clearly displays 'Optional' on sections and email labels.
+    2. Organization is created successfully when both fields are left empty.
+    3. Organization is also created successfully when both are provided.
+    """
+    client.force_login(super_admin_user)
 
+    # 1. GET org create modal
+    create_url = reverse("superadmin:org_create")
+    res_get = client.get(create_url)
+    assert res_get.status_code == 200
+    html = res_get.content.decode()
+
+    # Must clearly indicate optional status on sections and labels
+    assert "Dedicated Procurement Manager" in html
+    assert "Dedicated Compliance Auditor" in html
+    assert "Optional" in html
+    assert "Manager Email <span class=\"text-muted fw-normal\">(Optional)</span>" in html
+    assert "Auditor Email <span class=\"text-muted fw-normal\">(Optional)</span>" in html
+
+    # 2. POST to create organization with procurement manager and auditor left BLANK
+    payload_blank = {
+        "name": "Acme Optional Roles Corp",
+        "code": "ACME-OPT",
+        "tax_identifier": "US-88-9900112",
+        "address": "404 Main St, Austin, TX",
+        "is_active": "on",
+        "admin_email": "admin@acmeopt.com",
+        "admin_first_name": "Carol",
+        "admin_last_name": "Admin",
+        "admin_password": "SecurePassword2026!",
+        "proc_mgr_email": "",
+        "proc_mgr_first_name": "",
+        "proc_mgr_last_name": "",
+        "proc_mgr_password": "",
+        "auditor_email": "",
+        "auditor_first_name": "",
+        "auditor_last_name": "",
+        "auditor_password": "",
+    }
+    res_post_blank = client.post(create_url, payload_blank)
+    assert res_post_blank.status_code == 200
+
+    org_blank = Organization.objects.filter(code="ACME-OPT").first()
+    assert org_blank is not None
+    assert org_blank.admin_user is not None
+    assert org_blank.admin_user.email == "admin@acmeopt.com"
+    # Both manager and auditor are None
+    assert org_blank.procurement_manager is None
+    assert org_blank.compliance_auditor is None
+
+    # 3. POST to create organization with procurement manager and auditor PROVIDED
+    payload_provided = {
+        "name": "Beta Fully Provisioned Org",
+        "code": "BETA-FULL",
+        "tax_identifier": "US-77-6655443",
+        "address": "777 Market St, San Francisco, CA",
+        "is_active": "on",
+        "admin_email": "admin@betafull.com",
+        "admin_first_name": "Bob",
+        "admin_last_name": "Admin",
+        "admin_password": "SecurePassword2026!",
+        "proc_mgr_email": "procmgr@betafull.com",
+        "proc_mgr_first_name": "Peter",
+        "proc_mgr_last_name": "Manager",
+        "proc_mgr_password": "ManagerPassword2026!",
+        "auditor_email": "auditor@betafull.com",
+        "auditor_first_name": "Alice",
+        "auditor_last_name": "Auditor",
+        "auditor_password": "AuditorPassword2026!",
+    }
+    res_post_provided = client.post(create_url, payload_provided)
+    assert res_post_provided.status_code == 200
+
+    org_provided = Organization.objects.filter(code="BETA-FULL").first()
+    assert org_provided is not None
+    assert org_provided.admin_user.email == "admin@betafull.com"
+    assert org_provided.procurement_manager is not None
+    assert org_provided.procurement_manager.email == "procmgr@betafull.com"
+    assert org_provided.procurement_manager.role.code == Role.PROC_MGR
+    assert org_provided.compliance_auditor is not None
+    assert org_provided.compliance_auditor.email == "auditor@betafull.com"
+    assert org_provided.compliance_auditor.role.code == Role.AUDITOR
 

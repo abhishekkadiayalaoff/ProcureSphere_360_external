@@ -1,50 +1,567 @@
-<div class="modal-header bg-light border-bottom-0 pb-0">
-    <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-scale-balanced text-warning me-2"></i>{% if is_edit %}Edit Policy{% else %}Create Approval Policy{% endif %}</h5>
+<div class="modal-header bg-light border-bottom-0 pb-0 rounded-top-4">
+    <div class="d-flex align-items-center gap-2">
+        <div class="rounded-circle bg-warning bg-opacity-10 p-2 text-warning">
+            <i class="fa-solid fa-scale-balanced fs-5"></i>
+        </div>
+        <div>
+            <h5 class="modal-title fw-bold text-dark mb-0">{% if is_edit %}Edit Approval Policy: {{ policy.name }}{% else %}Create Enterprise Approval Policy{% endif %}</h5>
+            <div class="small text-muted">Configurable multi-level routing, amount slabs, cost centers, and exception escalation.</div>
+        </div>
+    </div>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<form hx-post="{% if is_edit %}/superadmin/policies/{{ form.instance.pk }}/edit/{% else %}/superadmin/policies/create/{% endif %}" hx-target="#modal-content-body" hx-swap="outerHTML">
+
+<form id="policyForm" hx-post="{% if is_edit %}/superadmin/policies/{{ form.instance.pk }}/edit/{% else %}/superadmin/policies/create/{% endif %}" hx-target="#modal-content-body" hx-swap="innerHTML" class="bg-white rounded-bottom-4">
     {% csrf_token %}
-    <div class="modal-body pt-4">
+    <input type="hidden" name="steps_data" id="id_steps_data" value="{{ steps_json|default:'[]' }}">
+
+    <div class="modal-body pt-3">
         {% if form.non_field_errors %}
-        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        <div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+            <i class="fa-solid fa-circle-exclamation flex-shrink-0"></i>
+            <div>{{ form.non_field_errors }}</div>
+        </div>
         {% endif %}
-        <div class="row g-3">
-            <div class="col-md-12">
-                <label class="form-label fw-semibold text-secondary small">Policy Name</label>
-                {{ form.name }}
-                {% if form.name.errors %}<div class="text-danger small">{{ form.name.errors }}</div>{% endif %}
+
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-pills nav-fill bg-light p-1 rounded-3 mb-4" id="policyTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active rounded-pill fw-semibold small py-2" id="tab-scope-btn" data-bs-toggle="pill" data-bs-target="#tab-scope" type="button" role="tab">
+                    <i class="fa-solid fa-sliders me-1"></i> 1. Scope & Amounts
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-semibold small py-2" id="tab-workflow-btn" data-bs-toggle="pill" data-bs-target="#tab-workflow" type="button" role="tab">
+                    <i class="fa-solid fa-arrow-progress me-1"></i> 2. Approval Sequence
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link rounded-pill fw-semibold small py-2" id="tab-exception-btn" data-bs-toggle="pill" data-bs-target="#tab-exception" type="button" role="tab">
+                    <i class="fa-solid fa-triangle-exclamation me-1"></i> 3. Exception Routing
+                </button>
+            </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="policyTabsContent">
+            <!-- TAB 1: SCOPE & AMOUNT SLABS -->
+            <div class="tab-pane fade show active" id="tab-scope" role="tabpanel">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold text-secondary small">Policy Name <span class="text-danger">*</span></label>
+                        {{ form.name }}
+                        {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors }}</div>{% endif %}
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold text-secondary small">Currency</label>
+                        {{ form.currency }}
+                        {% if form.currency.errors %}<div class="text-danger small mt-1">{{ form.currency.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Transaction Type / Module <span class="text-danger">*</span></label>
+                        {{ form.module }}
+                        {% if form.module.errors %}<div class="text-danger small mt-1">{{ form.module.errors }}</div>{% endif %}
+                    </div>
+
+                    {% if form.organization.is_hidden %}
+                        {{ form.organization }}
+                    {% else %}
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Organization</label>
+                        {{ form.organization }}
+                        {% if form.organization.errors %}<div class="text-danger small mt-1">{{ form.organization.errors }}</div>{% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Department Scope</label>
+                        {{ form.department }}
+                        <div class="form-text small text-muted">Leave blank for All Departments (Default policy).</div>
+                        {% if form.department.errors %}<div class="text-danger small mt-1">{{ form.department.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Cost Center Scope</label>
+                        {{ form.cost_center }}
+                        <div class="form-text small text-muted">Leave blank for All Cost Centers under department.</div>
+                        {% if form.cost_center.errors %}<div class="text-danger small mt-1">{{ form.cost_center.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Minimum Amount <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted fw-bold" id="currPrefixMin">₹</span>
+                            {{ form.min_amount }}
+                        </div>
+                        {% if form.min_amount.errors %}<div class="text-danger small mt-1">{{ form.min_amount.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold text-secondary small">Maximum Amount (Upper Bound)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted fw-bold" id="currPrefixMax">₹</span>
+                            {{ form.max_amount }}
+                        </div>
+                        <div class="form-text small text-muted">Leave blank for unlimited (no ceiling).</div>
+                        {% if form.max_amount.errors %}<div class="text-danger small mt-1">{{ form.max_amount.errors }}</div>{% endif %}
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-semibold text-secondary small">Description & Governance Notes</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}<div class="text-danger small mt-1">{{ form.description.errors }}</div>{% endif %}
+                    </div>
+
+                    <!-- Active Policy Switch -->
+                    <div class="col-12 pt-2 border-top">
+                        <div class="d-flex align-items-center justify-content-between p-3 rounded-3 bg-light border">
+                            <div>
+                                <div class="fw-bold text-dark small">Policy Activation Status</div>
+                                <div class="text-muted small">Active policies immediately govern submitted transactions matching this scope and amount slab.</div>
+                            </div>
+                            <div class="form-check form-switch m-0 d-flex align-items-center gap-2">
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if is_edit %}{% if policy.is_active %}checked{% endif %}{% else %}checked{% endif %}>
+                                <span id="policySwitchLabel" class="badge {% if is_edit and not policy.is_active %}bg-secondary bg-opacity-10 text-secondary border border-secondary{% else %}bg-success bg-opacity-10 text-success border border-success{% endif %} fw-semibold">
+                                    {% if is_edit and not policy.is_active %}Draft / Inactive{% else %}Active Policy{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Module / Transaction Type</label>
-                {{ form.module }}
-                {% if form.module.errors %}<div class="text-danger small">{{ form.module.errors }}</div>{% endif %}
+
+            <!-- TAB 2: DYNAMIC APPROVAL WORKFLOW BUILDER -->
+            <div class="tab-pane fade" id="tab-workflow" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h6 class="fw-bold text-dark mb-0">Multi-Level Approval Sequence</h6>
+                        <div class="small text-muted">Add, remove, and reorder sequential or parallel approval levels.</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3" id="addStepBtn">
+                        <i class="fa-solid fa-plus me-1"></i> Add Approval Level
+                    </button>
+                </div>
+
+                <!-- Live Visual Pipeline Preview -->
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="text-secondary small fw-bold text-uppercase mb-2"><i class="fa-solid fa-diagram-project me-1 text-primary"></i> Live Approval Flow Preview</div>
+                    <div class="d-flex align-items-center gap-2 overflow-auto pb-2" id="visualPipelinePreview">
+                        <!-- Rendered dynamically by JS -->
+                    </div>
+                </div>
+
+                <!-- Step Cards Container -->
+                <div id="stepsContainer" class="d-flex flex-column gap-2">
+                    <!-- Dynamic step rows injected here -->
+                </div>
             </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Department Scope (Optional)</label>
-                {{ form.department }}
-                {% if form.department.errors %}<div class="text-danger small">{{ form.department.errors }}</div>{% endif %}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Minimum Amount</label>
-                {{ form.min_amount }}
-                {% if form.min_amount.errors %}<div class="text-danger small">{{ form.min_amount.errors }}</div>{% endif %}
-            </div>
-            <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Maximum Amount</label>
-                {{ form.max_amount }}
-                <div class="form-text small text-muted">Leave blank for unlimited.</div>
-                {% if form.max_amount.errors %}<div class="text-danger small">{{ form.max_amount.errors }}</div>{% endif %}
-            </div>
-            <div class="col-12">
-                <div class="form-check form-switch mt-2">
-                    {{ form.is_active }}
-                    <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Active Policy</label>
+
+            <!-- TAB 3: OPTIONAL EXCEPTION ROUTING -->
+            <div class="tab-pane fade" id="tab-exception" role="tabpanel">
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="form-check form-switch d-flex align-items-center gap-3">
+                        {{ form.has_exception_routing }}
+                        <label class="form-check-label fw-bold text-dark" for="id_has_exception_routing">
+                            Enable Exception Escalation Routing
+                        </label>
+                    </div>
+                    <div class="small text-muted mt-1 ps-5">
+                        Route transactions to designated executive approvers when thresholds are exceeded or budget exceptions occur.
+                    </div>
+                </div>
+
+                <div id="exceptionFieldsWrapper" style="display: none;">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Exception Amount Threshold</label>
+                            {{ form.exception_amount_threshold }}
+                            <div class="form-text small text-muted">Transactions exceeding this amount trigger exception escalation.</div>
+                            {% if form.exception_amount_threshold.errors %}<div class="text-danger small mt-1">{{ form.exception_amount_threshold.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Exception Approver Role</label>
+                            {{ form.exception_approver_role }}
+                            {% if form.exception_approver_role.errors %}<div class="text-danger small mt-1">{{ form.exception_approver_role.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Optional Specific Escalation Approver</label>
+                            {{ form.exception_specific_approver }}
+                            {% if form.exception_specific_approver.errors %}<div class="text-danger small mt-1">{{ form.exception_specific_approver.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Routing Action / Behavior</label>
+                            {{ form.exception_routing_behavior }}
+                            {% if form.exception_routing_behavior.errors %}<div class="text-danger small mt-1">{{ form.exception_routing_behavior.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Escalation Window (Hours SLA)</label>
+                            {{ form.exception_escalation_time_hours }}
+                            {% if form.exception_escalation_time_hours.errors %}<div class="text-danger small mt-1">{{ form.exception_escalation_time_hours.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Exception Reason Tag</label>
+                            {{ form.exception_reason }}
+                            {% if form.exception_reason.errors %}<div class="text-danger small mt-1">{{ form.exception_reason.errors }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <div class="p-3 rounded-3 border bg-white">
+                                <div class="fw-semibold text-dark small mb-2"><i class="fa-solid fa-bell me-1 text-warning"></i> Additional Exception Triggers</div>
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            {{ form.exception_trigger_on_missing_cost_center }}
+                                            <label class="form-check-label small" for="{{ form.exception_trigger_on_missing_cost_center.id_for_label }}">
+                                                Trigger if Cost Center is unassigned
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check">
+                                            {{ form.exception_trigger_on_budget_exceeded }}
+                                            <label class="form-check-label small" for="{{ form.exception_trigger_on_budget_exceeded.id_for_label }}">
+                                                Trigger if Transaction exceeds available budget
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold text-secondary small">Exception Routing Notes</label>
+                            {{ form.exception_description }}
+                            {% if form.exception_description.errors %}<div class="text-danger small mt-1">{{ form.exception_description.errors }}</div>{% endif %}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer border-top-0 pt-0">
+
+    <div class="modal-footer border-top-0 pt-0 d-flex justify-content-between align-items-center">
         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-warning text-dark fw-bold rounded-pill px-4">Save Policy</button>
+        <button type="submit" class="btn btn-success text-white fw-bold rounded-pill px-4" id="savePolicySubmitBtn">
+            <i class="fa-solid fa-check me-1"></i> Save Policy
+        </button>
     </div>
 </form>
+
+<script>
+window.updatePolicyActiveSwitch = function(el) {
+    var label = document.getElementById("policySwitchLabel");
+    if (!label) return;
+    if (el.checked) {
+        label.className = "badge bg-success bg-opacity-10 text-success border border-success fw-semibold";
+        label.textContent = "Active Policy";
+    } else {
+        label.className = "badge bg-secondary bg-opacity-10 text-secondary border border-secondary fw-semibold";
+        label.textContent = "Draft / Inactive";
+    }
+};
+
+(function() {
+    var activeCheck = document.getElementById("id_is_active");
+    if (activeCheck) {
+        activeCheck.addEventListener("change", function() {
+            window.updatePolicyActiveSwitch(this);
+        });
+        window.updatePolicyActiveSwitch(activeCheck);
+    }
+    var rolesData = [
+        {% for r in available_roles %}
+        { id: "{{ r.id }}", name: "{{ r.name|escapejs }}", code: "{{ r.code|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+    var usersData = [
+        {% for u in available_users %}
+        { id: "{{ u.id }}", email: "{{ u.email|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    var rawSteps = [];
+    try {
+        var rawVal = document.getElementById("id_steps_data").value;
+        if (rawVal) {
+            rawSteps = JSON.parse(rawVal);
+        }
+    } catch(e) {
+        console.warn("Could not parse steps JSON:", e);
+    }
+    if (!rawSteps || rawSteps.length === 0) {
+        // Fallback default
+        if (rolesData.length > 0) {
+            rawSteps = [
+                {
+                    step_number: 1,
+                    role_id: rolesData[0].id,
+                    role_name: rolesData[0].name,
+                    user_id: "",
+                    user_name: "",
+                    description: "Initial Policy Review",
+                    is_mandatory: true,
+                    approval_limit: "",
+                    step_type: "SEQUENTIAL",
+                    rejection_behavior: "STOP_WORKFLOW",
+                    escalation_hours: 48
+                }
+            ];
+        }
+    }
+
+    // Currency prefix updater
+    var currSelect = document.getElementById("id_currency");
+    function updateCurrencySymbols() {
+        if (!currSelect) return;
+        var c = currSelect.value;
+        var sym = "₹";
+        if (c === "USD") sym = "$";
+        else if (c === "EUR") sym = "€";
+        else if (c === "GBP") sym = "£";
+        var elMin = document.getElementById("currPrefixMin");
+        var elMax = document.getElementById("currPrefixMax");
+        if (elMin) elMin.textContent = sym;
+        if (elMax) elMax.textContent = sym;
+    }
+    if (currSelect) {
+        currSelect.addEventListener("change", updateCurrencySymbols);
+        updateCurrencySymbols();
+    }
+
+    // Exception routing toggle
+    var excCheck = document.getElementById("id_has_exception_routing");
+    var excWrapper = document.getElementById("exceptionFieldsWrapper");
+    function toggleExceptionWrapper() {
+        if (!excCheck || !excWrapper) return;
+        excWrapper.style.display = excCheck.checked ? "block" : "none";
+    }
+    if (excCheck) {
+        excCheck.addEventListener("change", toggleExceptionWrapper);
+        toggleExceptionWrapper();
+    }
+
+    // Step Rendering
+    var container = document.getElementById("stepsContainer");
+    var pipeline = document.getElementById("visualPipelinePreview");
+
+    function renderSteps() {
+        if (!container) return;
+        container.innerHTML = "";
+
+        // Render pipeline
+        if (pipeline) {
+            pipeline.innerHTML = "";
+            var reqPill = document.createElement("div");
+            reqPill.className = "badge bg-light text-muted border px-2 py-1 flex-shrink-0";
+            reqPill.textContent = "Requester";
+            pipeline.appendChild(reqPill);
+
+            rawSteps.forEach(function(s, idx) {
+                var arr = document.createElement("i");
+                arr.className = "fa-solid fa-chevron-right text-muted flex-shrink-0";
+                arr.style.fontSize = "0.65rem";
+                pipeline.appendChild(arr);
+
+                var rObj = rolesData.find(function(r) { return String(r.id) === String(s.role_id); });
+                var rName = rObj ? rObj.name : (s.role_name || "Approver");
+
+                var pill = document.createElement("div");
+                pill.className = "badge bg-white text-dark border shadow-xs px-2 py-1 flex-shrink-0";
+                pill.textContent = (idx + 1) + ". " + rName;
+                pipeline.appendChild(pill);
+            });
+
+            var arrFin = document.createElement("i");
+            arrFin.className = "fa-solid fa-chevron-right text-muted flex-shrink-0";
+            arrFin.style.fontSize = "0.65rem";
+            pipeline.appendChild(arrFin);
+
+            var donePill = document.createElement("div");
+            donePill.className = "badge bg-success bg-opacity-10 text-success border border-success px-2 py-1 flex-shrink-0";
+            donePill.textContent = "Approved";
+            pipeline.appendChild(donePill);
+        }
+
+        // Render step rows
+        rawSteps.forEach(function(step, idx) {
+            step.step_number = idx + 1;
+            var card = document.createElement("div");
+            card.className = "card border rounded-3 p-3 bg-white shadow-xs";
+
+            var roleOptionsHtml = rolesData.map(function(r) {
+                var sel = String(r.id) === String(step.role_id) ? "selected" : "";
+                return '<option value="' + r.id + '" ' + sel + '>' + r.name + '</option>';
+            }).join("");
+
+            var userOptionsHtml = '<option value="">-- Any User with Role --</option>' + usersData.map(function(u) {
+                var sel = String(u.id) === String(step.user_id) ? "selected" : "";
+                return '<option value="' + u.id + '" ' + sel + '>' + u.email + '</option>';
+            }).join("");
+
+            card.innerHTML = 
+                '<div class="d-flex justify-content-between align-items-center mb-2">' +
+                    '<div class="fw-bold text-dark small"><i class="fa-solid fa-arrow-down-short-wide text-primary me-1"></i> Level ' + (idx + 1) + ' Approval Step</div>' +
+                    '<div class="d-flex gap-1">' +
+                        (idx > 0 ? '<button type="button" class="btn btn-xs btn-outline-secondary btn-step-up" data-idx="' + idx + '" title="Move Up"><i class="fa-solid fa-arrow-up"></i></button>' : '') +
+                        (idx < rawSteps.length - 1 ? '<button type="button" class="btn btn-xs btn-outline-secondary btn-step-down" data-idx="' + idx + '" title="Move Down"><i class="fa-solid fa-arrow-down"></i></button>' : '') +
+                        (rawSteps.length > 1 ? '<button type="button" class="btn btn-xs btn-outline-danger btn-step-remove" data-idx="' + idx + '" title="Remove Step"><i class="fa-solid fa-trash"></i></button>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="row g-2">' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Approver Role <span class="text-danger">*</span></label>' +
+                        '<select class="form-select form-select-sm step-role-select" data-idx="' + idx + '">' + roleOptionsHtml + '</select>' +
+                    '</div>' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Designated Specific User</label>' +
+                        '<select class="form-select form-select-sm step-user-select" data-idx="' + idx + '">' + userOptionsHtml + '</select>' +
+                    '</div>' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Step Type</label>' +
+                        '<select class="form-select form-select-sm step-type-select" data-idx="' + idx + '">' +
+                            '<option value="SEQUENTIAL" ' + (step.step_type === "SEQUENTIAL" ? "selected" : "") + '>Sequential</option>' +
+                            '<option value="PARALLEL" ' + (step.step_type === "PARALLEL" ? "selected" : "") + '>Parallel</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Step Limit (Optional)</label>' +
+                        '<input type="number" step="0.01" class="form-control form-control-sm step-limit-input" data-idx="' + idx + '" value="' + (step.approval_limit || "") + '" placeholder="e.g. 50000.00">' +
+                    '</div>' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Rejection Behavior</label>' +
+                        '<select class="form-select form-select-sm step-rejection-select" data-idx="' + idx + '">' +
+                            '<option value="STOP_WORKFLOW" ' + (step.rejection_behavior === "STOP_WORKFLOW" ? "selected" : "") + '>Stop & Reject</option>' +
+                            '<option value="RETURN_TO_REQUESTER" ' + (step.rejection_behavior === "RETURN_TO_REQUESTER" ? "selected" : "") + '>Return to Requester</option>' +
+                            '<option value="RETURN_TO_PREVIOUS" ' + (step.rejection_behavior === "RETURN_TO_PREVIOUS" ? "selected" : "") + '>Return to Previous Step</option>' +
+                        '</select>' +
+                    '</div>' +
+                    '<div class="col-md-4">' +
+                        '<label class="form-label small text-muted mb-1">Escalation SLA (Hours)</label>' +
+                        '<input type="number" min="1" class="form-control form-control-sm step-escalation-input" data-idx="' + idx + '" value="' + (step.escalation_hours || "") + '" placeholder="e.g. 48">' +
+                    '</div>' +
+                '</div>';
+
+            container.appendChild(card);
+        });
+
+        // Sync hidden data
+        document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+        attachStepListeners();
+    }
+
+    function attachStepListeners() {
+        document.querySelectorAll(".step-role-select").forEach(function(sel) {
+            sel.addEventListener("change", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].role_id = this.value;
+                var rObj = rolesData.find(function(r) { return String(r.id) === String(sel.value); });
+                rawSteps[idx].role_name = rObj ? rObj.name : "";
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+                renderSteps();
+            });
+        });
+        document.querySelectorAll(".step-user-select").forEach(function(sel) {
+            sel.addEventListener("change", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].user_id = this.value;
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+            });
+        });
+        document.querySelectorAll(".step-type-select").forEach(function(sel) {
+            sel.addEventListener("change", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].step_type = this.value;
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+            });
+        });
+        document.querySelectorAll(".step-limit-input").forEach(function(inp) {
+            inp.addEventListener("input", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].approval_limit = this.value;
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+            });
+        });
+        document.querySelectorAll(".step-rejection-select").forEach(function(sel) {
+            sel.addEventListener("change", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].rejection_behavior = this.value;
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+            });
+        });
+        document.querySelectorAll(".step-escalation-input").forEach(function(inp) {
+            inp.addEventListener("input", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps[idx].escalation_hours = this.value;
+                document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+            });
+        });
+        document.querySelectorAll(".btn-step-up").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                if (idx > 0) {
+                    var tmp = rawSteps[idx];
+                    rawSteps[idx] = rawSteps[idx - 1];
+                    rawSteps[idx - 1] = tmp;
+                    renderSteps();
+                }
+            });
+        });
+        document.querySelectorAll(".btn-step-down").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                if (idx < rawSteps.length - 1) {
+                    var tmp = rawSteps[idx];
+                    rawSteps[idx] = rawSteps[idx + 1];
+                    rawSteps[idx + 1] = tmp;
+                    renderSteps();
+                }
+            });
+        });
+        document.querySelectorAll(".btn-step-remove").forEach(function(btn) {
+            btn.addEventListener("click", function() {
+                var idx = parseInt(this.getAttribute("data-idx"));
+                rawSteps.splice(idx, 1);
+                renderSteps();
+            });
+        });
+    }
+
+    var addStepBtn = document.getElementById("addStepBtn");
+    if (addStepBtn) {
+        addStepBtn.addEventListener("click", function() {
+            var defaultRole = rolesData.length > 0 ? rolesData[0] : { id: "", name: "Approver" };
+            rawSteps.push({
+                step_number: rawSteps.length + 1,
+                role_id: defaultRole.id,
+                role_name: defaultRole.name,
+                user_id: "",
+                user_name: "",
+                description: defaultRole.name + " Approval",
+                is_mandatory: true,
+                approval_limit: "",
+                step_type: "SEQUENTIAL",
+                rejection_behavior: "STOP_WORKFLOW",
+                escalation_hours: 48
+            });
+            renderSteps();
+        });
+    }
+
+    // Initial render
+    renderSteps();
+
+    // Ensure hidden steps_data is synced before form submission
+    var policyForm = document.getElementById("policyForm");
+    if (policyForm) {
+        policyForm.addEventListener("submit", function() {
+            document.getElementById("id_steps_data").value = JSON.stringify(rawSteps);
+        });
+    }
+})();
+</script>

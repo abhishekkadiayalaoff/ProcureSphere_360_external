@@ -23,15 +23,23 @@ def generate_purchase_order_service(
     created_by_user: User,
     requisition=None,
     sourcing_event=None,
+    award=None,
     terms_and_conditions: str = "Standard HPE Enterprise Procurement Terms & Conditions",
     tax_rate: Decimal = Decimal("0.10"),
-    initial_status: str = PurchaseOrder.STATUS_ISSUED,
+    initial_status: str = PurchaseOrder.STATUS_DRAFT,
 ) -> PurchaseOrder:
     """
     Generates a new Purchase Order from requisition/award.
-    Moves BudgetReservation to SpendLedger COMMITMENT when in ISSUED status.
+    New POs start in DRAFT and must pass the approval lifecycle
+    (DRAFT -> APPROVAL -> APPROVED -> ISSUED) before reaching the vendor.
+    Budget commitment and vendor notification happen at ISSUED time.
     """
     from apps.core.services import generate_document_number
+
+    if cost_center is None:
+        raise ValidationError(
+            "A cost center is required to generate a Purchase Order."
+        )
 
     if vendor.status != Vendor.STATUS_ACTIVE:
         raise ValidationError(
@@ -46,6 +54,7 @@ def generate_purchase_order_service(
         vendor=vendor,
         requisition=requisition,
         sourcing_event=sourcing_event,
+        award=award,
         cost_center=cost_center,
         status=initial_status,
         terms_and_conditions=terms_and_conditions,
@@ -79,6 +88,18 @@ def generate_purchase_order_service(
     po.tax_amount = tax
     po.total_amount = total
     po.save(update_fields=["subtotal", "tax_amount", "total_amount", "updated_at"])
+
+    # Update linked requisition status to PO_ISSUED
+    target_requisition = requisition or (sourcing_event.requisition if sourcing_event else None)
+    if target_requisition:
+        from apps.requisitions.models import PurchaseRequisition
+
+        if target_requisition.status in (
+            PurchaseRequisition.STATUS_APPROVED,
+            PurchaseRequisition.STATUS_SOURCING,
+        ):
+            target_requisition.status = PurchaseRequisition.STATUS_PO_ISSUED
+            target_requisition.save(update_fields=["status", "updated_at"])
 
     # Move BudgetReservation to SpendLedger COMMITMENT only if PO is in ISSUED status
     if initial_status == PurchaseOrder.STATUS_ISSUED:
@@ -128,6 +149,8 @@ def generate_purchase_order_service(
             "version": po.version,
             "total_amount": str(po.total_amount),
             "vendor": vendor.legal_name,
+            "status": po.status,
+            "award_id": str(award.id) if award else None,
         },
     )
 
@@ -237,7 +260,7 @@ def request_po_amendment_service(
 
     if po.vendor.status != Vendor.STATUS_ACTIVE:
         raise ValidationError(
-            f"Vendor '{po.vendor.legal_name}' is not active and PO cannot be amended."
+            f"Vendor '{po.vendor.legal_name}' is in status '{po.vendor.get_status_display()}' and PO cannot be amended."
         )
 
     if po.status == PurchaseOrder.STATUS_AMENDMENT_PENDING:
@@ -913,7 +936,8 @@ def submit_purchase_order_for_approval_service(
 ) -> PurchaseOrder:
     """
     Submits a draft PO for managerial review and approval.
-    Transitions DRAFT -> APPROVAL.
+    Transitions DRAFT -> APPROVAL and records the submitter for
+    separation-of-duties enforcement at approval time.
     """
     if po.status != PurchaseOrder.STATUS_DRAFT:
         raise ValidationError(
@@ -922,7 +946,18 @@ def submit_purchase_order_for_approval_service(
 
     previous_status = po.status
     po.status = PurchaseOrder.STATUS_APPROVAL
-    po.save(update_fields=["status", "updated_at"])
+    po.submitted_by = actor
+    po.submitted_at = timezone.now()
+    po.rejection_reason = ""
+    po.save(
+        update_fields=[
+            "status",
+            "submitted_by",
+            "submitted_at",
+            "rejection_reason",
+            "updated_at",
+        ]
+    )
 
     AuditLog.objects.create(
         actor=actor,
@@ -930,7 +965,21 @@ def submit_purchase_order_for_approval_service(
         target_model="PurchaseOrder",
         target_object_id=str(po.id),
         previous_state={"status": previous_status},
-        new_state={"status": po.status},
+        new_state={"status": po.status, "submitted_by": actor.email},
+    )
+
+    from apps.notifications.services import notify_role_users
+
+    notify_role_users(
+        role_codes=[Role.PROC_MGR, Role.SUPER_ADMIN],
+        notification_type=Notification.TYPE_APPROVAL_REQUIRED,
+        title=f"PO Approval Required: {po.po_number}",
+        message=(
+            f"Purchase Order {po.po_number} for {po.vendor.legal_name} "
+            f"(${po.total_amount:,.2f}) was submitted by "
+            f"{actor.get_full_name() or actor.email} and awaits your approval."
+        ),
+        target_url=f"/orders/{po.id}/",
     )
     return po
 
@@ -940,8 +989,10 @@ def approve_purchase_order_service(
     *, po: PurchaseOrder, approver: User, comments: str = ""
 ) -> PurchaseOrder:
     """
-    Approves a PO and transitions to ISSUED state.
+    Approves a PO in approval review. Transitions to APPROVED (not yet ISSUED —
+    the Procurement Executive issues the approved PO to the vendor).
     Commits funds against the designated Cost Center budget.
+    Enforces separation of duties: the submitter cannot approve their own PO.
     """
     if po.status not in [PurchaseOrder.STATUS_DRAFT, PurchaseOrder.STATUS_APPROVAL]:
         raise ValidationError(
@@ -953,27 +1004,54 @@ def approve_purchase_order_service(
             f"Vendor '{po.vendor.legal_name}' is suspended and cannot be issued POs."
         )
 
+    if (
+        po.submitted_by_id
+        and po.submitted_by_id == approver.id
+        and not getattr(approver, "is_superuser", False)
+    ):
+        raise ValidationError(
+            "Separation of duties violation: the PO submitter cannot approve their own purchase order."
+        )
+
     previous_status = po.status
-    po.status = PurchaseOrder.STATUS_ISSUED
-    po.save(update_fields=["status", "updated_at"])
+    po.status = PurchaseOrder.STATUS_APPROVED
+    po.approved_by = approver
+    po.approved_at = timezone.now()
+    po.rejection_reason = ""
+    po.save(
+        update_fields=[
+            "status",
+            "approved_by",
+            "approved_at",
+            "rejection_reason",
+            "updated_at",
+        ]
+    )
 
     # Commit funds in SpendLedger if not already committed
-    budget = (
-        Budget.objects.filter(cost_center=po.cost_center)
-        .order_by("-created_at")
-        .first()
-    )
-    if budget:
-        budget.committed_amount += po.total_amount
-        budget.save(update_fields=["committed_amount", "updated_at"])
-
-        SpendLedger.objects.create(
-            budget=budget,
-            entry_type=SpendLedger.ENTRY_COMMITMENT,
-            amount=po.total_amount,
-            reference_number=po.po_number,
-            description=f"PO Commitment on Approval for {po.vendor.legal_name} ({comments or 'Approved'})",
+    already_committed = SpendLedger.objects.filter(
+        budget__cost_center=po.cost_center,
+        reference_number=po.po_number,
+        entry_type=SpendLedger.ENTRY_COMMITMENT,
+        amount__gt=Decimal("0.00"),
+    ).exists()
+    if not already_committed:
+        budget = (
+            Budget.objects.filter(cost_center=po.cost_center)
+            .order_by("-created_at")
+            .first()
         )
+        if budget:
+            budget.committed_amount += po.total_amount
+            budget.save(update_fields=["committed_amount", "updated_at"])
+
+            SpendLedger.objects.create(
+                budget=budget,
+                entry_type=SpendLedger.ENTRY_COMMITMENT,
+                amount=po.total_amount,
+                reference_number=po.po_number,
+                description=f"PO Commitment on Approval for {po.vendor.legal_name} ({comments or 'Approved'})",
+            )
 
     AuditLog.objects.create(
         actor=approver,
@@ -981,8 +1059,156 @@ def approve_purchase_order_service(
         target_model="PurchaseOrder",
         target_object_id=str(po.id),
         previous_state={"status": previous_status},
-        new_state={"status": po.status, "comments": comments},
+        new_state={"status": po.status, "comments": comments, "approved_by": approver.email},
     )
+
+    # Notify the submitter that their PO was approved and is ready to issue
+    if po.submitted_by and po.submitted_by != approver:
+        Notification.objects.create(
+            recipient=po.submitted_by,
+            notification_type=Notification.TYPE_PO_ISSUED,
+            title=f"PO Approved: {po.po_number}",
+            message=(
+                f"Purchase Order {po.po_number} was approved by "
+                f"{approver.get_full_name() or approver.email}. It is ready to be issued to {po.vendor.legal_name}."
+            ),
+            target_url=f"/orders/{po.id}/",
+        )
+    return po
+
+
+@transaction.atomic
+def issue_purchase_order_service(
+    *, po: PurchaseOrder, actor: User
+) -> PurchaseOrder:
+    """
+    Procurement Executive issues an APPROVED purchase order to the vendor.
+    Transitions APPROVED -> ISSUED, records issuer/timestamp and notifies
+    the vendor portal users for acknowledgement.
+    """
+    role_code = getattr(actor, "role_code", None) or (
+        actor.role.code if getattr(actor, "role", None) else None
+    )
+    if not (
+        getattr(actor, "is_superuser", False)
+        or role_code in (Role.PROC_EXEC, Role.SUPER_ADMIN)
+    ):
+        raise ValidationError(
+            "Permission Denied: Only Procurement Executives or Super Admin can issue purchase orders."
+        )
+
+    if po.status != PurchaseOrder.STATUS_APPROVED:
+        raise ValidationError(
+            f"Cannot issue PO in status '{po.status}'. Must be APPROVED."
+        )
+
+    if po.vendor.status != Vendor.STATUS_ACTIVE:
+        raise ValidationError(
+            f"Vendor '{po.vendor.legal_name}' is in status '{po.vendor.get_status_display()}' "
+            "and cannot receive issued Purchase Orders. Vendor must be ACTIVE."
+        )
+
+    previous_status = po.status
+    po.status = PurchaseOrder.STATUS_ISSUED
+    po.issued_by = actor
+    po.issued_at = timezone.now()
+    po.save(update_fields=["status", "issued_by", "issued_at", "updated_at"])
+
+    AuditLog.objects.create(
+        actor=actor,
+        action=AuditLog.ACTION_UPDATE,
+        target_model="PurchaseOrder",
+        target_object_id=str(po.id),
+        previous_state={"status": previous_status},
+        new_state={"status": po.status, "issued_by": actor.email},
+    )
+
+    from apps.notifications.services import notify_vendor_users
+
+    notify_vendor_users(
+        vendor=po.vendor,
+        notification_type=Notification.TYPE_PO_ISSUED,
+        title=f"Purchase Order Issued: {po.po_number}",
+        message=(
+            f"Purchase Order {po.po_number} for ${po.total_amount:,.2f} has been issued "
+            "and requires formal acknowledgement."
+        ),
+        target_url=f"/vendor/purchase-orders/{po.id}/",
+    )
+
+    for v_user in User.objects.filter(vendor=po.vendor, is_active=True):
+        Notification.objects.create(
+            recipient=v_user,
+            notification_type=Notification.TYPE_PO_ISSUED,
+            title=f"New Purchase Order Issued: {po.po_number}",
+            message=(
+                f"A new Purchase Order {po.po_number} (${po.total_amount:,.2f}) has been "
+                f"issued to {po.vendor.legal_name}."
+            ),
+            target_url=f"/vendor/purchase-orders/{po.id}/",
+        )
+
+    if po.requisition and po.requisition.requester:
+        Notification.objects.create(
+            recipient=po.requisition.requester,
+            notification_type=Notification.TYPE_PO_ISSUED,
+            title=f"PO {po.po_number} Issued",
+            message=(
+                f"Purchase Order {po.po_number} has been issued to {po.vendor.legal_name}."
+            ),
+            target_url=f"/orders/{po.id}/",
+        )
+
+    return po
+
+
+@transaction.atomic
+def request_changes_purchase_order_service(
+    *, po: PurchaseOrder, reviewer: User, note: str
+) -> PurchaseOrder:
+    """
+    Procurement Manager requests changes on a PO under review.
+    Transitions APPROVAL -> DRAFT with a mandatory note; the Procurement
+    Executive must edit and resubmit.
+    """
+    if not note or not str(note).strip():
+        raise ValidationError("A change-request note is required.")
+
+    if po.status != PurchaseOrder.STATUS_APPROVAL:
+        raise ValidationError(
+            f"Cannot request changes on PO in status '{po.status}'. Must be APPROVAL."
+        )
+
+    previous_status = po.status
+    po.status = PurchaseOrder.STATUS_DRAFT
+    po.rejection_reason = note.strip()
+    po.save(update_fields=["status", "rejection_reason", "updated_at"])
+
+    AuditLog.objects.create(
+        actor=reviewer,
+        action=AuditLog.ACTION_UPDATE,
+        target_model="PurchaseOrder",
+        target_object_id=str(po.id),
+        previous_state={"status": previous_status},
+        new_state={
+            "status": po.status,
+            "change_requested": True,
+            "note": note.strip(),
+            "reviewed_by": reviewer.email,
+        },
+    )
+
+    if po.submitted_by:
+        Notification.objects.create(
+            recipient=po.submitted_by,
+            notification_type=Notification.TYPE_PO_AMENDMENT,
+            title=f"Changes Requested on PO {po.po_number}",
+            message=(
+                f"{reviewer.get_full_name() or reviewer.email} requested changes on "
+                f"Purchase Order {po.po_number}: {note.strip()}"
+            ),
+            target_url=f"/orders/{po.id}/",
+        )
     return po
 
 
@@ -1003,7 +1229,8 @@ def reject_purchase_order_service(
 
     previous_status = po.status
     po.status = PurchaseOrder.STATUS_DRAFT
-    po.save(update_fields=["status", "updated_at"])
+    po.rejection_reason = reason.strip()
+    po.save(update_fields=["status", "rejection_reason", "updated_at"])
 
     AuditLog.objects.create(
         actor=approver,
@@ -1013,4 +1240,208 @@ def reject_purchase_order_service(
         previous_state={"status": previous_status},
         new_state={"status": po.status, "rejection_reason": reason},
     )
+
+    if po.submitted_by and po.submitted_by != approver:
+        Notification.objects.create(
+            recipient=po.submitted_by,
+            notification_type=Notification.TYPE_PO_AMENDMENT,
+            title=f"PO Rejected: {po.po_number}",
+            message=(
+                f"Purchase Order {po.po_number} was rejected by "
+                f"{approver.get_full_name() or approver.email}. Reason: {reason}"
+            ),
+            target_url=f"/orders/{po.id}/",
+        )
+    return po
+
+
+@transaction.atomic
+def vendor_reject_purchase_order_service(
+    *, po: PurchaseOrder, vendor_user: User, reason: str
+) -> PurchaseOrder:
+    """
+    Vendor rejects an issued PO (e.g. cannot fulfil scope/pricing).
+    Transitions ISSUED -> APPROVED so the Procurement Executive can resolve
+    and re-issue or cancel. Reason is mandatory and audited.
+    """
+    if not reason or not str(reason).strip():
+        raise ValidationError("A rejection reason is required.")
+
+    if po.status != PurchaseOrder.STATUS_ISSUED:
+        raise ValidationError(
+            f"Cannot reject PO in status '{po.status}'. Must be ISSUED."
+        )
+
+    if not getattr(vendor_user, "vendor_id", None) or po.vendor_id != vendor_user.vendor_id:
+        raise ValidationError(
+            "Permission Denied: Only users of the issuing vendor can reject this purchase order."
+        )
+
+    previous_status = po.status
+    po.status = PurchaseOrder.STATUS_APPROVED
+    po.vendor_rejection_reason = reason.strip()
+    po.vendor_rejected_at = timezone.now()
+    po.save(
+        update_fields=[
+            "status",
+            "vendor_rejection_reason",
+            "vendor_rejected_at",
+            "updated_at",
+        ]
+    )
+
+    AuditLog.objects.create(
+        actor=vendor_user,
+        action=AuditLog.ACTION_REJECT,
+        target_model="PurchaseOrder",
+        target_object_id=str(po.id),
+        previous_state={"status": previous_status},
+        new_state={
+            "status": po.status,
+            "vendor_rejection_reason": po.vendor_rejection_reason,
+            "rejected_by": vendor_user.email,
+        },
+    )
+
+    from apps.notifications.services import notify_role_users
+
+    notify_role_users(
+        role_codes=[Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN],
+        notification_type=Notification.TYPE_PO_ISSUED,
+        title=f"PO Rejected by Vendor: {po.po_number}",
+        message=(
+            f"Vendor {po.vendor.legal_name} rejected Purchase Order {po.po_number}. "
+            f"Reason: {reason.strip()}"
+        ),
+        target_url=f"/orders/{po.id}/",
+    )
+
+    if po.requisition and po.requisition.requester:
+        Notification.objects.create(
+            recipient=po.requisition.requester,
+            notification_type=Notification.TYPE_PO_ISSUED,
+            title=f"PO {po.po_number} Rejected by Vendor",
+            message=(
+                f"Vendor {po.vendor.legal_name} rejected Purchase Order {po.po_number}. "
+                "Procurement is reviewing the order."
+            ),
+            target_url=f"/orders/{po.id}/",
+        )
+
+    return po
+
+
+@transaction.atomic
+def update_draft_purchase_order_service(
+    *,
+    po: PurchaseOrder,
+    actor: User,
+    updated_line_items: list,
+    tax_rate: Decimal = Decimal("0.10"),
+) -> PurchaseOrder:
+    """Edits line quantities/prices on a DRAFT PO before it enters approval.
+
+    Unlike a change order, this does not create a ``POAmendment`` because the
+    order has not yet been issued; the change is captured in the append-only
+    AuditLog instead. Only DRAFT orders are editable.
+    """
+    po = PurchaseOrder.objects.select_for_update().get(pk=po.pk)
+
+    if po.status != PurchaseOrder.STATUS_DRAFT:
+        raise ValidationError(
+            f"Purchase Order {po.po_number} is in status '{po.get_status_display()}' "
+            "and can no longer be edited. Use a change order instead."
+        )
+
+    role_code = getattr(actor, "role_code", None) or (
+        actor.role.code if getattr(actor, "role", None) else None
+    )
+    if not (
+        getattr(actor, "is_superuser", False)
+        or role_code in (Role.PROC_EXEC, Role.PROC_MGR, Role.SUPER_ADMIN)
+    ):
+        raise ValidationError(
+            "Permission Denied: Only procurement roles or Super Admin can edit purchase orders."
+        )
+
+    lines = list(po.lines.select_for_update().order_by("id"))
+    if len(updated_line_items) != len(lines):
+        raise ValidationError(
+            "Draft edit must provide quantity and unit price for every existing line."
+        )
+
+    previous_state = {
+        "status": po.status,
+        "subtotal": str(po.subtotal),
+        "tax_amount": str(po.tax_amount),
+        "total_amount": str(po.total_amount),
+        "lines": [
+            {
+                "id": str(line.id),
+                "quantity": str(line.quantity),
+                "unit_price": str(line.unit_price),
+                "line_total": str(line.line_total),
+            }
+            for line in lines
+        ],
+    }
+
+    subtotal = Decimal("0.00")
+    for idx, (line, item) in enumerate(zip(lines, updated_line_items)):
+        if item.get("quantity") is None or item.get("unit_price") is None:
+            raise ValidationError(
+                f"Line item {idx + 1} must include both quantity and unit price."
+            )
+        try:
+            qty = Decimal(str(item["quantity"]))
+            unit_price = Decimal(str(item["unit_price"]))
+        except Exception:
+            raise ValidationError(
+                f"Invalid quantity or unit price on line item {idx + 1}."
+            )
+        if qty <= Decimal("0.00"):
+            raise ValidationError(
+                f"Quantity must be greater than zero for line item {idx + 1}."
+            )
+        if unit_price < Decimal("0.00"):
+            raise ValidationError(
+                f"Unit price cannot be negative for line item {idx + 1}."
+            )
+
+        line.quantity = qty
+        line.unit_price = unit_price
+        line.save(update_fields=["quantity", "unit_price", "line_total", "updated_at"])
+        subtotal += line.line_total
+
+    tax = subtotal * tax_rate
+    po.subtotal = subtotal
+    po.tax_amount = tax
+    po.total_amount = subtotal + tax
+    po.save(
+        update_fields=["subtotal", "tax_amount", "total_amount", "updated_at"]
+    )
+
+    AuditLog.objects.create(
+        actor=actor,
+        action=AuditLog.ACTION_UPDATE,
+        target_model="PurchaseOrder",
+        target_object_id=str(po.id),
+        previous_state=previous_state,
+        new_state={
+            "status": po.status,
+            "subtotal": str(po.subtotal),
+            "tax_amount": str(po.tax_amount),
+            "total_amount": str(po.total_amount),
+            "lines": [
+                {
+                    "id": str(line.id),
+                    "quantity": str(line.quantity),
+                    "unit_price": str(line.unit_price),
+                    "line_total": str(line.line_total),
+                }
+                for line in lines
+            ],
+        },
+    )
+
     return po

@@ -1,10 +1,71 @@
+<style>
+    /* Force pristine light mode styling for modal form inputs regardless of OS/browser dark mode */
+    #modal-content-body,
+    #modal-content-body .modal-body,
+    #modal-content-body .modal-header,
+    #modal-content-body .modal-footer {
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+    }
+    #modal-content-body .form-control,
+    #modal-content-body .form-select,
+    #modal-content-body input[type="text"],
+    #modal-content-body input[type="email"],
+    #modal-content-body input[type="password"],
+    #modal-content-body textarea,
+    #modal-content-body select {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        color: #1e293b !important;
+        -webkit-text-fill-color: #1e293b !important;
+        border: 1px solid #cbd5e1 !important;
+    }
+    #modal-content-body .form-control:focus,
+    #modal-content-body input:focus,
+    #modal-content-body textarea:focus {
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        border-color: #3b82f6 !important;
+        box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15) !important;
+    }
+    #modal-content-body .form-control::placeholder,
+    #modal-content-body input::placeholder,
+    #modal-content-body textarea::placeholder {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+        opacity: 1 !important;
+    }
+    #modal-content-body input:-webkit-autofill,
+    #modal-content-body input:-webkit-autofill:hover, 
+    #modal-content-body input:-webkit-autofill:focus,
+    #modal-content-body textarea:-webkit-autofill,
+    #modal-content-body select:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+        -webkit-text-fill-color: #1e293b !important;
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+        transition: background-color 5000s ease-in-out 0s !important;
+    }
+</style>
+
 <div class="modal-header bg-light border-bottom-0 pb-0">
     <h5 class="modal-title fw-bold text-dark"><i class="fa-solid fa-sitemap text-primary me-2"></i>{% if is_edit %}Edit Organization{% else %}Create Organization{% endif %}</h5>
     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
-<form hx-post="{% if is_edit %}/superadmin/organizations/{{ form.instance.pk }}/edit/{% else %}/superadmin/organizations/create/{% endif %}" hx-target="#modal-content-body" hx-swap="outerHTML">
+<form hx-post="{% if is_edit %}/superadmin/organizations/{{ form.instance.pk }}/edit/{% else %}/superadmin/organizations/create/{% endif %}" hx-target="#modal-content-body" hx-swap="outerHTML" autocomplete="off">
+    <!-- Anti-autofill decoy inputs to capture browser password manager -->
+    <div style="position: absolute; left: -9999px; top: -9999px; opacity: 0; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+        <input type="text" name="fake_username_anti_autofill" tabindex="-1" autocomplete="username">
+        <input type="password" name="fake_password_anti_autofill" tabindex="-1" autocomplete="current-password">
+    </div>
     {% csrf_token %}
-    <div class="modal-body pt-4">
+    <div class="modal-body pt-4" style="max-height: calc(85vh - 120px); overflow-y: auto;">
+        {% if form.errors %}
+        <div class="alert alert-danger py-2 px-3 small rounded-3 mb-3 d-flex align-items-center gap-2 shadow-sm">
+            <i class="fa-solid fa-triangle-exclamation text-danger fs-6"></i>
+            <span class="fw-semibold">{% if form.admin_email.errors %}{{ form.admin_email.errors|striptags }}{% elif form.admin_user.errors %}{{ form.admin_user.errors|striptags }}{% else %}This user does not belong to this organization.{% endif %}</span>
+        </div>
+        {% endif %}
         {% if form.non_field_errors %}
         <div class="alert alert-danger">{{ form.non_field_errors }}</div>
         {% endif %}
@@ -25,10 +86,24 @@
                 {% if form.tax_identifier.errors %}<div class="text-danger small">{{ form.tax_identifier.errors }}</div>{% endif %}
             </div>
             <div class="col-md-6">
-                <label class="form-label fw-semibold text-secondary small">Status</label>
-                <div class="form-check form-switch mt-2">
-                    {{ form.is_active }}
-                    <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">Active Organization</label>
+                <label class="form-label fw-semibold text-secondary small">Status (Activate / Deactivate)</label>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <div class="form-check form-switch m-0">
+                        {% if is_edit %}
+                            {% if form.is_bound %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.is_active.value %}checked{% endif %} onchange="updateOrgStatusLabel(this)">
+                            {% else %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.instance.is_active %}checked{% endif %} onchange="updateOrgStatusLabel(this)">
+                            {% endif %}
+                        {% else %}
+                            {% if form.is_bound %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" {% if form.is_active.value %}checked{% endif %} onchange="updateOrgStatusLabel(this)">
+                            {% else %}
+                                <input type="checkbox" name="is_active" class="form-check-input" id="id_is_active" checked onchange="updateOrgStatusLabel(this)">
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                    <span id="orgStatusBadge" class="badge bg-success bg-opacity-10 text-success border border-success fw-semibold">Active Organization</span>
                 </div>
             </div>
             <div class="col-12">
@@ -57,12 +132,21 @@
                             <label class="form-label fw-semibold text-secondary small">Temporary Password</label>
                             <div class="input-group">
                                 {{ form.admin_password }}
-                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPasswordBtn" onclick="toggleOrgAdminPassword()" title="Show / Hide Password">
+                                <button class="btn btn-outline-secondary" type="button" id="toggleAdminPasswordBtn" title="Show / Hide Password">
                                     <i class="fa-solid fa-eye" id="toggleAdminPasswordIcon"></i>
                                 </button>
+                                <button class="btn btn-outline-primary" type="button" id="generateAdminPasswordBtn" title="Generate Secure Password">
+                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generate
+                                </button>
+                                <button class="btn btn-outline-secondary" type="button" id="copyAdminPasswordBtn" title="Copy Password">
+                                    <i class="fa-solid fa-copy me-1"></i> Copy
+                                </button>
+                            </div>
+                            <div id="copyAdminFeedback" class="text-success small mt-1" style="display:none;">
+                                <i class="fa-solid fa-circle-check me-1"></i>Password copied to clipboard!
                             </div>
                             {% if form.admin_password.errors %}<div class="text-danger small">{{ form.admin_password.errors }}</div>{% endif %}
-                            <div class="form-text small text-muted">Leave blank to auto-generate a secure password.</div>
+                            <div class="form-text small text-muted">Leave blank to auto-generate a secure password, or generate above.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold text-secondary small">First Name</label>
@@ -74,46 +158,216 @@
                             {{ form.admin_last_name }}
                             {% if form.admin_last_name.errors %}<div class="text-danger small">{{ form.admin_last_name.errors }}</div>{% endif %}
                         </div>
-                        <div class="col-12 mt-2">
-                            <div class="alert alert-info py-2 px-3 mb-0 rounded-3 border border-info border-opacity-25 bg-info bg-opacity-10 d-flex align-items-center">
-                                <div class="form-check form-switch m-0 d-flex align-items-center">
-                                    <input type="hidden" name="send_welcome_email_present" value="1">
-                                    {{ form.send_welcome_email }}
-                                    <label class="form-check-label fw-semibold text-dark small ms-2 mb-0" for="{{ form.send_welcome_email.id_for_label }}">
-                                        <i class="fa-solid fa-bell text-info me-1"></i> Send Welcome Email Notification Alert
-                                    </label>
-                                </div>
-                            </div>
-                            {% if form.send_welcome_email.errors %}<div class="text-danger small mt-1">{{ form.send_welcome_email.errors }}</div>{% endif %}
+                        <!-- Automated Welcome Email (Hidden - Always sends credentials to admin email via Brevo) -->
+                        <!-- Send Welcome Email Note -->
+                        <div class="small text-muted mb-2"><i class="fa-solid fa-paper-plane me-1"></i>Send Welcome Email: Login credentials will be dispatched directly to the admin user via Brevo.</div>
+                        <input type="hidden" name="send_welcome_email" value="on">
+                        <input type="hidden" name="send_welcome_email_present" value="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dedicated Procurement Manager (1:1) - Optional -->
+            <div class="col-12 mt-3">
+                <div class="card border border-warning border-opacity-25 bg-light rounded-3 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="fa-solid fa-user-tie text-warning me-2"></i>
+                            Dedicated Procurement Manager <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 ms-1 fw-normal" style="font-size: 0.72rem;">Optional</span>
+                        </h6>
+                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning border-opacity-25 small">1:1 Org Mapping</span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        <span class="text-secondary fw-semibold">Optional:</span> Provision or assign the dedicated Procurement Manager for this organization now, or configure later. Leave blank to skip. Data across organizations is strictly isolated.
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Manager Email <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.proc_mgr_email }}
+                            {% if form.proc_mgr_email.errors %}<div class="text-danger small">{{ form.proc_mgr_email.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Temporary Password <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.proc_mgr_password }}
+                            {% if form.proc_mgr_password.errors %}<div class="text-danger small">{{ form.proc_mgr_password.errors }}</div>{% endif %}
+                            <div class="form-text small text-muted">Leave blank to auto-generate.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">First Name <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.proc_mgr_first_name }}
+                            {% if form.proc_mgr_first_name.errors %}<div class="text-danger small">{{ form.proc_mgr_first_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Last Name <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.proc_mgr_last_name }}
+                            {% if form.proc_mgr_last_name.errors %}<div class="text-danger small">{{ form.proc_mgr_last_name.errors }}</div>{% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dedicated Compliance Auditor (1:1) - Optional -->
+            <div class="col-12 mt-3">
+                <div class="card border border-info border-opacity-25 bg-light rounded-3 p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="fa-solid fa-clipboard-check text-info me-2"></i>
+                            Dedicated Compliance Auditor <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25 ms-1 fw-normal" style="font-size: 0.72rem;">Optional</span>
+                        </h6>
+                        <span class="badge bg-info bg-opacity-10 text-dark border border-info border-opacity-25 small">1:1 Org Mapping</span>
+                    </div>
+                    <p class="text-muted small mb-3">
+                        <span class="text-secondary fw-semibold">Optional:</span> Provision or assign the dedicated Compliance Auditor now, or configure later. Leave blank to skip. Audit logs and traceability reports are restricted strictly to this organization.
+                    </p>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Auditor Email <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.auditor_email }}
+                            {% if form.auditor_email.errors %}<div class="text-danger small">{{ form.auditor_email.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Temporary Password <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.auditor_password }}
+                            {% if form.auditor_password.errors %}<div class="text-danger small">{{ form.auditor_password.errors }}</div>{% endif %}
+                            <div class="form-text small text-muted">Leave blank to auto-generate.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">First Name <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.auditor_first_name }}
+                            {% if form.auditor_first_name.errors %}<div class="text-danger small">{{ form.auditor_first_name.errors }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold text-secondary small">Last Name <span class="text-muted fw-normal">(Optional)</span></label>
+                            {{ form.auditor_last_name }}
+                            {% if form.auditor_last_name.errors %}<div class="text-danger small">{{ form.auditor_last_name.errors }}</div>{% endif %}
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div class="modal-footer border-top-0 pt-0 d-flex flex-wrap gap-2 justify-content-end">
+    <div class="modal-footer border-top bg-light py-2 px-3 d-flex flex-wrap gap-2 justify-content-end">
         <button type="button" class="btn btn-light rounded-pill px-4 flex-fill flex-sm-grow-0" data-bs-dismiss="modal">Cancel</button>
         <button type="submit" class="btn btn-primary text-white fw-bold rounded-pill px-4 flex-fill flex-sm-grow-0">Save Organization</button>
     </div>
 </form>
 
 <script>
-function toggleOrgAdminPassword() {
-    var pwdInput = document.getElementById("id_admin_password");
-    var toggleIcon = document.getElementById("toggleAdminPasswordIcon");
-    if (!pwdInput) return;
-    if (pwdInput.type === "password") {
-        pwdInput.type = "text";
-        if (toggleIcon) {
-            toggleIcon.classList.remove("fa-eye");
-            toggleIcon.classList.add("fa-eye-slash");
-        }
+window.updateOrgStatusLabel = function(el) {
+    var badge = document.getElementById("orgStatusBadge");
+    if (!badge) return;
+    if (el.checked) {
+        badge.className = "badge bg-success bg-opacity-10 text-success border border-success fw-semibold";
+        badge.textContent = "Active Organization";
     } else {
-        pwdInput.type = "password";
-        if (toggleIcon) {
-            toggleIcon.classList.remove("fa-eye-slash");
-            toggleIcon.classList.add("fa-eye");
+        badge.className = "badge bg-danger bg-opacity-10 text-danger border border-danger fw-semibold";
+        badge.textContent = "Inactive / Deactivated";
+    }
+};
+
+(function() {
+    var activeCheck = document.getElementById("id_is_active");
+    if (activeCheck) window.updateOrgStatusLabel(activeCheck);
+
+    // Password Elements
+    var pwdInput = document.getElementById("id_admin_password");
+    var toggleBtn = document.getElementById("toggleAdminPasswordBtn");
+    var toggleIcon = document.getElementById("toggleAdminPasswordIcon");
+    var genBtn = document.getElementById("generateAdminPasswordBtn");
+    var copyBtn = document.getElementById("copyAdminPasswordBtn");
+    var copyFeedback = document.getElementById("copyAdminFeedback");
+
+    window.toggleOrgAdminPassword = function() {
+        if (!pwdInput) return;
+        if (pwdInput.type === "password") {
+            pwdInput.type = "text";
+            if (toggleIcon) {
+                toggleIcon.className = "fa-solid fa-eye-slash";
+            }
+        } else {
+            pwdInput.type = "password";
+            if (toggleIcon) {
+                toggleIcon.className = "fa-solid fa-eye";
+            }
+        }
+    };
+
+    if (toggleBtn) {
+        toggleBtn.onclick = function(e) {
+            e.preventDefault();
+            window.toggleOrgAdminPassword();
+        };
+    }
+
+    if (genBtn && pwdInput) {
+        genBtn.onclick = function(e) {
+            e.preventDefault();
+            var chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+            var generated = "";
+            for (var i = 0; i < 14; i++) {
+                generated += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            pwdInput.value = generated;
+            pwdInput.type = "text";
+            pwdInput.setAttribute("data-user-typed", "true");
+            if (toggleIcon) {
+                toggleIcon.className = "fa-solid fa-eye-slash";
+            }
+        };
+    }
+
+    if (copyBtn && pwdInput) {
+        copyBtn.onclick = function(e) {
+            e.preventDefault();
+            if (!pwdInput.value) return;
+            navigator.clipboard.writeText(pwdInput.value).then(function() {
+                if (copyFeedback) {
+                    copyFeedback.style.display = "block";
+                    setTimeout(function() { copyFeedback.style.display = "none"; }, 2500);
+                }
+            });
+        };
+    }
+})();
+{% if not is_edit %}
+(function() {
+    function purgeAutofill() {
+        var emailInput = document.getElementById("id_admin_email");
+        var pwdInput = document.getElementById("id_admin_password");
+        if (emailInput && !emailInput.hasAttribute("data-user-typed")) {
+            emailInput.value = "";
+        }
+        if (pwdInput && !pwdInput.hasAttribute("data-user-typed")) {
+            pwdInput.value = "";
         }
     }
-}
+
+    purgeAutofill();
+    var purgeInterval = setInterval(purgeAutofill, 50);
+    setTimeout(function() { clearInterval(purgeInterval); }, 2500);
+
+    var emailEl = document.getElementById("id_admin_email");
+    var pwdEl = document.getElementById("id_admin_password");
+    if (emailEl) {
+        emailEl.addEventListener("input", function() {
+            this.setAttribute("data-user-typed", "true");
+            clearInterval(purgeInterval);
+        });
+        emailEl.addEventListener("focus", function() {
+            this.removeAttribute("readonly");
+        });
+    }
+    if (pwdEl) {
+        pwdEl.addEventListener("input", function() {
+            this.setAttribute("data-user-typed", "true");
+            clearInterval(purgeInterval);
+        });
+        pwdEl.addEventListener("focus", function() {
+            this.removeAttribute("readonly");
+        });
+    }
+})();
+{% endif %}
+
+
 </script>

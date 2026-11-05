@@ -26,11 +26,12 @@ def _get_manager_context(request):
     Extracts the authoritative organization/scope name from the authenticated user.
     """
     user = request.user
-    user_org_name = None
-    if getattr(user, "department_id", None) and getattr(user.department, "organization_id", None):
-        user_org_name = user.department.organization.name
+    org = getattr(user, "effective_organization", None) or getattr(user, "organization", None)
+    if not org and getattr(user, "department_id", None) and getattr(user.department, "organization_id", None):
+        org = user.department.organization
+    user_org_name = org.name if org else ("Global Enterprise" if user.is_superuser else "")
     return {
-        "user_org_name": user_org_name or "Global Enterprise",
+        "user_org_name": user_org_name,
     }
 
 
@@ -79,6 +80,17 @@ def manager_sourcing_view(request):
 
 
 @login_required(login_url="/login/")
+def manager_approvals_view(request):
+    """
+    GET /manager/approvals/
+    Procurement Manager Pending Approvals Governance Desk.
+    """
+    _enforce_manager_access(request)
+    context = _get_manager_context(request)
+    return render(request, "manager/approvals.html", context)
+
+
+@login_required(login_url="/login/")
 def manager_awards_view(request):
     """
     GET /manager/awards/
@@ -109,6 +121,19 @@ def manager_vendor_risk_view(request):
     _enforce_manager_access(request)
     context = _get_manager_context(request)
     return render(request, "manager/vendor_risk.html", context)
+
+
+@login_required(login_url="/login/")
+def manager_vendor_suspension_view(request):
+    """
+    GET /manager/vendor-risk/suspension/
+    Dedicated Vendor Suspension & Governance Action Desk.
+    """
+    _enforce_manager_access(request)
+    context = _get_manager_context(request)
+    context["target_vendor_id"] = request.GET.get("vendor_id", "").strip()
+    context["initial_action"] = request.GET.get("action", "").strip()
+    return render(request, "manager/vendor_suspension.html", context)
 
 
 @login_required(login_url="/login/")

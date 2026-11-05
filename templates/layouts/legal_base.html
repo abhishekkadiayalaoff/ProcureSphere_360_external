@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}{% block legal_title %}Legal & Governance Workspace{% endblock %} — ProcureSphere 360{% endblock %}
 
@@ -11,13 +12,10 @@
             <button class="navbar-toggler border-0 me-2 d-lg-none p-1" type="button" data-bs-toggle="offcanvas" data-bs-target="#legalSidebar" aria-controls="legalSidebar" aria-label="Toggle navigation">
                 <i class="fa-solid fa-bars text-white fs-4"></i>
             </button>
-            <a href="/" class="navbar-brand d-flex align-items-center text-white me-0 me-lg-4 text-truncate">
-                <div class="brand-icon-box me-2 flex-shrink-0" style="width: 32px; height: 32px; background: rgba(0, 176, 185, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center;">
-                    <i class="fa-solid fa-scale-balanced text-cyan"></i>
-                </div>
-                <span class="fs-6 fs-sm-5 fw-bold tracking-tight text-truncate">ProcureSphere <span class="text-cyan">360</span></span>
-                <span class="badge bg-secondary bg-opacity-50 text-light ms-2 px-2 py-1 small rounded-pill d-none d-sm-inline-block">Legal &amp; Compliance</span>
+            <a href="/" class="dashboard-brand-badge me-2 me-lg-3" aria-label="ProcureSphere 360 Home">
+                <img src="{% static 'landing/images/procuresphere_360_nav_brand.png' %}" alt="ProcureSphere 360" class="dashboard-brand-logo">
             </a>
+            <span class="badge bg-secondary bg-opacity-50 text-light px-2 py-1 small rounded-pill d-none d-sm-inline-block">Legal &amp; Compliance</span>
         </div>
 
         <div class="d-flex align-items-center gap-2 gap-sm-3 flex-shrink-0">
@@ -35,21 +33,16 @@
             <!-- User Profile & Sign Out -->
             {% if user.is_authenticated %}
             <div class="d-flex align-items-center gap-2">
-                <div class="d-none d-lg-block text-end lh-sm me-1">
-                    <div class="fw-semibold text-white small mb-1">{{ user.email }}</div>
-                    <div class="text-muted d-block" style="font-size: 0.7rem; line-height: 1;">Legal Counsel / Manager</div>
+                <div class="d-none d-md-flex align-items-center px-2 px-sm-3 py-1 bg-secondary bg-opacity-25 rounded-pill border border-secondary border-opacity-50 text-white">
+                    <i class="fa-solid fa-circle-user text-cyan me-1 me-sm-2 fs-5"></i>
+                    <div class="text-start leading-tight me-1">
+                        <div class="fw-semibold text-white small text-truncate" style="max-width: 140px;">{{ user.email }}</div>
+                        <div class="badge bg-secondary bg-opacity-75 text-cyan rounded-pill" style="font-size: 0.65rem;">Legal Counsel / Manager</div>
+                    </div>
                 </div>
-                <div class="dropdown">
-                    <button class="btn btn-dark border border-secondary border-opacity-50 rounded-circle text-white d-flex align-items-center justify-content-center p-0" style="width: 36px; height: 36px;" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fa-solid fa-user-tie text-cyan"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 bg-dark text-white">
-                        <li><a class="dropdown-item text-white py-2" href="/contracts/create/"><i class="fa-solid fa-file-signature text-cyan me-2"></i> New Contract Draft</a></li>
-                        <li><a class="dropdown-item text-white py-2" href="/contracts/"><i class="fa-solid fa-file-contract text-info me-2"></i> Contract Register</a></li>
-                        <li><hr class="dropdown-divider border-secondary"></li>
-                        <li><a class="dropdown-item text-danger py-2" href="/logout/"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Sign Out</a></li>
-                    </ul>
-                </div>
+                <a href="/logout/" class="btn btn-outline-light btn-sm rounded-pill px-2.5 px-sm-3 text-nowrap d-inline-flex align-items-center" title="Sign Out">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="d-none d-sm-inline ms-1">Sign Out</span>
+                </a>
             </div>
             {% endif %}
         </div>
@@ -97,27 +90,27 @@
                 </div>
 
                 <nav class="d-flex flex-column gap-1">
-                    <a href="/contracts/dashboard/" class="unified-navlink {% if request.path == '/contracts/dashboard/' or request.path == '/' %}active-nav-item{% endif %}">
+                    <a href="/legal/" class="unified-navlink {% if request.path == '/legal/' or request.path == '/legal/dashboard/' or request.path == '/contracts/dashboard/' or request.path == '/' %}active-nav-item{% endif %}">
                         <i class="fa-solid fa-gauge-high nav-icon text-cyan"></i>Dashboard
                     </a>
 
                     <div class="nav-section-label">LEGAL &amp; CONTRACTS</div>
                     <a href="/contracts/" class="unified-navlink {% if '/contracts/' in request.path and not '/dashboard/' in request.path and not '/create/' in request.path %}active-nav-item{% endif %}">
-                        <i class="fa-solid fa-file-contract nav-icon text-info"></i>Contract Register
+                        <i class="fa-solid fa-file-contract nav-icon" style="color:#f97316;"></i>Contract Register
                     </a>
                     <a href="/contracts/create/" class="unified-navlink {% if '/contracts/create/' in request.path %}active-nav-item{% endif %}">
                         <i class="fa-solid fa-file-signature nav-icon text-warning"></i>New Contract Draft
                     </a>
                     <a href="/vendors/onboarding/" class="unified-navlink {% if '/vendors/onboarding/' in request.path %}active-nav-item{% endif %}">
-                        <i class="fa-solid fa-id-card nav-icon text-success"></i>Vendor KYC Review
+                        <i class="fa-solid fa-id-card nav-icon text-info"></i>Vendor KYC Review
                     </a>
 
                     <div class="nav-section-label">APPROVALS &amp; GOVERNANCE</div>
                     <a href="/approvals/inbox/" class="unified-navlink {% if '/approvals/' in request.path %}active-nav-item{% endif %}">
-                        <i class="fa-solid fa-clock-rotate-left nav-icon text-warning"></i>Approvals Inbox
+                        <i class="fa-solid fa-square-check nav-icon text-warning"></i>Approvals Inbox
                     </a>
                     <a href="/sourcing-events/" class="unified-navlink {% if '/sourcing' in request.path %}active-nav-item{% endif %}">
-                        <i class="fa-solid fa-gavel nav-icon text-info"></i>Sourcing Events
+                        <i class="fa-solid fa-gavel nav-icon text-warning"></i>Sourcing Events
                     </a>
                     <a href="/vendors/" class="unified-navlink {% if request.path == '/vendors/' %}active-nav-item{% endif %}">
                         <i class="fa-solid fa-building-user nav-icon text-success"></i>Vendor Directory
@@ -125,19 +118,14 @@
 
                     <div class="nav-section-label">COMPLIANCE &amp; TRACEABILITY</div>
                     <a href="/reports/hub/" class="unified-navlink {% if '/reports/' in request.path %}active-nav-item{% endif %}">
-                        <i class="fa-solid fa-chart-line nav-icon text-cyan"></i>Reports Hub
+                        <i class="fa-solid fa-chart-line nav-icon text-secondary"></i>Reports Hub
                     </a>
                     <a href="/audit/logs/" class="unified-navlink {% if '/audit/logs/' in request.path %}active-nav-item{% endif %}">
                         <i class="fa-solid fa-shield-halved nav-icon text-danger"></i>Audit Trail Log
                     </a>
                 </nav>
 
-                <div class="mt-4 pt-3 border-top border-secondary border-opacity-25 px-1">
-                    <div class="d-flex align-items-center text-muted small" style="font-size: 0.68rem;">
-                        <i class="fa-solid fa-lock text-success me-2"></i>
-                        <span>SLA Enforcement &bull; Legal Compliance</span>
-                    </div>
-                </div>
+
 
             </div>
         </div>

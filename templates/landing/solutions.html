@@ -1,6 +1,23 @@
 {% extends 'landing/base.html' %}
 {% load static %}
 
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Enterprise Solutions — ProcureSphere 360",
+  "description": "Seven modular procurement capabilities from vendor management to automated 3-way invoice matching.",
+  "url": "{{ site_url|default:'https://procuresphere.com' }}/solutions/",
+  "isPartOf": {
+    "@type": "WebSite",
+    "name": "ProcureSphere 360",
+    "url": "{{ site_url|default:'https://procuresphere.com' }}"
+  }
+}
+</script>
+{% endblock json_ld %}
+
 {% block extra_css %}
 <style>
 /* ============================================================
@@ -1402,7 +1419,7 @@
 
       <!-- SPLIT VIEW INTERACTIVE LIFECYCLE (Left: Stages Nav, Right: Selected Stage Detail) -->
       <div class="sol-lifecycle-split-container" id="sol-lifecycle-split">
-        
+
         <!-- Left Sidebar: Stage Navigation -->
         <aside class="sol-stages-sidebar" aria-label="Functional Modules">
           <div class="sol-stages-sidebar-header">
@@ -1416,11 +1433,11 @@
             {% for step in s2p_steps %}
             <button
               type="button"
-              class="sol-stage-nav-item sol-step-btn {% if forloop.first %}is-active{% endif %}"
+              class="sol-stage-nav-item sol-step-btn {% if active_stage_id %}{% if active_stage_id == step.id %}is-active{% endif %}{% else %}{% if forloop.first %}is-active{% endif %}{% endif %}"
               id="sol-step-btn-{{ step.id }}"
               onclick="solSelectStep('{{ step.id }}')"
               data-step="{{ step.id }}"
-              aria-selected="{% if forloop.first %}true{% else %}false{% endif %}"
+              aria-selected="{% if active_stage_id %}{% if active_stage_id == step.id %}true{% else %}false{% endif %}{% else %}{% if forloop.first %}true{% else %}false{% endif %}{% endif %}"
               role="tab"
             >
               <div class="sol-stage-nav-info">
@@ -1441,7 +1458,7 @@
         <div class="sol-stage-detail-container" id="sol-stages-display">
           {% for step in s2p_steps %}
           <section
-            class="sol-detail-panel {% if forloop.first %}is-active{% endif %}"
+            class="sol-detail-panel {% if active_stage_id %}{% if active_stage_id == step.id %}is-active{% endif %}{% else %}{% if forloop.first %}is-active{% endif %}{% endif %}"
             id="{{ step.id }}"
             role="tabpanel"
             aria-labelledby="sol-step-btn-{{ step.id }}"
@@ -2019,7 +2036,9 @@
   window.solSelectStep = function(stepId, shouldScroll) {
     if (!stepId) return;
     solSetActiveStep(stepId);
-    ensureLifecycleCardsFullView(shouldScroll);
+    if (shouldScroll) {
+      ensureLifecycleCardsFullView(true);
+    }
   };
   var solSelectStep = window.solSelectStep;
   var solSelectStepFromModal = window.solSelectStepFromModal;
@@ -2038,11 +2057,35 @@
     }
   };
 
+  var initialServerStep = '{{ active_stage_id|default:"" }}';
+  var SLUG_TO_ID = {
+    'vendor-management': 'vendors',
+    'purchase-requisition': 'pr',
+    'strategic-sourcing': 'sourcing',
+    'purchase-orders': 'po',
+    'goods-receipt': 'grn',
+    'invoice-matching': 'match',
+    'contract-lifecycle': 'clm',
+    'vendors': 'vendors',
+    'pr': 'pr',
+    'sourcing': 'sourcing',
+    'po': 'po',
+    'grn': 'grn',
+    'match': 'match',
+    'clm': 'clm'
+  };
+
   function handleUrlStep() {
+    var pathParts = window.location.pathname.replace(/^\/+|\/+$/g, '').split('/');
+    var pathSlug = (pathParts.length >= 2 && pathParts[0] === 'solutions') ? pathParts[1] : '';
     var hash = window.location.hash.replace('#', '');
     var params = new URLSearchParams(window.location.search);
     var stepParam = params.get('step');
-    var targetId = hash || stepParam;
+
+    // Explicit target requested if slug, hash, or param is present
+    var hasExplicitTarget = Boolean(pathSlug || hash || stepParam || (initialServerStep && initialServerStep !== 'vendors'));
+    var rawTarget = pathSlug || hash || stepParam || initialServerStep || 'vendors';
+    var targetId = SLUG_TO_ID[rawTarget] || rawTarget;
 
     if (targetId) {
       if (targetId === 'solutions-overview') {
@@ -2052,9 +2095,20 @@
         return;
       }
       if (stageIds.indexOf(targetId) !== -1) {
-        setTimeout(function() {
-          window.solSelectStep(targetId, true);
-        }, 120);
+        if (hasExplicitTarget) {
+          setTimeout(function() {
+            window.solSelectStep(targetId, true);
+          }, 120);
+        } else {
+          // Normal visit to /solutions/ without a sub-stage: activate vendors stage quietly at top
+          solSetActiveStep('vendors');
+          if ('scrollRestoration' in history) {
+            history.scrollRestoration = 'manual';
+          }
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          syncLifecycleHeights();
+        }
       }
     }
   }
@@ -2070,37 +2124,86 @@
 
   // Handle in-page navigation when already on the solutions page
   document.addEventListener('click', function(e) {
-    var link = e.target.closest('a[href*="/solutions/#"], a[href*="/solutions/?step="]');
-    if (link && window.location.pathname.startsWith('/solutions')) {
-      var hash = link.hash ? link.hash.replace('#', '') : '';
-      if (!hash && link.search) {
-        var p = new URLSearchParams(link.search);
-        hash = p.get('step') || '';
+    // 1. Overview / All Solutions link in dropdown
+    var overviewLink = e.target.closest('.nav-dropdown-menu--solutions a.nav-dropdown-link--overview, .nav-dropdown-menu--solutions a[href="/solutions/"], .nav-dropdown-menu--solutions a[href="/solutions"]');
+    if (overviewLink && window.location.pathname.startsWith('/solutions')) {
+      e.preventDefault();
+      if (window.history && window.history.pushState) {
+        history.pushState(null, '', '/solutions/');
       }
-      if (hash) {
-        e.preventDefault();
-        history.pushState(null, '', link.href);
-        document.querySelectorAll('.nav-item.has-dropdown').forEach(function(item) {
-          item.setAttribute('data-state', 'closed');
-          item.classList.add('menu-closed');
-        });
-        document.querySelectorAll('.nav-dropdown-menu').forEach(function(m) {
-          m.style.display = 'none';
-          m.classList.add('menu-closed');
-          m.classList.remove('is-open');
-        });
-        document.querySelectorAll('.nav-chevron').forEach(function(c) {
-          c.style.transform = 'rotate(0deg)';
-        });
-        if (document.activeElement) {
-          document.activeElement.blur();
-        }
-        if (hash === 'solutions-overview') {
-          var el = document.getElementById('solutions-overview');
-          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          syncLifecycleHeights();
+      // Close dropdown menus cleanly
+      document.querySelectorAll('.nav-item.has-dropdown').forEach(function(item) {
+        item.setAttribute('data-state', 'closed');
+        item.classList.add('menu-closed');
+      });
+      document.querySelectorAll('.nav-dropdown-menu').forEach(function(m) {
+        m.style.display = 'none';
+        m.classList.add('menu-closed');
+        m.classList.remove('is-open');
+      });
+      document.querySelectorAll('.nav-chevron').forEach(function(c) {
+        c.style.transform = 'rotate(0deg)';
+      });
+      if (document.activeElement) document.activeElement.blur();
+
+      // Smoothly scroll to the very top to reveal the Solutions Portfolio hero & cards deck (Screenshot 2)
+      solSetActiveStep('vendors');
+      setTimeout(function() {
+        var hero = document.getElementById('solutions-overview');
+        if (hero) {
+          hero.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else {
-          window.solSelectStep(hash, true);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      }, 50);
+      return;
+    }
+
+    // 2. Specific solution links in dropdown or on page
+    var link = e.target.closest('.nav-dropdown-menu--solutions a, a[href*="/solutions/"], a[href*="/solutions/#"], a[href*="/solutions/?step="]');
+    if (link && window.location.pathname.startsWith('/solutions')) {
+      var href = link.getAttribute('href') || '';
+      var slug = '';
+
+      var match = href.match(/\/solutions\/([^\/?#]+)/);
+      if (match) {
+        slug = match[1];
+      } else if (link.hash) {
+        slug = link.hash.replace('#', '');
+      } else if (link.search) {
+        var p = new URLSearchParams(link.search);
+        slug = p.get('step') || '';
+      }
+
+      if (slug && slug !== 'solutions') {
+        var targetId = SLUG_TO_ID[slug] || slug;
+        if (stageIds.indexOf(targetId) !== -1) {
+          e.preventDefault();
+          // Update URL bar cleanly to /solutions/<slug>/ without page reload
+          var cleanUrl = '/solutions/' + slug + '/';
+          if (window.history && window.history.pushState) {
+            history.pushState(null, '', cleanUrl);
+          }
+
+          // Close dropdown menus cleanly
+          document.querySelectorAll('.nav-item.has-dropdown').forEach(function(item) {
+            item.setAttribute('data-state', 'closed');
+            item.classList.add('menu-closed');
+          });
+          document.querySelectorAll('.nav-dropdown-menu').forEach(function(m) {
+            m.style.display = 'none';
+            m.classList.add('menu-closed');
+            m.classList.remove('is-open');
+          });
+          document.querySelectorAll('.nav-chevron').forEach(function(c) {
+            c.style.transform = 'rotate(0deg)';
+          });
+          if (document.activeElement) {
+            document.activeElement.blur();
+          }
+
+          // Switch stage seamlessly in-place and smooth scroll into full view
+          window.solSelectStep(targetId, true);
         }
       }
     }

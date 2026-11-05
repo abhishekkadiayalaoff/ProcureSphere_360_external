@@ -168,7 +168,6 @@ class ApprovalActionViewSet(viewsets.ReadOnlyModelViewSet):
                     comments=comment,
                 )
         except Exception as e:
-            from django.core.exceptions import ValidationError as DjangoValidationError
             from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
             if isinstance(e, DRFPermissionDenied):
                 return Response(
@@ -231,7 +230,6 @@ class ApprovalActionViewSet(viewsets.ReadOnlyModelViewSet):
                     comments=reason,
                 )
         except Exception as e:
-            from django.core.exceptions import ValidationError as DjangoValidationError
             from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
             if isinstance(e, DRFPermissionDenied):
                 return Response(

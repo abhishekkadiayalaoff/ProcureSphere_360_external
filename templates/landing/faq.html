@@ -1,6 +1,27 @@
 {% extends 'landing/base.html' %}
 {% load static %}
 
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {% for faq in faqs %}
+    {
+      "@type": "Question",
+      "name": "{{ faq.question }}",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "{{ faq.answer }}"
+      }
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock json_ld %}
+
 {% block extra_css %}
 <style>
 /* =========================================================

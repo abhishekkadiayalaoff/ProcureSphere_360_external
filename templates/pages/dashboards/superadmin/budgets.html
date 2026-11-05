@@ -4,17 +4,18 @@
 
 {% block content %}
 <div class="row mb-4">
-    <div class="col-12 d-flex justify-content-between align-items-center">
+    <div class="col-12 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-3">
         <div>
             <h3 class="fw-bold text-dark mb-1"><i class="fa-solid fa-sack-dollar text-warning me-2"></i> Budget Allocations</h3>
             <p class="text-muted mb-0">View financial limits and consumption per cost center for the active fiscal period.</p>
         </div>
-        <div class="d-flex gap-2">
-            <button hx-get="/superadmin/fiscal-periods/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-primary text-white fw-bold rounded-pill px-4 shadow-sm">
-                <i class="fa-solid fa-calendar-plus me-2"></i> Add Fiscal Period
+        <div class="d-flex flex-wrap gap-2 w-100 w-sm-auto">
+            <button hx-get="/superadmin/fiscal-periods/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-primary text-white fw-bold rounded-pill px-3 px-sm-4 shadow-sm flex-fill flex-sm-grow-0 text-nowrap">
+                <i class="fa-solid fa-calendar-plus me-1"></i> Add Fiscal Period
             </button>
-            <button hx-get="/superadmin/budgets/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm">
-                <i class="fa-solid fa-plus me-2"></i> Add Budget
+            <button hx-get="/superadmin/budgets/create/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-primary text-white fw-bold rounded-pill px-3 px-sm-4 shadow-sm flex-fill flex-sm-grow-0 text-nowrap">
+                <i class="fa-solid fa-plus me-1"></i> Add Budget
+            </button>
             </button>
         </div>
     </div>
@@ -26,8 +27,36 @@
             <h5 class="fw-bold text-dark mb-0"><i class="fa-solid fa-calendar-days text-primary me-2"></i>Fiscal Periods</h5>
             <p class="text-muted small mb-0">Set the name and start/end dates. These periods appear in the budget allocation dropdown.</p>
         </div>
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <!-- Mobile Card View (< 768px) -->
+        <div class="list-group list-group-flush d-md-none">
+            {% for p in fiscal_periods %}
+            <div class="list-group-item p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                        <div class="fw-bold text-dark fs-6">{{ p.name }}</div>
+                        <div class="small text-muted">Year {{ p.year }} &bull; Period {{ p.period_number }}</div>
+                    </div>
+                    <div>
+                        {% if p.is_closed %}
+                        <span class="badge bg-secondary">Closed</span>
+                        {% else %}
+                        <span class="badge bg-success">Open</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top gap-2 flex-wrap">
+                    <span class="small text-muted"><i class="fa-regular fa-calendar me-1"></i>{{ p.start_date|date:"Y-m-d" }} &rarr; {{ p.end_date|date:"Y-m-d" }}</span>
+                    <button hx-get="/superadmin/fiscal-periods/{{ p.pk }}/edit/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Edit dates</button>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-4 text-center py-4 text-muted small">No fiscal periods yet. Add one with a start and end date before allocating a budget.</div>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop Full Table View (>= 768px) -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table table-hover align-middle mb-0" style="min-width: 620px;">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Name</th>
@@ -71,8 +100,41 @@
 
 <div class="card border-0 shadow-sm rounded-4">
     <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+        <!-- Mobile Card View (< 768px) -->
+        <div class="list-group list-group-flush d-md-none">
+            {% for b in budgets %}
+            <div class="list-group-item p-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                    <div>
+                        <span class="badge bg-secondary bg-opacity-10 text-dark fw-bold font-monospace px-2 py-1 rounded small">{{ b.cost_center.code }}</span>
+                        <div class="fw-bold text-dark fs-6 mt-1">{{ b.cost_center.name }}</div>
+                        <div class="small text-muted">{{ b.fiscal_period.name }}</div>
+                    </div>
+                    <button hx-get="/superadmin/budgets/{{ b.pk }}/edit/" hx-target="#modal-content-body" data-bs-toggle="modal" data-bs-target="#modal-container" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Edit</button>
+                </div>
+                <div class="row g-2 pt-2 border-top small text-center">
+                    <div class="col-4">
+                        <div class="text-muted" style="font-size: 0.72rem;">Allocated</div>
+                        <div class="fw-bold text-dark">${{ b.allocated_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted" style="font-size: 0.72rem;">Actual Spend</div>
+                        <div class="fw-bold text-danger">${{ b.actual_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="text-muted" style="font-size: 0.72rem;">Available</div>
+                        <div class="fw-bold text-success">${{ b.available_amount|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="p-4 text-center py-5 text-muted small">No budget allocations found in the system.</div>
+            {% endfor %}
+        </div>
+
+        <!-- Desktop Full Table View (>= 768px) -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table table-hover align-middle mb-0" style="min-width: 740px;">
                 <thead class="table-light">
                     <tr>
                         <th class="ps-4">Cost Center</th>

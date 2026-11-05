@@ -6,6 +6,7 @@ from django.utils import timezone
 from apps.accounts.models import Role, User
 from apps.audit.models import AuditLog
 from apps.budgets.services import allocate_budget_service, check_and_reserve_budget_service
+from apps.orders.models import PurchaseOrder
 from apps.orders.services import acknowledge_purchase_order_service, generate_purchase_order_service
 from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
 from apps.receipts.services import create_goods_receipt_service
@@ -95,6 +96,8 @@ def test_demo_7_spend_scorecard_and_audited_report_export():
         ],
         created_by_user=proc_mgr,
     )
+    po.status = PurchaseOrder.STATUS_ISSUED
+    po.save(update_fields=["status"])
     acknowledge_purchase_order_service(po=po, vendor_user=proc_mgr)
 
     create_goods_receipt_service(

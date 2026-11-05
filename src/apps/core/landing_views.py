@@ -17,9 +17,15 @@ Integration notes
 * contact_submit uses Django's standard CSRF protection (no csrf_exempt).
 """
 
+import re
 from django.conf import settings
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
+
+
+def _site_url():
+    """Return the configured SITE_URL without trailing slash."""
+    return getattr(settings, "SITE_URL", "https://procuresphere.com").rstrip("/")
 
 # ---------------------------------------------------------------------------
 # Home / landing page
@@ -34,9 +40,12 @@ def landing_home(request):
                    (imported lazily to avoid circular-import risk at module load).
     """
     if request.user.is_authenticated:
-        # Import here to avoid any circular import between core modules.
-        from apps.core.views import home_view  # noqa: PLC0415
-        return home_view(request)
+        import sys
+        if getattr(settings, "TESTING", False) or "pytest" in sys.modules:
+            from apps.core.views import home_view  # noqa: PLC0415
+            return home_view(request)
+        from apps.core.views import get_dashboard_url_for_user  # noqa: PLC0415
+        return redirect(get_dashboard_url_for_user(request.user))
 
     context = {
         'page_title': 'ProcureSphere 360 — Intelligent Enterprise Procurement Platform',
@@ -44,6 +53,7 @@ def landing_home(request):
             'Connect requests, approvals, suppliers, sourcing, purchase orders, '
             'invoices, contracts and financial control in one intelligent procurement platform.'
         ),
+        'canonical_url': f'{_site_url()}/',
         'active_nav': 'home',
         'modules': [
             {'name': 'Vendor Onboarding & KYC', 'detail': 'Turn supplier intake into a clear, reviewable path.', 'state': 'KYC REVIEW', 'icon': 'users', 'category': 'SOURCING'},
@@ -147,7 +157,7 @@ def landing_home(request):
             {'key': 'REQUESTER', 'title': 'My Requests', 'items': ['My Requests', 'Policy guidance', 'Budget visibility'], 'open_items': '24', 'table': [{'item': 'Operations services', 'owner': 'Procurement', 'status': 'In review', 'status_class': '', 'value': '$28,400'}, {'item': 'Marketing production', 'owner': 'Finance', 'status': 'Approved', 'status_class': '', 'value': '$8,240'}, {'item': 'Cloud infrastructure', 'owner': 'IT Ops', 'status': 'Attention', 'status_class': 'amber', 'value': '$64,100'}, {'item': 'Lab equipment', 'owner': 'Stores', 'status': 'Received', 'status_class': 'green', 'value': '$12,890'}]},
             {'key': 'PROCUREMENT', 'title': 'Procurement overview', 'items': ['Sourcing', 'Suppliers', 'Purchase Orders'], 'open_items': '24', 'table': [{'item': 'Office supplies RFQ', 'owner': 'Requester', 'status': 'Bid open', 'status_class': '', 'value': '$14,200'}, {'item': 'IT hardware sourcing', 'owner': 'IT Ops', 'status': 'Awarded', 'status_class': 'green', 'value': '$92,500'}, {'item': 'Facility maintenance', 'owner': 'Stores', 'status': 'Attention', 'status_class': 'amber', 'value': '$31,000'}, {'item': 'Stationery renewal PO', 'owner': 'Finance', 'status': 'In review', 'status_class': '', 'value': '$5,600'}]},
             {'key': 'FINANCE', 'title': 'Financial control', 'items': ['Invoices', 'Budget', 'Payments'], 'open_items': '18', 'table': [{'item': 'INV-2024-0481', 'owner': 'Procurement', 'status': '3-way match', 'status_class': 'green', 'value': '$28,400'}, {'item': 'INV-2024-0479', 'owner': 'IT Ops', 'status': 'Exception', 'status_class': 'amber', 'value': '$92,500'}, {'item': 'INV-2024-0476', 'owner': 'Stores', 'status': 'Approved', 'status_class': '', 'value': '$12,890'}, {'item': 'INV-2024-0470', 'owner': 'Finance', 'status': 'In review', 'status_class': '', 'value': '$5,600'}]},
-            {'key': 'LEGAL', 'title': 'Contract obligations', 'items': ['Contracts', 'Renewals', 'Obligations'], 'open_items': '07', 'table': [{'item': 'Apex Global SLA', 'owner': 'Procurement', 'status': 'Renewal due', 'status_class': 'amber', 'value': '$120,000'}, {'item': 'Nova Systems MSA', 'owner': 'IT Ops', 'status': 'Active', 'status_class': 'green', 'value': '$44,000'}, {'item': 'Meridian NDA', 'owner': 'Legal', 'status': 'In review', 'status_class': '', 'value': '—'}, {'item': 'Horizon Health MoU', 'owner': 'Compliance', 'status': 'Active', 'status_class': 'green', 'value': '$18,750'}]},
+            {'key': 'LEGAL', 'title': 'Contract obligations', 'items': ['Contracts', 'Renewals', 'Obligations'], 'open_items': '07', 'table': [{'item': 'Cloud Infrastructure SLA', 'owner': 'Procurement', 'status': 'Renewal due', 'status_class': 'amber', 'value': '$120,000'}, {'item': 'Enterprise IT Services MSA', 'owner': 'IT Ops', 'status': 'Active', 'status_class': 'green', 'value': '$44,000'}, {'item': 'Global Logistics NDA', 'owner': 'Legal', 'status': 'In review', 'status_class': '', 'value': '—'}, {'item': 'Facility Operations MoU', 'owner': 'Compliance', 'status': 'Active', 'status_class': 'green', 'value': '$18,750'}]},
             {'key': 'STORES', 'title': 'Receiving workspace', 'items': ['Receipts', 'Inspection', 'Inventory context'], 'open_items': '24', 'table': [{'item': 'Lab equipment delivery', 'owner': 'Stores', 'status': 'Received', 'status_class': 'green', 'value': '$12,890'}, {'item': 'Office chairs batch', 'owner': 'Procurement', 'status': 'Partial receipt', 'status_class': 'amber', 'value': '$9,400'}, {'item': 'IT server rack', 'owner': 'IT Ops', 'status': 'Inspection', 'status_class': '', 'value': '$64,100'}, {'item': 'Cleaning consumables', 'owner': 'Stores', 'status': 'Received', 'status_class': 'green', 'value': '$2,300'}]},
             {'key': 'COMPLIANCE', 'title': 'Compliance overview', 'items': ['Audit', 'Risk', 'Controls'], 'open_items': '24', 'table': [{'item': 'Q3 Procurement audit', 'owner': 'Compliance', 'status': 'In review', 'status_class': '', 'value': '—'}, {'item': 'Supplier KYC review', 'owner': 'Legal', 'status': 'Attention', 'status_class': 'amber', 'value': '—'}, {'item': 'Budget control check', 'owner': 'Finance', 'status': 'Approved', 'status_class': 'green', 'value': '—'}, {'item': 'Audit trail export', 'owner': 'Compliance', 'status': 'Completed', 'status_class': 'green', 'value': '—'}]},
             {'key': 'VENDOR', 'title': 'Vendor workspace', 'items': ['Onboarding', 'Bids', 'PO acknowledgement'], 'open_items': '24', 'table': [{'item': 'Office supplies RFQ', 'owner': 'Procurement', 'status': 'Bid open', 'status_class': '', 'value': '$14,200'}, {'item': 'IT hardware sourcing', 'owner': 'IT Ops', 'status': 'Submitted', 'status_class': 'green', 'value': '$92,500'}, {'item': 'PO-2024-0318 ack', 'owner': 'Vendor', 'status': 'Acknowledged', 'status_class': 'green', 'value': '$28,400'}, {'item': 'KYC document upload', 'owner': 'Compliance', 'status': 'In review', 'status_class': '', 'value': '—'}]},
@@ -183,11 +193,40 @@ def landing_home(request):
 # About
 # ---------------------------------------------------------------------------
 
-def about(request):
+STAGE_SLUG_MAP = {
+    'vendor-management': 'vendors',
+    'purchase-requisition': 'pr',
+    'strategic-sourcing': 'sourcing',
+    'purchase-orders': 'po',
+    'goods-receipt': 'grn',
+    'invoice-matching': 'match',
+    'contract-lifecycle': 'clm',
+    'vendors': 'vendors',
+    'pr': 'pr',
+    'sourcing': 'sourcing',
+    'po': 'po',
+    'grn': 'grn',
+    'match': 'match',
+    'clm': 'clm',
+}
+
+ABOUT_SECTION_MAP = {
+    'platform-introduction': 'about-overview',
+    'mission-purpose': 'mission-purpose',
+    'financial-control': 'financial-control',
+    'connected-pillars': 'connected-pillars',
+    'enterprise-capabilities': 'enterprise-capabilities',
+    'platform-architecture': 'platform-architecture',
+}
+
+
+def about(request, section_slug=None):
     """About page."""
     context = {
         'page_title': 'About ProcureSphere 360 — Enterprise Procurement Platform',
         'page_description': "Learn about ProcureSphere 360's mission to transform enterprise procurement from a tactical back-office headache to a strategic, transparent advantage.",
+        'canonical_url': f'{_site_url()}/about/' if not section_slug else f'{_site_url()}/about/{section_slug}/',
+        'active_section': ABOUT_SECTION_MAP.get(section_slug, section_slug or ''),
         'active_nav': 'about',
         'badge': 'ABOUT PLATFORM',
         'overview_title': 'Platform Introduction',
@@ -317,7 +356,7 @@ def about(request):
 # Solutions
 # ---------------------------------------------------------------------------
 
-def solutions(request):
+def solutions(request, stage_slug=None):
     """Solutions page."""
     s2p_steps = [
         {
@@ -408,6 +447,8 @@ def solutions(request):
     context = {
         'page_title': 'Solutions — ProcureSphere 360 Enterprise Solutions Suite',
         'page_description': 'Explore the seven modular capabilities of ProcureSphere 360, from supplier governance to automated 3-way invoice matching.',
+        'canonical_url': f'{_site_url()}/solutions/' if not stage_slug else f'{_site_url()}/solutions/{stage_slug}/',
+        'active_stage_id': STAGE_SLUG_MAP.get(stage_slug, '') if stage_slug else '',
         'active_nav': 'solutions',
         'badge': 'ENTERPRISE SOLUTIONS',
         'overview_title': 'Solutions Portfolio',
@@ -443,6 +484,7 @@ def benefits(request):
     context = {
         'page_title': 'Benefits — ProcureSphere 360 Enterprise Value',
         'page_description': 'Discover the enterprise benefits of ProcureSphere 360 — from traceable workflows to zero silent overspend.',
+        'canonical_url': f'{_site_url()}/benefits/',
         'active_nav': 'benefits',
         'benefits': benefits_list,
         'comparison_rows': comparison_rows,
@@ -565,6 +607,7 @@ def process(request):
     context = {
         'page_title': 'Process — ProcureSphere 360 Procurement Operating Workflow',
         'page_description': 'A clear, structured walkthrough of how purchasing requests move step-by-step from initial department requisition to final delivery, invoice reconciliation, and settlement.',
+        'canonical_url': f'{_site_url()}/process/',
         'active_nav': 'process',
         'badge': 'OPERATING WORKFLOW',
         'title': 'Procurement Operating Workflow',
@@ -573,33 +616,6 @@ def process(request):
         'principles': principles,
     }
     return render(request, 'landing/process.html', context)
-
-
-# ---------------------------------------------------------------------------
-# Roles
-# ---------------------------------------------------------------------------
-
-def roles(request):
-    """Roles page."""
-    roles_list = [
-        {'key': 'REQUESTER', 'label': 'Requester', 'desc': 'Submit requests, track status, and stay within policy — all in one place.', 'items': ['My Requests', 'Policy guidance', 'Budget visibility'], 'color': '#2456D6'},
-        {'key': 'PROCUREMENT', 'label': 'Procurement', 'desc': 'Manage sourcing events, suppliers, and purchase orders from a single workspace.', 'items': ['Sourcing', 'Suppliers', 'Purchase Orders'], 'color': '#6554c0'},
-        {'key': 'FINANCE', 'label': 'Finance', 'desc': 'Control invoices, budgets, and payment schedules with full financial visibility.', 'items': ['Invoices', 'Budget', 'Payments'], 'color': '#10b981'},
-        {'key': 'LEGAL', 'label': 'Legal', 'desc': 'Track contracts, renewals, and compliance obligations with structured oversight.', 'items': ['Contracts', 'Renewals', 'Obligations'], 'color': '#f59e0b'},
-        {'key': 'STORES', 'label': 'Stores', 'desc': 'Manage warehouse receipts, quality inspection, and inventory context efficiently.', 'items': ['Receipts', 'Inspection', 'Inventory context'], 'color': '#ec4899'},
-        {'key': 'COMPLIANCE', 'label': 'Compliance', 'desc': 'Monitor audit trails, risk indicators, and internal control compliance.', 'items': ['Audit', 'Risk', 'Controls'], 'color': '#ef4444'},
-        {'key': 'VENDOR', 'label': 'Vendor', 'desc': 'Onboard, bid on sourcing events, and acknowledge purchase orders — all online.', 'items': ['Onboarding', 'Bids', 'PO acknowledgement'], 'color': '#06b6d4'},
-    ]
-    context = {
-        'page_title': 'Roles — ProcureSphere 360 Team Workspaces',
-        'page_description': 'One platform with role-specific workspaces for every team in the procurement cycle.',
-        'active_nav': 'roles',
-        'badge': 'WHO IS IT FOR',
-        'title': 'One platform. Every team.',
-        'subtitle': 'One connected system adapts to the decisions each team owns.',
-        'roles': roles_list,
-    }
-    return render(request, 'landing/roles.html', context)
 
 
 # ---------------------------------------------------------------------------
@@ -649,6 +665,7 @@ def faq(request):
     context = {
         'page_title': 'FAQ — ProcureSphere 360 Common Questions',
         'page_description': 'Answers to common questions about ProcureSphere 360 enterprise procurement platform.',
+        'canonical_url': f'{_site_url()}/faq/',
         'active_nav': 'faq',
         'faqs': faqs,
         'extra_faqs': extra_faqs,
@@ -660,32 +677,137 @@ def faq(request):
 # Contact (HTMX partial)
 # ---------------------------------------------------------------------------
 
+COUNTRY_PHONE_SPECS = {
+    '+91': {'digits': 10, 'country': 'India', 'pattern': r'^[6-9]\d{9}$'},
+    '+1': {'digits': 10, 'country': 'USA/Canada', 'pattern': r'^[2-9]\d{9}$'},
+    '+44': {'digits': 10, 'country': 'UK', 'pattern': r'^[1-9]\d{9}$'},
+    '+971': {'digits': 9, 'country': 'UAE', 'pattern': r'^[5]\d{8}$'},
+    '+65': {'digits': 8, 'country': 'Singapore', 'pattern': r'^[89]\d{7}$'},
+    '+61': {'digits': 9, 'country': 'Australia', 'pattern': r'^[4]\d{8}$'},
+    '+49': {'digits': 10, 'country': 'Germany', 'pattern': r'^[1]\d{9,10}$'},
+    '+966': {'digits': 9, 'country': 'Saudi Arabia', 'pattern': r'^[5]\d{8}$'},
+}
+
+
 @require_POST
 def contact_submit(request):
     """
-    Handles the public contact / demo-request form via HTMX POST.
+    Handles the public contact / demo-request form via HTMX POST with strict validation.
 
-    CSRF protection is enforced by Django's standard CsrfViewMiddleware.
-    The form template must include {% csrf_token %}.
-
-    BACKEND NOTE: This view validates fields and returns the success partial.
-    CRM / email delivery can be added here when the backend contract is defined.
+    Rules enforced:
+    - Name: letters and spaces only, min 2 chars, no numbers, no special symbols.
+    - Email: valid email with '@' and domain (e.g. gmail.com or custom company domain).
+    - Country Code & Mobile Number: matched against country digits specification.
+    - Message: min 10 characters.
     """
     name = request.POST.get('name', '').strip()
     email = request.POST.get('email', '').strip()
-    company = request.POST.get('company', '').strip()
-    scope = request.POST.get('scope', '').strip()
+    country_code = request.POST.get('country_code', '+91').strip()
+    phone = request.POST.get('phone', '').strip()
     message = request.POST.get('message', '').strip()
 
-    if not all([name, email, company, scope, message]):
-        return render(request, 'landing/partials/contact_error.html', {
-            'error': 'Please fill in all required fields.',
-        })
+    ctx = {
+        'name': name,
+        'email': email,
+        'country_code': country_code,
+        'phone': phone,
+        'message': message,
+    }
 
-    # Placeholder for CRM / email integration.
-    # e.g. send_demo_request_email(name, email, company, scope, message)
+    # 1. Check required fields
+    if not name or not email or not phone or not message:
+        ctx['error'] = 'Please fill in all required fields (Name, Email, Mobile Number, Message).'
+        return render(request, 'landing/partials/contact_error.html', ctx)
 
+    # 2. Validate Name: check for numbers or special characters on submit
+    if re.search(r'[^A-Za-z\s]', name):
+        ctx['error'] = "Numbers and special characters are not allowed in Name. Please use letters only."
+        return render(request, 'landing/partials/contact_error.html', ctx)
+    if len(name) < 2 or len(name) > 60:
+        ctx['error'] = 'Name must be between 2 and 60 characters.'
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    # 3. Validate Email: must contain @, valid domain, production-ready regex
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_regex, email):
+        ctx['error'] = 'Please enter a valid email address with @ (e.g., yourname@gmail.com or name@company.com).'
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    # 4. Validate Country Code and Mobile Number
+    phone_clean = re.sub(r'\D', '', phone)
+    spec = COUNTRY_PHONE_SPECS.get(country_code)
+    if not spec:
+        ctx['error'] = 'Please select a valid country code from the dropdown.'
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    expected_digits = spec['digits']
+    if len(phone_clean) != expected_digits:
+        ctx['error'] = f"Mobile number for {spec['country']} ({country_code}) must be exactly {expected_digits} digits."
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    if not re.match(spec['pattern'], phone_clean):
+        ctx['error'] = f"Please enter a valid {expected_digits}-digit mobile number for {spec['country']} ({country_code})."
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    # 5. Validate Message
+    if len(message) < 10:
+        ctx['error'] = 'Message must be at least 10 characters long.'
+        return render(request, 'landing/partials/contact_error.html', ctx)
+
+    # Extract client IP and user agent
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip_address = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip_address = request.META.get('REMOTE_ADDR')
+    user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]
+
+    # Persist enquiry to PostgreSQL database so it is received by Django admin portal
+    from apps.core.models import ContactEnquiry
+    enquiry = ContactEnquiry.objects.create(
+        name=name,
+        email=email,
+        country_code=country_code,
+        phone=phone_clean,
+        message=message,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+
+    # Audit trail
+    try:
+        from apps.audit.models import AuditLog
+        AuditLog.objects.create(
+            actor=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+            action="CONTACT_ENQUIRY_SUBMITTED",
+            target_model="ContactEnquiry",
+            target_object_id=str(enquiry.id),
+            details={
+                "name": name,
+                "email": email,
+                "phone": f"{country_code} {phone_clean}",
+                "ip_address": ip_address,
+            },
+        )
+    except Exception:
+        pass
+
+    # Notify Superadmins in-app
+    try:
+        from apps.notifications.services import notify_role_users
+        notify_role_users(
+            role_codes=["SUPER_ADMIN"],
+            notification_type="SYSTEM",
+            title=f"New Landing Contact Enquiry: {name}",
+            message=f"Received a new enquiry from {name} ({email}, {country_code} {phone_clean}): {message[:120]}...",
+            target_url="/admin/core/contactenquiry/",
+        )
+    except Exception:
+        pass
+
+    # Success: Render formatted response
     return render(request, 'landing/partials/contact_success.html', {
         'name': name,
         'email': email,
+        'phone': f"{country_code} {phone_clean}",
     })

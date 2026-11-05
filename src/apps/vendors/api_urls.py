@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.urls import path
@@ -213,39 +213,52 @@ class VendorSerializer(serializers.ModelSerializer):
             latest = obj.risk_records.order_by("-created_at").first()
         return latest.assessed_by.email if latest and latest.assessed_by else None
 
+    def _get_all_pos(self, obj):
+        if hasattr(obj, "_prefetched_objects_cache") and "purchase_orders" in obj._prefetched_objects_cache:
+            return obj._prefetched_objects_cache["purchase_orders"]
+        return list(obj.purchase_orders.all())
+
     def get_active_pos_count(self, obj):
-        return obj.purchase_orders.filter(
-            status__in=[
-                PurchaseOrder.STATUS_ISSUED,
-                PurchaseOrder.STATUS_ACKNOWLEDGED,
-                PurchaseOrder.STATUS_PARTIAL_RECEIPT,
-            ]
-        ).count()
+        pos = self._get_all_pos(obj)
+        active_statuses = {
+            PurchaseOrder.STATUS_ISSUED,
+            PurchaseOrder.STATUS_ACKNOWLEDGED,
+            PurchaseOrder.STATUS_PARTIAL_RECEIPT,
+        }
+        return sum(1 for po in pos if po.status in active_statuses)
 
     def get_active_pos_total_amount(self, obj):
-        val = obj.purchase_orders.filter(
-            status__in=[
-                PurchaseOrder.STATUS_ISSUED,
-                PurchaseOrder.STATUS_ACKNOWLEDGED,
-                PurchaseOrder.STATUS_PARTIAL_RECEIPT,
-            ]
-        ).aggregate(total=Sum("total_amount"))["total"]
-        return float(val or Decimal("0.00"))
+        pos = self._get_all_pos(obj)
+        active_statuses = {
+            PurchaseOrder.STATUS_ISSUED,
+            PurchaseOrder.STATUS_ACKNOWLEDGED,
+            PurchaseOrder.STATUS_PARTIAL_RECEIPT,
+        }
+        total = sum((po.total_amount for po in pos if po.status in active_statuses), Decimal("0.00"))
+        return float(total)
 
     def get_total_pos_count(self, obj):
-        return obj.purchase_orders.count()
+        pos = self._get_all_pos(obj)
+        return len(pos)
 
     def get_total_po_spend(self, obj):
-        val = obj.purchase_orders.exclude(status=PurchaseOrder.STATUS_CANCELLED).aggregate(
-            total=Sum("total_amount")
-        )["total"]
-        return float(val or Decimal("0.00"))
+        pos = self._get_all_pos(obj)
+        total = sum(
+            (po.total_amount for po in pos if po.status != PurchaseOrder.STATUS_CANCELLED),
+            Decimal("0.00"),
+        )
+        return float(total)
 
     def get_contacts_count(self, obj):
+        if hasattr(obj, "_prefetched_objects_cache") and "contacts" in obj._prefetched_objects_cache:
+            return len(obj._prefetched_objects_cache["contacts"])
         return obj.contacts.count()
 
     def get_documents_summary(self, obj):
-        docs = list(obj.documents.all())
+        if hasattr(obj, "_prefetched_objects_cache") and "documents" in obj._prefetched_objects_cache:
+            docs = obj._prefetched_objects_cache["documents"]
+        else:
+            docs = list(obj.documents.all())
         today = date.today()
         thirty_days = today + timedelta(days=30)
 
@@ -316,16 +329,21 @@ class VendorViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        qs = annotate_governance(
-            Vendor.objects.select_related("category").prefetch_related(
+        base_qs = (
+            Vendor.objects.select_related("category")
+            .prefetch_related(
                 "documents",
                 "documents__verified_by",
                 "contacts",
-                "risk_records",
-                "risk_records__assessed_by",
+                Prefetch(
+                    "risk_records",
+                    queryset=VendorRiskRecord.objects.select_related("assessed_by").order_by("-created_at"),
+                    to_attr="_prefetched_risk_records",
+                ),
                 "purchase_orders",
             )
         )
+        qs = annotate_governance(base_qs)
 
         # Vendor user scoping
         if getattr(user, "is_vendor", False) or getattr(user, "vendor_id", None):

@@ -12,6 +12,8 @@ from rest_framework.routers import DefaultRouter
 from apps.accounts.models import Role
 from apps.accounts.permissions import IsProcurementManager
 from apps.invoices.models import SupplierInvoice
+from apps.organization.models import CostCenter
+from apps.sourcing.models import SourcingEvent
 from apps.vendors.models import Vendor
 
 from .models import DeliverySchedule, POAmendment, POLine, PurchaseOrder
@@ -19,9 +21,15 @@ from .selectors import scope_purchase_orders_queryset
 from .services import (
     acknowledge_purchase_order_service,
     approve_po_amendment_service,
+    approve_purchase_order_service,
     cancel_purchase_order_governance_service,
+    issue_purchase_order_service,
     reject_po_amendment_service,
+    reject_purchase_order_service,
+    request_changes_purchase_order_service,
     request_po_amendment_service,
+    submit_purchase_order_for_approval_service,
+    vendor_reject_purchase_order_service,
 )
 
 
@@ -49,7 +57,7 @@ class CanManagePurchaseOrder(BasePermission):
         if is_vendor:
             if request.method in SAFE_METHODS:
                 return True
-            if view.action == "acknowledge":
+            if view.action in ("acknowledge", "vendor_reject"):
                 return True
             return False
 
@@ -650,6 +658,130 @@ class PurchaseOrderViewSet(viewsets.ModelViewSet):
                 {"status": [f"Purchase orders in '{instance.status}' status cannot be deleted. Use /governance-cancel/ to cancel."]}
             )
         instance.delete()
+
+    @action(detail=False, methods=["post"], url_path="generate-from-award")
+    def generate_from_award(self, request):
+        """
+        POST /api/v1/purchase-orders/generate-from-award/
+        Body: {"event_id": "<uuid>", "cost_center_id": "<uuid>"} (cost center optional
+        when the sourcing event is linked to a requisition).
+        Creates a DRAFT purchase order from the approved award decision.
+        """
+        from apps.sourcing import services as sourcing_services
+
+        event_id = (
+            request.data.get("event_id")
+            or request.data.get("sourcing_event_id")
+            or request.data.get("sourcing_event")
+        )
+        if not event_id:
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "event_id is required.",
+                        "details": {"event_id": ["This field is required."]},
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        event = get_object_or_404(SourcingEvent, pk=event_id)
+        cost_center = None
+        cost_center_id = request.data.get("cost_center_id")
+        if cost_center_id:
+            cost_center = get_object_or_404(CostCenter, pk=cost_center_id)
+        try:
+            po = sourcing_services.generate_po_from_award_service(
+                event=event, user=request.user, cost_center=cost_center
+            )
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, "messages") else [str(e)]
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": msg[0] if isinstance(msg, list) else str(e),
+                        "details": msg,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(self.get_serializer(po).data, status=status.HTTP_201_CREATED)
+
+    def _run_lifecycle_action(self, fn, *args, **kwargs):
+        try:
+            po = fn(*args, **kwargs)
+        except ValidationError as e:
+            msg = e.messages if hasattr(e, "messages") else [str(e)]
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": msg[0] if isinstance(msg, list) else str(e),
+                        "details": msg,
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(self.get_serializer(po).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="submit")
+    def submit(self, request, pk=None):
+        """DRAFT -> PENDING_APPROVAL. Notifies procurement managers."""
+        po = self.get_object()
+        return self._run_lifecycle_action(
+            submit_purchase_order_for_approval_service, po=po, actor=request.user
+        )
+
+    @action(detail=True, methods=["post"], url_path="approve")
+    def approve(self, request, pk=None):
+        """PENDING_APPROVAL -> APPROVED. Enforces separation of duties."""
+        po = self.get_object()
+        comments = str(request.data.get("comments", "")).strip()
+        return self._run_lifecycle_action(
+            approve_purchase_order_service, po=po, approver=request.user, comments=comments
+        )
+
+    @action(detail=True, methods=["post"], url_path="issue")
+    def issue(self, request, pk=None):
+        """APPROVED -> ISSUED. Notifies the vendor and requester."""
+        po = self.get_object()
+        return self._run_lifecycle_action(
+            issue_purchase_order_service, po=po, actor=request.user
+        )
+
+    @action(detail=True, methods=["post"], url_path="request-changes")
+    def request_changes(self, request, pk=None):
+        """PENDING_APPROVAL -> DRAFT with a mandatory reviewer note."""
+        po = self.get_object()
+        note = str(request.data.get("note", request.data.get("reason", ""))).strip()
+        return self._run_lifecycle_action(
+            request_changes_purchase_order_service,
+            po=po,
+            reviewer=request.user,
+            note=note,
+        )
+
+    @action(detail=True, methods=["post"], url_path="reject")
+    def reject(self, request, pk=None):
+        """PENDING_APPROVAL -> DRAFT with a mandatory rejection reason."""
+        po = self.get_object()
+        reason = str(request.data.get("reason", "")).strip()
+        return self._run_lifecycle_action(
+            reject_purchase_order_service, po=po, approver=request.user, reason=reason
+        )
+
+    @action(detail=True, methods=["post"], url_path="vendor-reject")
+    def vendor_reject(self, request, pk=None):
+        """Vendor rejects an ISSUED purchase order with a mandatory reason."""
+        po = self.get_object()
+        reason = str(request.data.get("reason", "")).strip()
+        return self._run_lifecycle_action(
+            vendor_reject_purchase_order_service,
+            po=po,
+            vendor_user=request.user,
+            reason=reason,
+        )
 
     @action(detail=True, methods=["post"], url_path="acknowledge")
     def acknowledge(self, request, pk=None):

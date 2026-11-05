@@ -87,11 +87,11 @@
       <div class="ps-footer-col">
         <h3 class="ps-footer-col-title">Platform</h3>
         <ul class="ps-footer-links" role="list">
-          <li><a href="/#hero">Overview</a></li>
+          <li><a href="/">Overview</a></li>
           <li><a href="/benefits/">Features &amp; Benefits</a></li>
           <li><a href="/solutions/">Solutions Portfolio</a></li>
           <li><a href="/process/">How It Works</a></li>
-          <li><a href="/#contact" onclick="if(document.getElementById('contact')){document.getElementById('contact').scrollIntoView({behavior:'smooth'});return false;}">Request a Demo</a></li>
+          <li><a href="/" onclick="goToContact(event)">Contact Us</a></li>
         </ul>
       </div>
 
@@ -99,13 +99,13 @@
       <div class="ps-footer-col">
         <h3 class="ps-footer-col-title">Solutions</h3>
         <ul class="ps-footer-links" role="list">
-          <li><a href="/solutions/#vendors">Vendor Management &amp; KYC</a></li>
-          <li><a href="/solutions/#pr">Purchase Requests &amp; Intake</a></li>
-          <li><a href="/solutions/#sourcing">Strategic Sourcing &amp; RFx</a></li>
-          <li><a href="/solutions/#po">Purchase Order Management</a></li>
-          <li><a href="/solutions/#grn">Goods Receipt &amp; Quality</a></li>
-          <li><a href="/solutions/#match">Autonomous 3-Way Match</a></li>
-          <li><a href="/solutions/#clm">Contract Lifecycle &amp; SLAs</a></li>
+          <li><a href="/solutions/vendor-management/">Vendor Management &amp; KYC</a></li>
+          <li><a href="/solutions/purchase-requisition/">Purchase Requests &amp; Intake</a></li>
+          <li><a href="/solutions/strategic-sourcing/">Strategic Sourcing &amp; RFx</a></li>
+          <li><a href="/solutions/purchase-orders/">Purchase Order Management</a></li>
+          <li><a href="/solutions/goods-receipt/">Goods Receipt &amp; Quality</a></li>
+          <li><a href="/solutions/invoice-matching/">Autonomous 3-Way Match</a></li>
+          <li><a href="/solutions/contract-lifecycle/">Contract Lifecycle &amp; SLAs</a></li>
         </ul>
       </div>
 
@@ -114,10 +114,9 @@
         <h3 class="ps-footer-col-title">Company</h3>
         <ul class="ps-footer-links" role="list">
           <li><a href="/about/">About Us</a></li>
-          <li><a href="/#testimonials">Testimonials</a></li>
+          <li><a href="javascript:void(0)" onclick="if(window.location.pathname === '/' || window.location.pathname === ''){ var t = document.getElementById('testimonials'); if(t){ t.scrollIntoView({behavior:'smooth'}); } } else { window.location.href = '/'; }">Testimonials</a></li>
           <li><a href="/faq/">Frequently Asked Questions</a></li>
-          <li><a href="/#contact" onclick="if(document.getElementById('contact')){document.getElementById('contact').scrollIntoView({behavior:'smooth'});return false;}">Contact Us</a></li>
-          <li><a href="/roles/">Role Workspaces</a></li>
+          <li><a href="/" onclick="goToContact(event)">Contact Us</a></li>
         </ul>
       </div>
 

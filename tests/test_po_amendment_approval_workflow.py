@@ -111,6 +111,20 @@ def amendment_workflow_env(db):
     )
     # Total = 10,000 subtotal + 10% tax = 11,000
     assert po.total_amount == Decimal("11000.00")
+    assert po.status == PurchaseOrder.STATUS_DRAFT
+
+    # Full approval lifecycle: DRAFT -> APPROVAL -> APPROVED -> ISSUED
+    from apps.orders.services import (
+        approve_purchase_order_service,
+        issue_purchase_order_service,
+        submit_purchase_order_for_approval_service,
+    )
+
+    po = submit_purchase_order_for_approval_service(po=po, actor=executive)
+    assert po.status == PurchaseOrder.STATUS_APPROVAL
+    po = approve_purchase_order_service(po=po, approver=manager1, comments="OK")
+    assert po.status == PurchaseOrder.STATUS_APPROVED
+    po = issue_purchase_order_service(po=po, actor=executive)
     assert po.status == PurchaseOrder.STATUS_ISSUED
 
     # Vendor acknowledges initial PO

@@ -47,13 +47,19 @@
     <div class="lm-right">
       <div class="lm-form-wrap">
 
-        <!-- Icon -->
-        <div class="lm-icon-box" style="padding:4px;background:#f0f5ff;border:1px solid #dbeafe;border-radius:12px;">
-          <img src="{% static 'landing/images/procuresphere_360_emblem.png' %}" alt="ProcureSphere 360" style="width:100%;height:100%;object-fit:contain;display:block;" />
+        <!-- Prominent Brand Logo -->
+        <div class="lm-logo-wrapper" style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 12px;">
+          <img
+            src="{% static 'landing/images/procuresphere_360_emblem.png' %}"
+            alt="ProcureSphere 360 Emblem"
+            style="height: 74px; width: 74px; object-fit: contain; display: block; filter: drop-shadow(0 6px 18px rgba(37, 99, 235, 0.20));"
+          />
+          <img
+            src="{% static 'landing/images/procuresphere_360_wordmark.png' %}"
+            alt="ProcureSphere 360"
+            style="height: 30px; width: auto; object-fit: contain; display: block; margin-top: 6px;"
+          />
         </div>
-
-        <!-- Brand + headings -->
-        <p class="lm-brand">ProcureSphere <span>360</span></p>
         <h1 class="lm-heading">Welcome Back</h1>
         <p class="lm-tagline">Sign in to your enterprise procurement portal</p>
 

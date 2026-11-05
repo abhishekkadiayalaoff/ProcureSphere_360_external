@@ -46,9 +46,34 @@ urlpatterns = [
         name="order_approve",
     ),
     path(
+        "purchase-orders/<uuid:pk>/reject/",
+        views.po_reject_action_view,
+        name="order_reject",
+    ),
+    path(
+        "purchase-orders/<uuid:pk>/issue/",
+        views.po_issue_action_view,
+        name="order_issue",
+    ),
+    path(
+        "purchase-orders/<uuid:pk>/request-changes/",
+        views.po_request_changes_action_view,
+        name="order_request_changes",
+    ),
+    path(
         "purchase-orders/<uuid:pk>/submit-approval/",
         views.po_submit_approval_action_view,
         name="order_submit_approval",
+    ),
+    path(
+        "purchase-orders/<uuid:pk>/cancel/",
+        views.po_cancel_action_view,
+        name="order_cancel",
+    ),
+    path(
+        "purchase-orders/<uuid:pk>/edit/",
+        views.po_edit_draft_view,
+        name="orders_edit_draft",
     ),
     path("purchase-orders/create/", views.po_create_view, name="orders_create"),
     path("orders/create/", views.po_create_view, name="orders_create_alias"),

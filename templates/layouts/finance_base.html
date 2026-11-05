@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block navbar %}
 <!-- Top Navigation for Finance -->
@@ -9,9 +10,8 @@
             <button class="btn btn-outline-light btn-sm d-lg-none me-2 rounded-2 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#financeSidebar" aria-controls="financeSidebar" title="Toggle Navigation">
                 <i class="fa-solid fa-bars-staggered"></i>
             </button>
-            <a href="/" class="navbar-brand d-flex align-items-center text-white me-2 mb-0 text-truncate">
-                <i class="fa-solid fa-layer-group text-primary fa-lg me-2 flex-shrink-0"></i>
-                <span class="fs-6 fs-sm-5 fw-bold text-truncate">ProcureSphere <span class="text-primary fw-light">360</span></span>
+            <a href="/" class="dashboard-brand-badge me-2 me-lg-3" aria-label="ProcureSphere 360 Home">
+                <img src="{% static 'landing/images/procuresphere_360_nav_brand.png' %}" alt="ProcureSphere 360" class="dashboard-brand-logo">
             </a>
             <span class="badge bg-secondary bg-opacity-25 text-white border border-secondary border-opacity-50 px-2 py-1 rounded-pill d-none d-md-inline-flex align-items-center ms-2 flex-shrink-0" style="font-size: 0.75rem;">
                 <i class="fa-solid fa-building-columns text-danger me-1"></i> Finance & AP
@@ -19,6 +19,16 @@
         </div>
 
         <div class="ms-auto d-flex align-items-center gap-1.5 gap-sm-2 flex-shrink-0">
+            <!-- Notifications Bell -->
+            <a href="/notifications/" class="btn btn-outline-secondary btn-sm position-relative text-white border-0 d-flex align-items-center justify-content-center p-0 me-1" style="width: 36px; height: 36px;" title="Notifications">
+                <i class="fa-solid fa-bell fs-5"></i>
+                {% if unread_notifications_count and unread_notifications_count > 0 %}
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.65rem;">
+                    {{ unread_notifications_count }}
+                    <span class="visually-hidden">unread notifications</span>
+                </span>
+                {% endif %}
+            </a>
             {% if user.is_authenticated %}
                 <div class="d-none d-md-flex align-items-center px-2 px-sm-3 py-1 bg-secondary bg-opacity-25 rounded-pill border border-secondary border-opacity-50 text-white">
                     <i class="fa-solid fa-circle-user text-info me-1 me-sm-2 fs-5"></i>
@@ -44,8 +54,8 @@
             <h6 class="text-uppercase text-light fw-bold mb-3 small"><i class="fa-solid fa-compass me-2"></i>Finance Menu</h6>
             <ul class="nav flex-column gap-1">
                 <li class="nav-item">
-                    <a href="/" class="nav-link rounded sidebar-link {% if request.path == '/' %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
-                        <i class="fa-solid fa-chart-pie me-2 {% if request.path == '/' %}text-white{% else %}text-danger{% endif %} w-20px text-center"></i> Dashboard
+                    <a href="/finance/" class="nav-link rounded sidebar-link {% if request.path == '/finance/' or request.path == '/finance/dashboard/' or request.path == '/' %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
+                        <i class="fa-solid fa-chart-pie me-2 {% if request.path == '/finance/' or request.path == '/finance/dashboard/' or request.path == '/' %}text-white{% else %}text-danger{% endif %} w-20px text-center"></i> Dashboard
                     </a>
                 </li>
                 
@@ -78,6 +88,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="/requisitions/" class="nav-link rounded sidebar-link {% if '/requisitions/' in request.path %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
+                        <i class="fa-solid fa-file-signature me-2 {% if '/requisitions/' in request.path %}text-white{% else %}text-warning{% endif %} w-20px text-center"></i> PR Approvals
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="/budgets/ledger/" class="nav-link rounded sidebar-link {% if request.path == '/budgets/ledger/' %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
                         <i class="fa-solid fa-book-journal-whills me-2 {% if request.path == '/budgets/ledger/' %}text-white{% else %}text-secondary{% endif %} w-20px text-center"></i> Spend Ledger
                     </a>
@@ -90,6 +105,16 @@
                     </a>
                 </li>
 
+                <li class="nav-item">
+                    <a href="/notifications/" class="nav-link rounded sidebar-link d-flex align-items-center justify-content-between {% if request.path == '/notifications/' %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
+                        <div>
+                            <i class="fa-solid fa-bell me-2 {% if request.path == '/notifications/' %}text-white{% else %}text-warning{% endif %} w-20px text-center"></i> Notifications
+                        </div>
+                        {% if unread_notifications_count and unread_notifications_count > 0 %}
+                        <span class="badge bg-danger rounded-pill">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
                 <li class="nav-item mt-2">
                     <div class="text-uppercase text-secondary fw-bold mb-2 small px-2">Settings</div>
                     <a href="/invoices/settings/tolerances/" class="nav-link rounded sidebar-link {% if request.path == '/invoices/settings/tolerances/' %}active bg-danger fw-bold text-white border-start border-3 border-light{% else %}text-light{% endif %}">
@@ -113,7 +138,7 @@
             <h6 class="text-uppercase text-light fw-bold mb-3 small"><i class="fa-solid fa-compass me-2"></i>Finance Menu</h6>
             <ul class="nav flex-column gap-1">
                 <li class="nav-item">
-                    <a href="/" class="nav-link rounded sidebar-link {% if request.path == '/' %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">
+                    <a href="/finance/" class="nav-link rounded sidebar-link {% if request.path == '/finance/' or request.path == '/finance/dashboard/' or request.path == '/' %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">
                         <i class="fa-solid fa-chart-pie me-2 text-center" style="width: 20px;"></i> Dashboard
                     </a>
                 </li>
@@ -147,6 +172,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="/requisitions/" class="nav-link rounded sidebar-link {% if '/requisitions/' in request.path %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">
+                        <i class="fa-solid fa-file-signature me-2 text-center" style="width: 20px;"></i> PR Approvals
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="/budgets/ledger/" class="nav-link rounded sidebar-link {% if request.path == '/budgets/ledger/' %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">
                         <i class="fa-solid fa-book-journal-whills me-2 text-center" style="width: 20px;"></i> Spend Ledger
                     </a>
@@ -159,6 +189,16 @@
                     </a>
                 </li>
 
+                <li class="nav-item">
+                    <a href="/notifications/" class="nav-link rounded sidebar-link d-flex align-items-center justify-content-between {% if request.path == '/notifications/' %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">
+                        <div>
+                            <i class="fa-solid fa-bell me-2 text-warning text-center" style="width: 20px;"></i> Notifications
+                        </div>
+                        {% if unread_notifications_count and unread_notifications_count > 0 %}
+                        <span class="badge bg-danger rounded-pill">{{ unread_notifications_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
                 <li class="nav-item mt-2">
                     <div class="text-uppercase text-secondary fw-bold mb-2 small px-2">Settings</div>
                     <a href="/invoices/settings/tolerances/" class="nav-link rounded sidebar-link {% if request.path == '/invoices/settings/tolerances/' %}active bg-danger fw-bold text-white{% else %}text-light{% endif %}">

@@ -78,8 +78,24 @@ def notifications_processor(request):
                 .exclude(id__in=user_approved_pr_ids)
                 .count()
             )
-    elif role_code in [Role.PROC_MGR, Role.SUPER_ADMIN]:
-        pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
+    elif role_code == Role.PROC_MGR:
+        scoped_org = getattr(user, "effective_organization", None) or getattr(user, "organization", None)
+        if scoped_org:
+            pending_count = PurchaseRequisition.objects.filter(
+                department__organization=scoped_org,
+                status__in=statuses,
+            ).count()
+        else:
+            pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
+    elif role_code == Role.SUPER_ADMIN:
+        scoped_org = getattr(user, "effective_organization", None) if not (user.is_superuser and not getattr(user, "organization_id", None)) else None
+        if scoped_org:
+            pending_count = PurchaseRequisition.objects.filter(
+                department__organization=scoped_org,
+                status__in=statuses,
+            ).count()
+        else:
+            pending_count = PurchaseRequisition.objects.filter(status__in=statuses).count()
     elif role_code == Role.LEGAL_MGR:
         from apps.contracts.models import Contract
 

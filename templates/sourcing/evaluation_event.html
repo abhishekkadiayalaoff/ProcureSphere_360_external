@@ -225,16 +225,34 @@
             <ul class="small">{% for po in purchase_orders %}<li><a href="{% url 'order_detail' po.id %}">{{ po.po_number }}</a> v{{ po.version }} · {{ po.get_status_display }} · {{ po.total_amount|floatformat:2 }}</li>{% endfor %}</ul>
         {% endif %}
         {% if caps.can_manage and not has_active_po %}
-            <form method="post" action="{% url 'sourcing_action' event.id 'generate-po' %}" class="d-flex flex-wrap gap-2 small">{% csrf_token %}
-                {% if cost_centers %}
-                    <label class="visually-hidden" for="po-cc">Cost center</label>
-                    <select id="po-cc" name="cost_center_id" class="form-select form-select-sm" style="max-width:320px" required>
-                        <option value="">Select cost center…</option>
-                        {% for cc in cost_centers %}<option value="{{ cc.id }}">{{ cc.code }} — {{ cc.name }}</option>{% endfor %}
-                    </select>
+            <div class="small">
+                <p class="mb-1 text-success fw-semibold"><i class="fa-solid fa-circle-check me-1"></i>Award approved — ready for purchase order creation.</p>
+                <p class="text-muted mb-2">Generate the Purchase Order below. It is created as a draft and then follows the standard approval lifecycle.</p>
+                <form method="post" action="{% url 'orders_generate_from_award' event.id %}" class="row g-2 align-items-end">
+                    {% csrf_token %}
+                    {% if cost_centers %}
+                    <div class="col-md-5">
+                        <label class="form-label" for="po-cost-center">Cost center</label>
+                        <select id="po-cost-center" name="cost_center_id" class="form-select form-select-sm" required>
+                            <option value="">Select cost center…</option>
+                            {% for cc in cost_centers %}
+                            <option value="{{ cc.id }}"{% if default_cost_center and cc.id == default_cost_center.id %} selected{% endif %}>{{ cc.code }} — {{ cc.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% elif default_cost_center %}
+                    <input type="hidden" name="cost_center_id" value="{{ default_cost_center.id }}">
+                    <div class="col-md-5"><span class="text-muted">Cost center:</span> <span class="fw-semibold">{{ default_cost_center.code }} — {{ default_cost_center.name }}</span></div>
+                    {% endif %}
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-cart-plus me-1"></i>Generate Purchase Order</button>
+                    </div>
+                </form>
+                {% if not cost_centers and not default_cost_center %}
+                <div class="alert alert-warning mt-2 mb-0 py-2">No cost centers are configured for your organization. Add one before generating a PO.</div>
                 {% endif %}
-                <button class="btn btn-sm btn-primary"><i class="fa-solid fa-cart-shopping me-1"></i>Generate Purchase Order</button>
-            </form>
+                <p class="text-muted mt-2 mb-0">Or open the <a href="{% url 'orders_list' %}#awards-pending">Purchase Orders desk</a> to generate it there.</p>
+            </div>
         {% endif %}
     {% else %}
         <p class="small text-muted">Award recommendation opens at commercial review.</p>

@@ -81,12 +81,7 @@ def _get_scoped_vendor_or_404(request, vendor_id, select_category=False):
         qs = qs.select_related("category")
     scoped_org = getattr(request.user, "effective_organization", None)
     if scoped_org:
-        qs = qs.filter(
-            Q(organization=scoped_org)
-            | Q(organization__isnull=True)
-            | Q(created_by__organization=scoped_org)
-            | Q(created_by__department__organization=scoped_org)
-        )
+        qs = qs.filter(organization=scoped_org)
     else:
         role_code = getattr(request.user, "role_code", None) or (
             request.user.role.code if getattr(request.user, "role", None) else None
@@ -94,7 +89,7 @@ def _get_scoped_vendor_or_404(request, vendor_id, select_category=False):
         if not (
             request.user.is_superuser
             or getattr(request.user, "is_staff", False)
-            or role_code in [Role.PROC_MGR, Role.PROC_EXEC, Role.AUDITOR, Role.SUPER_ADMIN, Role.FINANCE_AP]
+            or role_code in [Role.PROC_MGR, Role.PROC_EXEC, Role.AUDITOR, Role.SUPER_ADMIN, Role.FINANCE_AP, Role.LEGAL_MGR]
         ):
             raise Http404("Vendor not found.")
     return get_object_or_404(qs, pk=vendor_id)
@@ -339,6 +334,12 @@ def vendor_risk_assess_view(request, vendor_id):
 @require_POST
 def vendor_kyc_action_view(request, vendor_id, kyc_action):
     """KYC review actions: start review, verify/reject document, request changes, activate."""
+    if kyc_action in ("start-review", "approve"):
+        _require_governance_operate(request.user)
+    elif kyc_action in ("verify-document", "reject-document", "request-changes"):
+        _require_kyc_review(request.user)
+    else:
+        _require_governance_view(request.user)
     vendor = _get_scoped_vendor_or_404(request, vendor_id)
     try:
         messages.success(request, _run_kyc_action(request, vendor, kyc_action))
@@ -498,6 +499,12 @@ def vendor_risk_modal_view(request, vendor_id):
 @require_POST
 def vendor_kyc_htmx_view(request, vendor_id, kyc_action):
     """HTMX KYC transitions; same shared handler and RBAC as vendor_kyc_action_view."""
+    if kyc_action in ("start-review", "approve"):
+        _require_governance_operate(request.user)
+    elif kyc_action in ("verify-document", "reject-document", "request-changes"):
+        _require_kyc_review(request.user)
+    else:
+        _require_governance_view(request.user)
     vendor = _get_scoped_vendor_or_404(request, vendor_id)
     try:
         detail = _run_kyc_action(request, vendor, kyc_action)
@@ -665,3 +672,71 @@ def vendor_delete_view(request, vendor_id):
             "Remove or archive the linked records first, or put the vendor on hold instead.",
         )
         return redirect("vendor_detail", vendor_id=vendor_id)
+
+
+@login_required
+def vendor_import_view(request):
+    """
+    Handles CSV template download (?template=1), CSV upload, or standard catalog import
+    for the user's scoped organization.
+    """
+    _require_governance_operate(request.user)
+    scoped_org = getattr(request.user, "effective_organization", None)
+    if not scoped_org:
+        scoped_org = getattr(request.user, "organization", None)
+
+    # Template download
+    if request.method == "GET" and request.GET.get("template") == "1":
+        import csv
+        from django.http import HttpResponse
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="vendor_import_template.csv"'
+        writer = csv.writer(response)
+        writer.writerow(["Legal Name", "Tax ID", "Category Code", "Contact Email", "Address", "Phone", "Trade Name", "PAN", "GSTIN"])
+        writer.writerow(["TechCorp Solutions Ltd", "US-EIN-11-2233445", "IT_HARDWARE", "sales@techcorp.com", "123 Tech Blvd, Silicon Valley", "+1-800-555-0199", "TechCorp", "ABCDE1234F", "29ABCDE1234F1Z5"])
+        writer.writerow(["Global Logistics Express", "US-EIN-99-8877665", "LOGISTICS", "ops@globallogistics.com", "456 Freight Way, Chicago IL", "+1-800-555-0144", "Global Logistics", "FGHIJ5678K", "27FGHIJ5678K1Z3"])
+        return response
+
+    if request.method == "POST":
+        action_type = request.POST.get("action_type", "catalog")
+
+        if action_type == "catalog":
+            from .services import import_standard_vendors_for_org_service
+            if not scoped_org:
+                messages.error(request, "No organization context found to import vendors into.")
+                return redirect("vendor_list")
+            count = import_standard_vendors_for_org_service(target_org=scoped_org, actor=request.user)
+            if count > 0:
+                messages.success(request, f"Successfully imported {count} approved vendor(s) into {scoped_org.name}.")
+            else:
+                messages.info(request, f"All available standard vendors are already imported for {scoped_org.name}.")
+            return redirect("vendor_list")
+
+        elif action_type == "csv":
+            csv_file = request.FILES.get("csv_file")
+            if not csv_file:
+                messages.error(request, "Please choose a CSV file to upload.")
+                return redirect("vendor_list")
+            if not csv_file.name.endswith(".csv"):
+                messages.error(request, "Uploaded file must be in .csv format.")
+                return redirect("vendor_list")
+            if not scoped_org:
+                messages.error(request, "No organization context found for vendor CSV import.")
+                return redirect("vendor_list")
+
+            from .services import bulk_import_vendors_from_csv_service
+            count, errs = bulk_import_vendors_from_csv_service(
+                csv_file=csv_file,
+                target_org=scoped_org,
+                actor=request.user,
+            )
+            if count > 0:
+                messages.success(request, f"Successfully imported {count} vendor(s) from CSV.")
+            if errs:
+                for err in errs[:5]:
+                    messages.warning(request, err)
+                if len(errs) > 5:
+                    messages.warning(request, f"... and {len(errs) - 5} more errors omitted.")
+            return redirect("vendor_list")
+
+    return redirect("vendor_list")

@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -37,6 +38,7 @@ from .selectors import (
     get_invitation_rows,
     get_pending_onboarding_vendors,
     get_sourcing_dashboard_metrics,
+    get_sourcing_events_for_user,
     search_sourcing_events,
 )
 
@@ -69,10 +71,7 @@ STATUS_FILTERS = [
 
 def _get_user_org(user):
     if user and user.is_authenticated and not user.is_superuser:
-        if getattr(user, "department_id", None) and getattr(
-            user.department, "organization_id", None
-        ):
-            return user.department.organization
+        return getattr(user, "effective_organization", None)
     return None
 
 
@@ -93,8 +92,9 @@ def sourcing_list_view(request):
     services.sync_all_event_windows()
 
     params = request.GET.copy()
+    _base_events = get_sourcing_events_for_user(request.user)
     if params.get("status") == "EVALUATION":
-        events = get_all_sourcing_events().filter(
+        events = _base_events.filter(
             status__in=[
                 SourcingEvent.STATUS_TECHNICAL_REVIEW,
                 SourcingEvent.STATUS_COMMERCIAL_REVIEW,
@@ -103,7 +103,7 @@ def sourcing_list_view(request):
         params.pop("status")
         events = search_sourcing_events(events, params)
     else:
-        events = search_sourcing_events(get_all_sourcing_events(), params)
+        events = search_sourcing_events(_base_events, params)
 
     page = Paginator(events, PAGE_SIZE).get_page(request.GET.get("page"))
     qs = request.GET.copy()
@@ -114,7 +114,7 @@ def sourcing_list_view(request):
         {
             "page_obj": page,
             "events": page.object_list,
-            "metrics": get_sourcing_dashboard_metrics(),
+            "metrics": get_sourcing_dashboard_metrics(user=request.user),
             "status_filters": STATUS_FILTERS,
             "status_filter": request.GET.get("status", ""),
             "type_choices": SourcingEvent.EVENT_TYPE_CHOICES,
@@ -456,17 +456,6 @@ def _act_reject(event, request):
     return "Award recommendation rejected; event returned to commercial review."
 
 
-def _act_generate_po(event, request):
-    from apps.organization.models import CostCenter
-
-    cc_id = request.POST.get("cost_center_id")
-    cost_center = get_object_or_404(CostCenter, pk=cc_id) if cc_id else None
-    po = services.generate_po_from_award_service(
-        event=event, user=request.user, cost_center=cost_center
-    )
-    return f"Purchase Order {po.po_number} generated from the award."
-
-
 ACTIONS = {
     "publish": (_act_publish, "manage"),
     "close": (_act_close, "manage"),
@@ -481,7 +470,6 @@ ACTIONS = {
     "recommend-award": (_act_recommend, "manage"),
     "approve-award": (_act_approve, "approve"),
     "reject-award": (_act_reject, "approve"),
-    "generate-po": (_act_generate_po, "manage"),
 }
 
 ACTION_REDIRECTS = {
@@ -496,7 +484,6 @@ ACTION_REDIRECTS = {
     "recommend-award": ("evaluation_event", "award"),
     "approve-award": ("evaluation_event", "award"),
     "reject-award": ("evaluation_event", "award"),
-    "generate-po": ("evaluation_event", "award"),
 }
 
 
@@ -978,14 +965,34 @@ def evaluation_event_view(request, event_id):
     from apps.organization.models import CostCenter
 
     _require_bid_access(request.user)
-    event = get_object_or_404(SourcingEvent.objects.select_related("requisition"), pk=event_id)
+    event = get_object_or_404(
+        SourcingEvent.objects.select_related("requisition__cost_center"),
+        pk=event_id,
+    )
     services.sync_event_window_status(event=event)
     if not event.bids_visible_to_evaluators:
         messages.info(request, "Evaluation opens after the bid window closes.")
         return redirect("bid_portal_event", event_id=event.id)
 
     rows = build_evaluation_rows(event, request.user)
-    purchase_orders = PurchaseOrder.objects.filter(sourcing_event=event).order_by("-created_at")
+    purchase_orders = (
+        PurchaseOrder.objects.filter(Q(sourcing_event=event) | Q(award__event=event))
+        .distinct()
+        .order_by("-created_at")
+    )
+
+    cost_centers = CostCenter.objects.none()
+    if event.status == SourcingEvent.STATUS_AWARDED:
+        cost_centers = CostCenter.objects.select_related("department").order_by("code")
+        from apps.organization.selectors import resolve_user_scope_organization
+
+        scoped_org = resolve_user_scope_organization(request.user)
+        if scoped_org:
+            cost_centers = cost_centers.filter(department__organization=scoped_org)
+
+    default_cost_center = (
+        event.requisition.cost_center if event.requisition_id else None
+    )
     return render(
         request,
         "sourcing/evaluation_event.html",
@@ -1004,11 +1011,8 @@ def evaluation_event_view(request, event_id):
             "has_active_po": purchase_orders.exclude(
                 status=PurchaseOrder.STATUS_CANCELLED
             ).exists(),
-            "cost_centers": (
-                CostCenter.objects.order_by("code")
-                if event.status == SourcingEvent.STATUS_AWARDED and not event.requisition_id
-                else []
-            ),
+            "cost_centers": cost_centers,
+            "default_cost_center": default_cost_center,
             "decision_audit": get_decision_audit(event)[:100],
         },
     )

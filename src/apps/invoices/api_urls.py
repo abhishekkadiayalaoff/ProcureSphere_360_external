@@ -231,12 +231,23 @@ class SupplierInvoiceViewSet(viewsets.ModelViewSet):
         line_items = request.data.get("line_items", [])
         notes = request.data.get("notes", "")
 
-        if not vendor_id or not po_id or not invoice_number:
+        if not vendor_id or not po_id or not invoice_number or not invoice_date:
             return Response(
                 {
                     "error": {
                         "code": "VALIDATION_ERROR",
-                        "message": "vendor_id, po_id, and invoice_number are required.",
+                        "message": "vendor_id, po_id, invoice_number, and invoice_date are required.",
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(line_items, list) or not all(isinstance(i, dict) for i in line_items):
+            return Response(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "line_items must be a list of JSON objects.",
                     }
                 },
                 status=status.HTTP_400_BAD_REQUEST,

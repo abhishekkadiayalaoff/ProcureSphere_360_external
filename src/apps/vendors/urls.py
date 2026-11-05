@@ -8,6 +8,7 @@ urlpatterns = [
     path("vendors/onboarding/", views.vendor_onboarding_view, name="vendor_onboarding"),
     path("vendors/create/", views.vendor_create_view, name="vendor_create"),
     path("vendors/htmx/register/", views.vendor_register_modal_view, name="vendors_register_modal"),
+    path("vendors/import/", views.vendor_import_view, name="vendor_import"),
     path(
         "vendors/<uuid:vendor_id>/credentials/",
         views.vendor_issue_credentials_view,

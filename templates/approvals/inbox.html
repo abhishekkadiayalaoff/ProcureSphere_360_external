@@ -1,14 +1,14 @@
 {% extends 'layouts/requester_base.html' %}
 
-{% block title %}Approvals Inbox — ProcureSphere 360 ERP{% endblock %}
+{% block requester_title %}Approvals Inbox{% endblock %}
 
 {% block content %}
 <div class="d-flex align-items-center justify-content-between mb-4">
     <div>
-        <h2 class="fw-bold text-dark mb-1"><i class="fa-solid fa-stamp text-primary me-2"></i> Approvals Inbox</h2>
-        <p class="text-muted small mb-0">Review pending Requisitions, Change Orders, and Invoices awaiting your authorization.</p>
+        <h2 class="fw-bold text-dark mb-1" style="font-size: 1.65rem;"><i class="fa-solid fa-timeline text-cyan me-2"></i>Approvals Inbox</h2>
+        <p class="text-secondary small mb-0">Review pending Requisitions, Change Orders, and Invoices awaiting authorization.</p>
     </div>
-    <span class="badge bg-primary rounded-pill fs-6 px-3 py-2">
+    <span class="badge rounded-pill bg-primary px-3 py-2 fw-semibold" style="font-size: 0.8rem; background-color: #0D6EFD !important;">
         <i class="fa-solid fa-bell me-1"></i> {{ pending_prs|length }} Items Pending
     </span>
 </div>
@@ -17,7 +17,7 @@
 {% if messages %}
     {% for message in messages %}
         <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show rounded-3 small" role="alert">
-            {{ message }}
+            <i class="fa-solid {% if message.tags == 'error' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %} me-2"></i> {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     {% endfor %}
@@ -26,30 +26,30 @@
 <div class="row g-4">
     {% for pr in pending_prs %}
         <div class="col-lg-6">
-            <div class="glass-card p-4 shadow-sm h-100 border-start border-4 border-warning">
+            <div class="card border-0 shadow-sm rounded-4 p-4 h-100" style="border: 2px solid #FFC107 !important; background-color: #FFFFFF;">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill fw-bold">
+                    <span class="badge bg-warning bg-opacity-15 text-dark border border-warning border-opacity-25 rounded-pill px-2.5 py-1 fw-bold" style="color: #854d0e !important; font-size: 0.72rem;">
                         <i class="fa-solid fa-clock me-1"></i> PENDING {{ pr.status }}
                     </span>
-                    <span class="text-muted small"><code>{{ pr.pr_number }}</code> &bull; {{ pr.created_at|date:"M d, Y" }}</span>
+                    <span class="text-secondary small"><code class="text-primary">{{ pr.pr_number }}</code> &bull; {{ pr.created_at|date:"M d, Y" }}</span>
                 </div>
 
                 <h5 class="fw-bold text-dark mb-2">{{ pr.title }}</h5>
-                <p class="text-muted small mb-3 text-truncate-2">{{ pr.description|default:"No description provided." }}</p>
+                <p class="text-secondary small mb-3 text-truncate-2">{{ pr.description|default:"No description provided." }}</p>
 
-                <div class="p-3 bg-light rounded-3 border mb-3">
+                <div class="p-3 bg-light rounded-3 border mb-3" style="border-color: #DEE2E6 !important;">
                     <div class="row g-2 text-center">
                         <div class="col-4">
-                            <div class="small text-muted">REQUESTER</div>
+                            <div class="small text-secondary" style="font-size: 0.7rem; font-weight: 700;">REQUESTER</div>
                             <div class="fw-semibold text-dark text-truncate small">{{ pr.requester.first_name }} {{ pr.requester.last_name }}</div>
                         </div>
-                        <div class="col-4 border-start border-end">
-                            <div class="small text-muted">DEPARTMENT</div>
+                        <div class="col-4 border-start border-end" style="border-color: #DEE2E6 !important;">
+                            <div class="small text-secondary" style="font-size: 0.7rem; font-weight: 700;">DEPARTMENT</div>
                             <div class="fw-semibold text-dark small">{{ pr.department.code }}</div>
                         </div>
                         <div class="col-4">
-                            <div class="small text-muted">ESTIMATED TOTAL</div>
-                            <div class="fw-bold text-navy small">${{ pr.total_amount|floatformat:2 }}</div>
+                            <div class="small text-secondary" style="font-size: 0.7rem; font-weight: 700;">ESTIMATED TOTAL</div>
+                            <div class="fw-bold text-dark font-monospace small">${{ pr.total_amount|floatformat:2 }}</div>
                         </div>
                     </div>
                 </div>
@@ -59,13 +59,13 @@
                     {% csrf_token %}
                     <input type="hidden" name="pr_id" value="{{ pr.id }}">
                     <div class="mb-3">
-                        <input type="text" name="comments" class="form-control form-control-sm" placeholder="Add approval/rejection comment (optional)...">
+                        <input type="text" name="comments" class="form-control form-control-sm rounded-pill px-3" placeholder="Add approval/rejection comment (optional)..." style="border-color: #DEE2E6;">
                     </div>
                     <div class="d-flex gap-2">
-                        <button type="submit" name="action" value="APPROVED" class="btn btn-success btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm">
+                        <button type="submit" name="action" value="APPROVED" class="btn btn-success btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm" style="background-color: #198754; border-color: #198754;">
                             <i class="fa-solid fa-check me-1"></i> Approve PR
                         </button>
-                        <button type="submit" name="action" value="REJECTED" class="btn btn-danger btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm">
+                        <button type="submit" name="action" value="REJECTED" class="btn btn-danger btn-sm flex-fill rounded-pill fw-bold py-2 shadow-sm" style="background-color: #DC3545; border-color: #DC3545;">
                             <i class="fa-solid fa-xmark me-1"></i> Reject PR
                         </button>
                         <a href="/requisitions/{{ pr.id }}/" class="btn btn-outline-secondary btn-sm rounded-pill px-3 py-2">
@@ -74,12 +74,12 @@
                     </div>
                 </form>
                 {% else %}
-                <div class="d-flex align-items-center justify-content-between pt-2 border-top">
-                    <span class="small text-muted">
+                <div class="d-flex align-items-center justify-content-between pt-2 border-top" style="border-color: #DEE2E6 !important;">
+                    <span class="small text-secondary">
                         <i class="fa-solid fa-clock-rotate-left text-warning me-1"></i> Awaiting Department Manager Authorization
                     </span>
-                    <a href="/requisitions/{{ pr.id }}/" class="btn btn-primary btn-sm rounded-pill px-4 py-2 fw-semibold">
-                        <i class="fa-solid fa-eye me-1"></i> View & Track
+                    <a href="/requisitions/{{ pr.id }}/" class="btn btn-primary btn-sm rounded-pill px-4 py-1.5 fw-semibold shadow-sm" style="background-color: #0D6EFD; border-color: #0D6EFD;">
+                        <i class="fa-solid fa-eye me-1"></i> View &amp; Track
                     </a>
                 </div>
                 {% endif %}
@@ -87,10 +87,12 @@
         </div>
     {% empty %}
         <div class="col-12">
-            <div class="glass-card p-5 text-center text-muted shadow-sm">
-                <i class="fa-solid fa-circle-check fa-3x text-success mb-3"></i>
+            <div class="card border-0 shadow-sm rounded-4 p-5 text-center text-muted" style="border: 1px solid #DEE2E6 !important; background-color: #FFFFFF;">
+                <div class="brand-icon-box mx-auto mb-3" style="width: 52px; height: 52px; background: rgba(25, 135, 84, 0.12); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-circle-check fs-3 text-success"></i>
+                </div>
                 <h5 class="fw-bold text-dark mb-1">{% if role_code == 'REQUESTER' %}No Pending Requisitions{% else %}Your Approvals Inbox is Clear!{% endif %}</h5>
-                <p class="mb-0">{% if role_code == 'REQUESTER' %}You have no requisitions currently awaiting approval.{% else %}There are currently no pending Purchase Requisitions or Change Orders requiring your authorization.{% endif %}</p>
+                <p class="text-secondary small mb-0">{% if role_code == 'REQUESTER' %}You have no requisitions currently awaiting approval.{% else %}There are currently no pending Purchase Requisitions or Change Orders requiring your authorization.{% endif %}</p>
             </div>
         </div>
     {% endfor %}

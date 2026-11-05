@@ -471,11 +471,10 @@ def test_stores_dashboard_authorization_and_blocking(stores_dashboard_test_world
     assert anon_response.status_code == 302
     assert "/login/" in anon_response.url
 
-    # 2. Vendor user
+    # 2. Vendor user — blocked by portal-isolation middleware (403)
     client.force_login(stores_dashboard_test_world["vendor_user"])
     vendor_response = client.get(reverse("receipt_dashboard"))
-    assert vendor_response.status_code == 302
-    assert reverse("vendor_dashboard") in vendor_response.url
+    assert vendor_response.status_code == 403
 
     # 3. Requester user
     client.force_login(stores_dashboard_test_world["requester_user"])

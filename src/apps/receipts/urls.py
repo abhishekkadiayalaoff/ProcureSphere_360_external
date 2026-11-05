@@ -19,7 +19,7 @@ from .views import (
 urlpatterns = [
     path("receipts/", receipts_list_view, name="receipts_list"),
     path("receipts/dashboard/", receipt_dashboard_view, name="receipt_dashboard"),
-    path("dashboard/", receipt_dashboard_view, name="receipts_dashboard"),
+    path("receipts/dashboard/", receipt_dashboard_view, name="receipts_dashboard"),
     path(
         "receipts/reports/delivery-performance/",
         receipt_delivery_performance_report_view,

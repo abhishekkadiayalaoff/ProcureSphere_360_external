@@ -1,4 +1,17 @@
+from django.conf import settings as django_settings
+
 from apps.accounts.models import Role
+
+
+def seo_context(request):
+    """Provides default SEO metadata to all templates."""
+    site_url = getattr(django_settings, "SITE_URL", "https://procuresphere.com").rstrip("/")
+    return {
+        "site_name": "ProcureSphere 360",
+        "site_url": site_url,
+        "default_og_image": f"{site_url}/static/icons/og-image.png",
+        "site_twitter_handle": "@procuresphere",
+    }
 
 
 def layout_context(request):
@@ -16,6 +29,7 @@ def layout_context(request):
         elif role_code in [Role.PROC_MGR, "PROC_MGR"]:
             return {"base_layout": "manager/base_manager.html"}
         elif role_code in [Role.PROC_EXEC, "PROC_EXEC"]:
+            # Procurement Executive workspace intentionally renders with base.html (embeds proc_exec_sidebar.html)
             return {"base_layout": "base.html"}
         elif role_code in [Role.LEGAL_MGR, "LEGAL_MGR"]:
             return {"base_layout": "layouts/legal_base.html"}

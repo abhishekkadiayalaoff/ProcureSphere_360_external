@@ -177,7 +177,7 @@ class TestVendorHoldWorkflow:
             )
 
         # 2. PO generation blocked
-        with pytest.raises(ValidationError, match="on hold"):
+        with pytest.raises(ValidationError, match="(?i)on hold"):
             order_svc.generate_purchase_order_service(
                 vendor=v,
                 cost_center=s["cost_center"],
@@ -217,7 +217,7 @@ class TestVendorHoldWorkflow:
         )
 
         # Attempt to pay invoice -> blocked
-        with pytest.raises(ValidationError, match="on hold"):
+        with pytest.raises(ValidationError, match="(?i)on hold"):
             invoice_svc.mark_invoice_paid_service(invoice=inv, user=s["finance"], payment_reference="UTR-HOLD-001")
 
         # Release hold -> payment succeeds
@@ -303,6 +303,8 @@ class TestVendorSuspensionWorkflow:
             line_items=[{"item_description": "RAM 32GB", "quantity": 10, "unit_price": 100}],
             created_by_user=s["exec"],
         )
+        po.status = PurchaseOrder.STATUS_ISSUED
+        po.save(update_fields=["status"])
 
         # Suspend vendor
         set_vendor_status_governance_service(
@@ -310,7 +312,7 @@ class TestVendorSuspensionWorkflow:
         )
 
         # 1. New PO issuance blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             order_svc.generate_purchase_order_service(
                 vendor=v,
                 cost_center=s["cost_center"],
@@ -319,7 +321,7 @@ class TestVendorSuspensionWorkflow:
             )
 
         # 2. PO amendment blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             order_svc.amend_purchase_order_service(
                 po=po,
                 reason="Increase quantity",
@@ -349,7 +351,7 @@ class TestVendorSuspensionWorkflow:
         )
 
         # 1. New contract creation blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             contract_svc.create_contract_service(
                 title="New Software Support",
                 vendor=v,
@@ -360,7 +362,7 @@ class TestVendorSuspensionWorkflow:
             )
 
         # 2. Contract business approval / activation blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             contract_svc.approve_business_service(
                 contract=contract,
                 user=s["mgr"],
@@ -385,7 +387,7 @@ class TestVendorSuspensionWorkflow:
         )
 
         # Profile update blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             update_vendor_profile_service(
                 vendor=v,
                 user=s["vendor_user"],
@@ -393,7 +395,7 @@ class TestVendorSuspensionWorkflow:
             )
 
         # Contact creation blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             create_vendor_contact_service(
                 vendor=v,
                 user=s["vendor_user"],
@@ -401,7 +403,7 @@ class TestVendorSuspensionWorkflow:
             )
 
         # Contact update blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             update_vendor_contact_service(
                 contact=contact,
                 vendor=v,
@@ -410,7 +412,7 @@ class TestVendorSuspensionWorkflow:
             )
 
         # Contact deletion blocked
-        with pytest.raises(ValidationError, match="suspended"):
+        with pytest.raises(ValidationError, match="(?i)suspended"):
             delete_vendor_contact_service(
                 contact=contact,
                 vendor=v,
